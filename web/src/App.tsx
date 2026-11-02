@@ -4,8 +4,9 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { RoleRoute } from './components/RoleRoute';
 import { AppShell } from './components/AppShell';
 import { LoginPage } from './pages/LoginPage';
+import { TicketsPage } from './features/tickets/TicketsPage';
 import {
-  TicketsPage,
+  TicketDetailPage,
   NewTicketPage,
   ReportsPage,
   HolidaysPage,
@@ -22,6 +23,7 @@ export function App() {
             <Route element={<AppShell />}>
               <Route path="/tickets" element={<TicketsPage />} />
               <Route path="/tickets/new" element={<NewTicketPage />} />
+              <Route path="/tickets/:id" element={<TicketDetailPage />} />
 
               <Route element={<RoleRoute staffOnly />}>
                 <Route path="/reports" element={<ReportsPage />} />
