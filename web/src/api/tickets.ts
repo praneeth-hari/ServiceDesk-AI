@@ -1,5 +1,16 @@
 import { apiFetch } from './client';
-import { PaginatedTickets, Ticket, TicketListParams, TicketCreateRequest } from './types';
+import {
+  PaginatedTickets,
+  Ticket,
+  TicketListParams,
+  TicketCreateRequest,
+  Comment,
+  CommentCreateRequest,
+  StatusHistory,
+  TicketStatus,
+  SimilarTicket,
+  User,
+} from './types';
 
 export async function listTickets(params: TicketListParams = {}): Promise<PaginatedTickets> {
   const searchParams = new URLSearchParams();
@@ -49,4 +60,42 @@ export async function createTicket(input: TicketCreateRequest): Promise<Ticket> 
     method: 'POST',
     body: JSON.stringify(input),
   });
+}
+
+export async function listComments(ticketId: number): Promise<Comment[]> {
+  return apiFetch<Comment[]>(`/tickets/${ticketId}/comments`);
+}
+
+export async function addComment(ticketId: number, input: CommentCreateRequest): Promise<Comment> {
+  return apiFetch<Comment>(`/tickets/${ticketId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getHistory(ticketId: number): Promise<StatusHistory[]> {
+  return apiFetch<StatusHistory[]>(`/tickets/${ticketId}/history`);
+}
+
+export async function changeStatus(ticketId: number, status: TicketStatus): Promise<Ticket> {
+  return apiFetch<Ticket>(`/tickets/${ticketId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function assignTicket(ticketId: number, assigneeId: number): Promise<Ticket> {
+  return apiFetch<Ticket>(`/tickets/${ticketId}/assign`, {
+    method: 'PATCH',
+    body: JSON.stringify({ assignee_id: assigneeId }),
+  });
+}
+
+export async function getSimilarTickets(ticketId: number, limit = 5): Promise<SimilarTicket[]> {
+  return apiFetch<SimilarTicket[]>(`/tickets/${ticketId}/similar?limit=${limit}`);
+}
+
+export async function listAgents(): Promise<User[]> {
+  const users = await apiFetch<User[]>('/users?skip=0&limit=100');
+  return users.filter((u) => u.role === 'agent' && u.is_active);
 }

@@ -84,6 +84,37 @@ export interface TicketCreateRequest {
   category?: TicketCategory;
 }
 
+export interface Comment {
+  id: number;
+  ticket_id: number;
+  author_id: number;
+  body: string;
+  is_internal: boolean;
+  created_at: string;
+}
+
+export interface CommentCreateRequest {
+  body: string;
+  is_internal?: boolean;
+}
+
+export interface StatusHistory {
+  id: number;
+  ticket_id: number;
+  changed_by_id: number | null;
+  from_status: TicketStatus | null;
+  to_status: TicketStatus;
+  created_at: string;
+}
+
+export interface TicketStatusUpdateRequest {
+  status: TicketStatus;
+}
+
+export interface TicketAssignRequest {
+  assignee_id: number;
+}
+
 export interface SimilarTicket {
   id: number;
   title: string;
