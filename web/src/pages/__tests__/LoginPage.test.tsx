@@ -129,4 +129,88 @@ describe('LoginPage', () => {
 
     expect(sessionStorage.getItem('access_token')).toBeNull();
   });
+
+  it('login shows cannot reach server message on a 500 server error', async () => {
+    const user = userEvent.setup();
+
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/auth/login')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: { message: 'Internal Server Error' },
+            }),
+            {
+              status: 500,
+              headers: { 'Content-Type': 'application/json' },
+            }
+          )
+        );
+      }
+      return Promise.reject(new Error(`Unhandled URL: ${url}`));
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    const emailInput = screen.getByLabelText(/email/i);
+    const passwordInput = screen.getByLabelText(/password/i);
+    const submitBtn = screen.getByRole('button', { name: /sign in/i });
+
+    await user.type(emailInput, 'agent@example.com');
+    await user.type(passwordInput, 'AnyPassword123!');
+    await user.click(submitBtn);
+
+    await waitFor(() => {
+      const errorAlert = screen.getByRole('alert');
+      expect(errorAlert).toBeInTheDocument();
+      expect(errorAlert).toHaveTextContent('Cannot reach the server. Please try again.');
+    });
+
+    expect(sessionStorage.getItem('access_token')).toBeNull();
+  });
+
+  it('login shows cannot reach server message on a network error', async () => {
+    const user = userEvent.setup();
+
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/auth/login')) {
+        return Promise.reject(new TypeError('Failed to fetch'));
+      }
+      return Promise.reject(new Error(`Unhandled URL: ${url}`));
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    const emailInput = screen.getByLabelText(/email/i);
+    const passwordInput = screen.getByLabelText(/password/i);
+    const submitBtn = screen.getByRole('button', { name: /sign in/i });
+
+    await user.type(emailInput, 'agent@example.com');
+    await user.type(passwordInput, 'AnyPassword123!');
+    await user.click(submitBtn);
+
+    await waitFor(() => {
+      const errorAlert = screen.getByRole('alert');
+      expect(errorAlert).toBeInTheDocument();
+      expect(errorAlert).toHaveTextContent('Cannot reach the server. Please try again.');
+    });
+
+    expect(sessionStorage.getItem('access_token')).toBeNull();
+  });
 });

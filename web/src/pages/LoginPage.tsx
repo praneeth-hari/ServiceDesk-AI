@@ -26,10 +26,15 @@ export const LoginPage: React.FC = () => {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setError('Invalid email or password.');
+      } else if (
+        (err instanceof ApiError && err.status >= 500) ||
+        !(err instanceof ApiError)
+      ) {
+        setError('Cannot reach the server. Please try again.');
       } else if (err instanceof Error) {
         setError(err.message || 'An unexpected error occurred.');
       } else {
-        setError('Invalid email or password.');
+        setError('Cannot reach the server. Please try again.');
       }
     } finally {
       setLoading(false);
