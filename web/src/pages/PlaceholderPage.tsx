@@ -1,4 +1,5 @@
 import React from 'react';
+import { useParams } from 'react-router-dom';
 
 interface PlaceholderProps {
   title: string;
@@ -24,6 +25,16 @@ export const TicketsPage: React.FC = () => (
   />
 );
 
+export const TicketDetailPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  return (
+    <PlaceholderPage
+      title={`Ticket #${id || ''}`}
+      description="Detailed ticket timeline, conversation history, and SLA business-hours breakdown."
+    />
+  );
+};
+
 export const NewTicketPage: React.FC = () => (
   <PlaceholderPage
     title="New Ticket"
@@ -44,4 +55,3 @@ export const HolidaysPage: React.FC = () => (
     description="Admin configuration for holiday calendars pausing the operational SLA clock."
   />
 );
-
