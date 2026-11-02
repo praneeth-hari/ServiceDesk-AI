@@ -1,8 +1,8 @@
-# HelpDesk API
+# ServiceDesk-AI
 
 Role-based IT helpdesk ticketing REST API with business-hours SLA tracking, raw SQL reports, AI triage suggestions, and a Streamlit dashboard.
 
-[![CI](https://github.com/pasupunuri-pragnitha/HelpDesk-API/actions/workflows/ci.yml/badge.svg)](https://github.com/pasupunuri-pragnitha/HelpDesk-API/actions/workflows/ci.yml)
+[![CI](https://github.com/praneeth-hari/ServiceDesk-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/praneeth-hari/ServiceDesk-AI/actions/workflows/ci.yml)
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)
 ![MySQL 8](https://img.shields.io/badge/mysql-8.0-4479A1.svg)
@@ -234,8 +234,8 @@ Follow these steps to run the API and Streamlit dashboard locally on Windows Pow
 ### 1. Clone the repository
 
 ```powershell
-git clone https://github.com/pasupunuri-pragnitha/HelpDesk-API.git
-cd HelpDesk-API
+git clone https://github.com/praneeth-hari/ServiceDesk-AI.git
+cd ServiceDesk-AI
 ```
 
 ### 2. Create and activate a virtual environment
@@ -420,7 +420,4 @@ This project is licensed under the [MIT License](LICENSE) - see the [LICENSE](LI
 
 ## Author
 
-Pasupunuri Pragnitha
-
-- GitHub: [pasupunuri-pragnitha](https://github.com/pasupunuri-pragnitha)  
-- LinkedIn: [pragnitha-pasupunuri](https://www.linkedin.com/in/pragnitha-pasupunuri)
+Hari Praneeth (github.com/praneeth-hari)
