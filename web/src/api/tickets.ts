@@ -1,5 +1,5 @@
 import { apiFetch } from './client';
-import { PaginatedTickets, Ticket, TicketListParams } from './types';
+import { PaginatedTickets, Ticket, TicketListParams, TicketCreateRequest } from './types';
 
 export async function listTickets(params: TicketListParams = {}): Promise<PaginatedTickets> {
   const searchParams = new URLSearchParams();
@@ -44,3 +44,9 @@ export async function getTicket(id: number): Promise<Ticket> {
   return apiFetch<Ticket>(`/tickets/${id}`);
 }
 
+export async function createTicket(input: TicketCreateRequest): Promise<Ticket> {
+  return apiFetch<Ticket>('/tickets', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
