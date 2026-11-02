@@ -39,3 +39,37 @@ The endpoint returns a `PaginatedTickets` object:
 - Work hours are configured as 09:00 to 18:00, Monday through Friday, in timezone `Asia/Kolkata` (UTC+05:30).
 - `GET /api/v1/holidays` is restricted to staff (`agent` and `admin` roles) and returns HTTP 403 Forbidden for `requester`. As instructed, client-side business time calculations ignore organizational holidays to ensure uniform behavior for all user roles without unauthorized API calls.
 
+
+
+---
+
+## New Ticket and Triage Contract Findings
+
+### POST /api/v1/tickets (Create Ticket)
+- **Request Body (`TicketCreate`)**:
+  - `title` (`string`, required): min 1, max 255 characters.
+  - `description` (`string`, required): min 1 character.
+  - `priority` (`'low' | 'medium' | 'high' | 'urgent'`, optional, default `'medium'`). Allowed for all authenticated roles.
+  - `category` (`'network' | 'hardware' | 'software' | 'access' | 'email' | 'other'`, optional, default `'other'`).
+- **Response**: HTTP 201 Created with full `TicketRead` schema.
+- **Requester Binding**: `requester_id` is always forced from `current_user.id` on backend.
+- **Validation Errors (HTTP 422)**: Standardized by backend exception handler as `{"error": {"message": "body.<field>: <msg>; ..."}}`.
+
+### POST /api/v1/triage/suggest (AI Triage Suggestions & Duplicate Detection)
+- **Request Body (`TriageSuggestRequest`)**:
+  - `title` (`string`, required): min 1, max 255 characters.
+  - `description` (`string`, required): min 1 character.
+- **Minimum Text Rule**: Backend requires at least 1 character; frontend enforces a 15-character minimum for `title.trim() + description.trim()` with ~600ms debounce before invoking suggestion.
+- **Response Shape (`TriageSuggestResponse`)**:
+  - `suggested_category` (`TicketCategory | null`): similarity-weighted vote over top $k=5$ resolved/closed tickets with cosine similarity $\ge 0.12$. Returns `null` if no tickets meet the threshold.
+  - `suggested_priority` (`TicketPriority | null`): similarity-weighted vote over top $k=5$ neighbours (permanently labeled "low reliability" in UI).
+  - `confidence` (`float`, 0.0 to 1.0): winning category weight divided by total weight of top candidates.
+  - `evidence` (`SimilarTicket[]`): list of top similar resolved/closed tickets used for triage voting. Contains `id`, `title`, `status`, `category`, `priority`, and `similarity` (float).
+  - `possible_duplicates` (`SimilarTicket[]`): active tickets (`open`, `in_progress`, `waiting_on_requester`) with cosine similarity $\ge 0.80$ (`AI_DUPLICATE_THRESHOLD`).
+  - `embedder` (`string`): name of the active embedder backend (`"hashing-v2"`).
+- **Privacy Enforcement**: The backend filters `evidence` and `possible_duplicates` at SQL/service level so that users with `requester` role only ever see their own tickets (`requester_id == current_user.id`).
+- **Evaluation Metrics (from docs/AI_TRIAGE.md)**:
+  - Dataset: 24 held-out test tickets from a synthetic 120-ticket dataset.
+  - Category Accuracy: 58.33% vs 16.67% random chance (1 of 6).
+  - Priority Accuracy: 37.50% vs 38.33% majority class baseline (does not beat baseline).
+  - Method: Lexical n-gram feature hashing comparison against past tickets.

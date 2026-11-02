@@ -5,9 +5,9 @@ import { RoleRoute } from './components/RoleRoute';
 import { AppShell } from './components/AppShell';
 import { LoginPage } from './pages/LoginPage';
 import { TicketsPage } from './features/tickets/TicketsPage';
+import { NewTicketPage } from './features/tickets/NewTicketPage';
 import {
   TicketDetailPage,
-  NewTicketPage,
   ReportsPage,
   HolidaysPage,
 } from './pages/PlaceholderPage';
