@@ -76,3 +76,33 @@ export interface TicketListParams {
   sort_by?: 'created_at' | 'updated_at' | 'due_at';
   order?: 'asc' | 'desc';
 }
+
+export interface TicketCreateRequest {
+  title: string;
+  description: string;
+  priority?: TicketPriority;
+  category?: TicketCategory;
+}
+
+export interface SimilarTicket {
+  id: number;
+  title: string;
+  status: TicketStatus;
+  category: TicketCategory;
+  priority: TicketPriority;
+  similarity: number;
+}
+
+export interface TriageSuggestRequest {
+  title: string;
+  description: string;
+}
+
+export interface TriageSuggestResponse {
+  suggested_category: TicketCategory | null;
+  suggested_priority: TicketPriority | null;
+  confidence: number;
+  evidence: SimilarTicket[];
+  possible_duplicates: SimilarTicket[];
+  embedder: string;
+}
