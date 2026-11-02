@@ -1,6 +1,6 @@
-# HelpDesk Streamlit Dashboard
+# ServiceDesk-AI Streamlit Dashboard
 
-A modern, interactive management portal and analytics dashboard for the HelpDesk API built with Streamlit.
+A modern, interactive management portal and analytics dashboard for ServiceDesk-AI built with Streamlit.
 
 ---
 
@@ -66,13 +66,13 @@ The dashboard communicates with the backend API over HTTP. Configure the API end
 
 | Environment Variable | Description | Default |
 | :--- | :--- | :--- |
-| `HELPDESK_API_URL` | Base URL of the Helpdesk REST API | `http://localhost:8000/api/v1` |
+| `HELPDESK_API_URL` | Base URL of the ServiceDesk-AI REST API | `http://localhost:8000/api/v1` |
 
 ---
 
 ## Running the Application
 
-### 1. Start the HelpDesk API Backend
+### 1. Start the ServiceDesk-AI Backend
 
 From the project root in Windows PowerShell:
 
