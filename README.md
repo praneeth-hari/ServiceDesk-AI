@@ -34,6 +34,7 @@ Role-based IT helpdesk ticketing REST API with business-hours SLA tracking, raw 
 - [AI Triage & Duplicate Detection](#ai-triage--duplicate-detection)
 - [API Overview](#api-overview)
 - [Quick Start](#quick-start)
+- [Web UI (in progress)](#web-ui-in-progress)
 - [Demo Data](#demo-data)
 - [Testing & Quality](#testing--quality)
 - [Design Decisions](#design-decisions)
@@ -320,6 +321,33 @@ The dashboard will open automatically in your browser at `http://localhost:8501`
 
 ---
 
+## Web UI (in progress)
+
+A modern React + TypeScript + Tailwind web application (`web/`) is currently in development and will replace the Streamlit dashboard in a later phase. Currently, it supports authentication and the app shell foundation with role-based routing.
+
+To run the Web UI locally:
+
+**Terminal 1 (Backend API):**
+```powershell
+python -m uvicorn app.main:app --reload --port 8000
+```
+
+**Terminal 2 (Web Frontend):**
+```powershell
+cd web
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+**Demo Login:**
+- **Agent**: `agent@example.com` / `AgentPassword123!`
+- **Admin**: `admin@example.com` / `AdminPassword123!`
+- **Requester**: `requester@example.com` / `RequesterPassword123!`
+
+---
+
 ## Demo Data
 
 To populate the database with realistic sample tickets across all 6 categories, 4 priorities, workflow statuses (including `waiting_on_requester`), public/internal comments, and overdue SLA scenarios, run the demo seed script:
@@ -400,6 +428,7 @@ GitHub Actions CI runs the full test suite with coverage enforcement and execute
 ├── docs/                 # Documentation assets
 ├── tests/                # Automated pytest test suites (181 collected tests)
 │   └── dashboard/        # Dashboard API client, formatting, and smoke tests
+├── web/                  # Web frontend application (React, TypeScript, Vite, Tailwind)
 ├── docker-compose.yml    # Multi-container orchestration for MySQL 8 and backend
 ├── Dockerfile            # Container build specification for FastAPI app
 ├── LICENSE               # MIT License
