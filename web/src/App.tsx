@@ -6,8 +6,8 @@ import { AppShell } from './components/AppShell';
 import { LoginPage } from './pages/LoginPage';
 import { TicketsPage } from './features/tickets/TicketsPage';
 import { NewTicketPage } from './features/tickets/NewTicketPage';
+import { TicketDetailPage } from './features/tickets/TicketDetailPage';
 import {
-  TicketDetailPage,
   ReportsPage,
   HolidaysPage,
 } from './pages/PlaceholderPage';
