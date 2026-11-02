@@ -73,3 +73,29 @@ The endpoint returns a `PaginatedTickets` object:
   - Category Accuracy: 58.33% vs 16.67% random chance (1 of 6).
   - Priority Accuracy: 37.50% vs 38.33% majority class baseline (does not beat baseline).
   - Method: Lexical n-gram feature hashing comparison against past tickets.
+
+
+## Ticket detail
+
+### Endpoints and Contract
+- **Ticket Details**: `GET /api/v1/tickets/{id}`
+  - Returns `TicketRead`: `id`, `title`, `description`, `status`, `priority`, `category`, `requester_id`, `assignee_id`, `requester_name`, `assignee_name`, `due_at`, `sla_paused_at`, `created_at`, `updated_at`, `is_overdue`.
+  - Requesters can only access their own tickets (`requester_id == current_user.id`); unauthorized IDs return `404 Not Found` (never 403, preventing enumeration). Staff see all tickets.
+- **Comments**:
+  - `GET /api/v1/tickets/{id}/comments`: Requesters only receive public comments (`is_internal == false`). Staff receive all comments.
+  - `POST /api/v1/tickets/{id}/comments`: Payload `{ body: string (1-2000 chars), is_internal?: boolean }`. Requesters cannot set `is_internal=true` (returns 403). Closed tickets reject comments with `409 Conflict`.
+- **Status History Audit**: `GET /api/v1/tickets/{id}/history`
+  - Returns list of `StatusHistoryRead`: `id`, `ticket_id`, `changed_by_id`, `from_status` (null for creation), `to_status`, `created_at` (ascending).
+- **Status Transitions**: `PATCH /api/v1/tickets/{id}/status`
+  - Payload `{ status: TicketStatus }`. Staff only (`agent`, `admin`).
+  - Allowed transitions: `open -> in_progress`; `in_progress -> waiting_on_requester | resolved`; `waiting_on_requester -> in_progress`; `resolved -> closed | in_progress` (reopen); `closed -> none`.
+  - Moving to `waiting_on_requester` freezes the SLA clock (`sla_paused_at`). Resuming to `in_progress` extends `due_at` by elapsed business minutes and unpauses. Invalid transitions return `409 Conflict`.
+- **Assignment**: `PATCH /api/v1/tickets/{id}/assign`
+  - Payload `{ assignee_id: number }`. Staff only. Assignee must be an active agent (422 if inactive or requester). Closed tickets return `409 Conflict`. Assigning an open ticket automatically transitions it to `in_progress`.
+- **Similar Tickets**: `GET /api/v1/tickets/{id}/similar?limit=5`
+  - Staff only (`agent`, `admin`). Requesters get `403 Forbidden`. Returns `[{ id, title, status, category, priority, similarity }]`.
+- **User Roster & Author Resolution**:
+  - `GET /api/v1/users` is restricted to admins only.
+  - Comment and history schemas return `author_id` / `changed_by_id` as integers. The UI resolves names via a pure function `resolveActorName` matching against ticket `requester_id`, `assignee_id`, or `current_user.id`, falling back to `System` for null or `Staff member` for other IDs.
+- **SLA Calculation**:
+  - The API does not return remaining or elapsed business time. The web UI computes remaining business minutes, overdue duration, and elapsed window ratio client-side in `Asia/Kolkata` working hours (09:00–18:00, Mon–Fri, excluding holidays).
