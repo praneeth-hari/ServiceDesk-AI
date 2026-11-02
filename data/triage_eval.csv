@@ -1,0 +1,122 @@
+# Synthetic IT Helpdesk Triage Evaluation Dataset (120 synthetic tickets across 6 categories)
+title,description,category,priority
+Wi-Fi drops intermittently on 4th floor,Laptops constantly lose 5GHz Wi-Fi signal and disconnect from Google Meet calls on the north wing.,network,high
+DNS resolution failure for internal staging servers,Cannot resolve staging.internal.corp domain names from local engineering workstations.,network,high
+Slow upload speeds over office LAN switch,Gigabit ethernet connection is capped at 10Mbps upload speeds on desk cluster B.,network,medium
+GlobalProtect VPN gateway timeout during login,VPN client hangs indefinitely at Connecting to gateway nyc-vpn.corp.com then times out.,network,urgent
+Subnet IP address conflict detected on workstation,Windows displays an IP address conflict warning and network interface disables itself.,network,medium
+Corporate firewall blocking outbound port 443 to Docker registry,Unable to pull public container images from registry-1.docker.io due to firewall reset packets.,network,high
+Proxy authentication prompt repeatedly appearing,Browsers pop up corporate proxy username and password modal every 10 minutes.,network,low
+Severe jitter and audio packet loss on Zoom VoIP calls,Voice calls suffer from robotic distortion and 30% packet loss when connected via Wi-Fi.,network,high
+Core switch port flapping in server room rack 3,Switch port 24 repeatedly toggles up and down every 30 seconds causing link loss.,network,urgent
+Office branch router rebooting unexpectedly under high load,Branch router reboots during peak morning hours causing total internet outage.,network,urgent
+Damaged Ethernet RJ45 clip at desk station 12,Network cable falls out of laptop dock ethernet port because plastic retention clip broke.,network,low
+Guest Wi-Fi captive portal redirect not opening,Visitors cannot connect to Guest-WiFi because splash login page fails to load.,network,medium
+5GHz SSID not broadcasting from conference room AP,Devices only discover 2.4GHz Wi-Fi in Boardroom A leading to severe channel congestion.,network,medium
+VPN client certificate expired for remote engineer,Client certificate for OpenVPN tunnel expired yesterday preventing remote connection.,network,urgent
+Traceroute shows 50% packet drop at upstream ISP hop,High latency and dropped packets across all external SaaS tools starting at border gateway.,network,high
+Remote Desktop Gateway connection unreachable,Cannot access virtual desktop cluster through rdp.corp.com gateway from external IPs.,network,high
+Network bandwidth saturation during scheduled offsite backup,Offsite database replica backup saturates uplink pipe making cloud services sluggish.,network,medium
+DHCP address pool exhausted on engineering subnet,New laptops connecting to wired LAN receive 169.254 APIPA addresses due to empty DHCP pool.,network,urgent
+VLAN tag mismatch on lab testing workbench,Test equipment plugged into lab port cannot communicate with QA subnet due to wrong VLAN ID.,network,low
+Packet fragmentation and MTU issues over IPSec tunnel,Large HTTP payloads fail to traverse IPSec tunnel while small ping packets succeed.,network,medium
+Laptop battery swelling lifting trackpad,MacBook Pro chassis is visibly bulging and trackpad can no longer be clicked down physically.,hardware,urgent
+External monitor flickering intermittently over HDMI,Dell 27-inch 4K monitor turns black for 2 seconds every few minutes when connected via HDMI.,hardware,medium
+Mechanical keyboard spacebar stuck down,Spacebar on office mechanical keyboard does not bounce back up after being pressed.,hardware,low
+Laptop thermal throttling with loud continuous fan noise,CPU fan runs at maximum RPM constantly and CPU clock throttles down to 800MHz.,hardware,high
+USB-C docking station rear ports unresponsive,Display outputs work on dock but all four rear USB-A ports stopped detecting devices.,hardware,medium
+Built-in webcam not recognized in Windows Device Manager,Camera app reports no camera attached and Device Manager shows missing USB composite device.,hardware,medium
+Blue Screen of Death with CPU over-temperature code,Workstation crashes with thermal shutdown BSOD after running for 20 minutes.,hardware,high
+Laptop display hinge cracked and loose,Right hinge of ThinkPad laptop screen cracked making screen wobble and unable to stay open.,hardware,medium
+Wireless mouse optical sensor skipping erratic movement,Mouse cursor jumps across the screen erratically even after changing battery and cleaning lens.,hardware,low
+Second monitor not detected through DisplayPort daisy-chain,Windows only detects one external display when daisy-chaining two Dell monitors.,hardware,low
+Department printer roller paper jam error,Floor 3 HP LaserJet printer jams on every page with error code Paper Jam in Tray 2.,hardware,medium
+Warehouse barcode scanner optical beam failure,Handheld USB barcode scanner red laser line does not turn on when pulling trigger.,hardware,medium
+Workstation power supply 3-beep code on cold boot,Dell desktop does not post and motherboard emits 3 amber beeps indicating power fault.,hardware,urgent
+Jabra headset microphone silent on audio calls,Headset speakers work fine but microphone input produces zero audio in sound settings.,hardware,medium
+Touchpad erratic jumping while laptop is charging,Touchpad cursor behaves erratically only when plugged into official 65W AC power adapter.,hardware,low
+External backup hard drive making loud clicking noise,Seagate 2TB USB hard drive makes repetitive clicking sounds and fails to mount.,hardware,high
+Conference room TV displays black screen with power LED on,Main conference display does not show input signal from HDMI wall plate or wireless cast.,hardware,medium
+Smart card CAC reader physically damaged USB plug,Bent USB pin inside smart card reader prevents it from plugging into laptop port.,hardware,low
+Workstation surge protector tripped after power flicker,Power strip under desk clicked off and reset breaker will not stay engaged.,hardware,medium
+RAM module unseated causing memory parity post error,Workstation fails memory test during boot and only recognizes 16GB out of 32GB installed.,hardware,medium
+Excel crashes immediately when refreshing SQL pivot table,Microsoft Excel 365 crashes with faulting module mso.dll when refreshing sales data query.,software,high
+VS Code debugger freezes completely on breakpoint hit,Debugging Python FastAPI backend causes Visual Studio Code editor to freeze indefinitely.,software,medium
+Adobe Acrobat PDF invalid signature validation error,Opening signed vendor contracts results in Error: Signature validity is UNKNOWN.,software,low
+CAD SolidWorks license check fails on launch,"SolidWorks reports Unable to obtain license for SolidWorks Standard (-8,544,0).",software,high
+Chrome browser tab memory leak crashing operating system,Google Chrome processes consume over 24GB of RAM until Windows runs out of commit memory.,software,medium
+Slack desktop app white screen on startup,Slack window opens as a completely blank white rectangle and reloading via Ctrl+R does not fix it.,software,medium
+Antivirus false positive quarantined local compilation artifact,CrowdStrike quarantined build/app.exe flagging it as suspected malicious behavior.,software,high
+Zoom video rendering latency and screen share desync,Presenting slide decks causes Zoom video frame rate to drop below 2 frames per second.,software,medium
+Git client error unable to create index.lock file exists,Git commit commands fail with fatal: Unable to create '.git/index.lock': File exists.,software,low
+Archive utility corrupted gzip header error on extract,7-Zip reports Data error in archive.tar.gz when decompressing customer log bundle.,software,low
+Accounting desktop client database timeout during end of month,QuickBooks Enterprise times out when running multi-currency consolidation report.,software,urgent
+Docker Desktop fails to start Hyper-V backend engine,Docker Desktop engine startup gets stuck on starting the docker engine status bar.,software,medium
+Salesforce desktop sync agent pegging CPU at 100%,Background sync utility causes fan noise and drains laptop battery within 45 minutes.,software,low
+Python interpreter crashes on loading custom C-extension DLL,Running pytest crashes with Exit Code 0xC0000005 Access Violation in native binary.,software,medium
+Terminal emulator font rendering corrupted after display scaling,Alacritty terminal displays overlapping character glyphs when moving to 4K monitor.,software,low
+Notepad++ unresponsive during large regex search and replace,Editor hangs and shows Not Responding when executing regex on 100MB server log file.,software,low
+Realtek audio driver crashing after Windows sleep wake,No sound output device found in Windows after waking laptop from overnight sleep.,software,medium
+Media player missing HEVC codec for training video playback,Windows Media Player cannot open mp4 recording due to missing video codec HEVC pack.,software,low
+Diagramming tool Figma exports blurry pixelated SVG assets,Exporting UI vector icons produces blurry rasterized images rather than crisp vector paths.,software,low
+Windows Update stuck at 99% installing cumulative package,Monthly security update installation has been at 99% progress bar for over 5 hours.,software,medium
+Active Directory user account locked after multiple login attempts,Account john.doe@corp.com is locked in domain controller and cannot unlock on self-service.,access,urgent
+MFA push notifications not received on newly replaced smartphone,Okta Verify does not prompt on new iPhone after transferring phone number from old device.,access,high
+Permission denied when accessing Finance shared drive,User receives Access is Denied when navigating to network path \\fileserver\finance\2026.,access,high
+SSH public key denied on production bastion host,Cannot connect to bastion.prod.internal with error Permission denied (publickey).,access,urgent
+Request for GitHub organization member invitation for new contractor,Need to add external frontend developer to github.com/corp-org with triage role.,access,medium
+Role change requires AWS IAM console access to billing dashboard,Accountant needs view-only access to AWS Cost Explorer and Monthly Bills console.,access,medium
+Jira project permission scheme missing Browse Project capability,Product manager cannot view tickets in the INFRA project board after team transfer.,access,medium
+Expired temporary vendor access token for contractor portal,Contractor API access key expired at midnight and requires 30-day extension approval.,access,high
+Bitbucket repository read-only permission escalation to write,Junior engineer cannot push feature branches to repo payment-gateway due to 403 write forbidden.,access,medium
+Database read replica credentials requested for BI analyst,Need read-only PostgreSQL database connection string for Tableau report generation.,access,medium
+Sudo privilege access request on staging Linux web server,DevOps engineer needs passwordless sudo access on staging-web-01 for Nginx reconfiguration.,access,medium
+New employee onboarding security group assignment missing,New hire in marketing cannot access Google Workspace shared drives or team Slack channels.,access,high
+Salesforce dashboard restricted view error for regional sales manager,Sales manager sees You do not have permission to view this report for EMEA region.,access,medium
+GitLab CI runner registration token access required,Infrastructure lead needs runner registration token to provision auto-scaling spot instances.,access,medium
+Azure portal RBAC Contributor role needed for resource group,Cloud architect cannot deploy ARM templates to resource group rg-analytics-prod.,access,high
+Reset forgotten security questions for self-service password portal,User forgot answers to secondary security questions and cannot initiate password reset.,access,medium
+Shared department mailbox delegated permission not reflected in Outlook,HR coordinator was granted access to hr-inquiries@corp.com but folder does not appear.,access,medium
+VPN overseas travel authorization group membership request,Engineer travelling to Tokyo for conference needs temporary overseas VPN access policy applied.,access,high
+Kubernetes namespace developer RBAC access request,Developer needs kubectl get pods and logs access in the staging-services namespace.,access,medium
+Privileged Access Management CyberArk safe checkout access failed,System admin cannot retrieve root credentials for core switches from PAM vault.,access,urgent
+Outlook desktop search indexing returns no recent emails,Searching for customer emails in Outlook only shows results older than two months.,email,medium
+Legitimate vendor invoices trapped in spam quarantine filter,Accounts payable notices that suppliers emails with PDF attachments are quarantined as phishing.,email,high
+Bounce-back NDR error 550 Mailbox unavailable for external client,Emails sent to client domain clientdomain.com bounce back with SMTP 550 User Unknown.,email,medium
+Exchange calendar invites not synchronizing with iOS Calendar app,Meeting invitations accepted on Outlook desktop do not sync to mobile phone calendar.,email,medium
+Shared department inbox mailbox quota full warning,The support-leads@corp.com mailbox reached 99GB and incoming emails are bouncing back.,email,urgent
+Out of Office automatic reply rule not firing for external senders,Automatic reply is enabled for vacation but external senders receive no autoreply message.,email,medium
+Report suspicious phishing email impersonating CEO wire transfer,Received email from urgent-executive-notice@gmail.com requesting immediate gift card purchase.,email,urgent
+Email attachment rejected for exceeding 25MB message size limit,Outgoing message with quarterly architectural diagrams fails with Message Size Exceeded.,email,low
+DKIM authentication failure on outbound marketing newsletter domain,Marketing emails sent via SendGrid are marked as unauthenticated due to DKIM DNS error.,email,high
+Outlook repeatedly prompts for Office 365 credentials in loop,Authentication dialog keeps prompting for password even after successfully entering MFA code.,email,high
+Distribution list missing newly hired team members,The engineering-all@corp.com email list was not updated with the 5 new software engineers.,email,low
+Corrupted Outlook PST archive file fails to import,Importing historical PST file reports The file is not a personal folders file error.,email,low
+Company email signature disclaimer formatting broken in replies,HTML email signature images appear as huge raw attachments on email thread replies.,email,low
+Meeting room calendar auto-decline conflict on recurring booking,Conference Room 2B automatically declined recurring weekly sync due to phantom double-booking.,email,medium
+IMAP connection failure on mobile email application,Native Android mail app cannot authenticate against imap.corp.com using app password.,email,low
+Spam filter blocking critical automated transactional password reset emails,Users are not receiving verification PIN codes because anti-spam score is too aggressive.,email,urgent
+Sent Items folder not saving copies of sent emails,Emails are delivered to recipients successfully but Sent Items folder in Outlook is empty.,email,medium
+Delegated calendar edit permissions not allowing meeting creation,Executive assistant cannot book appointments on VP calendar despite Editor permissions.,email,high
+Delayed delivery email stuck in Outlook Outbox folder,An email scheduled for delayed delivery at 8:00 AM remains stuck in Outbox and will not send.,email,low
+Exchange email forwarding rule to external personal address failed,Mail flow rule blocks forwarding corporate emails to external address with NDR 550 5.7.1.,email,medium
+Ergonomic office chair pneumatic height adjustment broken,Desk chair pneumatic cylinder sinks all the way down to the floor when sat upon.,other,low
+Replacement security badge lanyard requested,Fabric lanyard broke at the plastic clip and badge holder is dangling.,other,low
+Server room annex temperature reading exceeds 82 degrees Fahrenheit,HVAC unit cooling server room annex is blowing warm air and temperature alert is buzzing.,other,urgent
+Confidential document shredding bin completely full,Iron Mountain locked shredding console in accounting hallway is overflowing with paper.,other,low
+Inquiry about IT equipment return protocol upon employee exit,Departing employee wants to know whether monitor and keyboard must be shipped back in boxes.,other,low
+Desk relocation request for dual monitor workstation in engineering wing,Need help moving dual-monitor arm setup from desk 14A to desk 22C over the weekend.,other,low
+Lost property laptop 65W USB-C charger left in 3rd floor cafeteria,Left MacBook black power brick on cafeteria lunch table near water cooler yesterday.,other,low
+Guest parking pass and visitor badge registration question,Need guidance on registering 3 external board members for garage parking next Tuesday.,other,low
+Quarterly IT cleaning wipe supplies refill needed for helpdesk workbench,Screen cleaning spray bottles and anti-static microfiber wipes are completely out of stock.,other,low
+Report old CRT monitors abandoned in hallway near freight elevator,Four decommissioned CRT screens are blocking hallway fire exit path near elevator B.,other,medium
+White noise sound masking machine in open office emitting high-pitch whine,Ceiling white noise speaker is generating a piercing acoustic frequency disturbing staff.,other,medium
+Request for cardboard packaging boxes for returning warranty hardware,Need two laptop shipping boxes with foam inserts to return defective units to Dell depot.,other,low
+Office floor lighting timer shut off prematurely during late shift,Automatic lights in cubicle section shut off at 6:30 PM while team was still working.,other,low
+Under-desk power strip loose wall receptacle sparks on plug insertion,Wall socket loose behind desk 8 sparks slightly when plugging in laptop charger.,other,high
+Query regarding company mobile phone monthly stipend eligibility,Employee wants to know if non-managerial engineers qualify for the $50 BYOD phone subsidy.,other,low
+Fee and replacement process for lost physical security keycard,Lost building access badge while commuting and need details on replacement fee and process.,other,low
+Ergonomic adjustable footrest requested for reception desk,Front desk receptionist requested adjustable footrest support to relieve lower back strain.,other,low
+Breakroom water dispenser leaking onto floor near department printer,Water cooler bottle collar has a slow drip creating a slipping hazard near printer station.,other,medium
+Misplaced physical key for IT spare equipment storage cabinet,Spare adapter cabinet key is missing from the team key lockbox.,other,medium
+General inquiry regarding next hardware refresh lifecycle date,Employee asking when their 2022 ThinkPad laptop becomes eligible for 3-year hardware refresh.,other,low

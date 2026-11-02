@@ -1,0 +1,4 @@
+# Optional AI dependencies for dense semantic embeddings (SbertEmbedder).
+# Note: Not installed in standard CI or default production deployment.
+# Install with: pip install -r requirements-ai.txt
+sentence-transformers>=3.0.0
