@@ -6,6 +6,7 @@ import {
   mapTimeToPosition,
   formatKolkataDateTime,
   formatKolkataShortDate,
+  parseToUtcDate,
   formatDurationShort,
   computeBusinessMinutesRemaining,
 } from '../businessTime';
@@ -271,12 +272,12 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tickets, isStaff }) 
               const isEven = index % 2 === 0;
               const sla = classifyTicketSla(ticket, now);
 
-              const createdTime = new Date(ticket.created_at).getTime();
-              const dueTime = ticket.due_at ? new Date(ticket.due_at).getTime() : null;
+              const createdTime = parseToUtcDate(ticket.created_at).getTime();
+              const dueTime = ticket.due_at ? parseToUtcDate(ticket.due_at).getTime() : null;
               const isResolved = ticket.status === 'resolved' || ticket.status === 'closed';
-              const resolvedTime = isResolved ? (ticket.resolved_at ? new Date(ticket.resolved_at).getTime() : new Date(ticket.updated_at).getTime()) : null;
+              const resolvedTime = isResolved ? (ticket.resolved_at ? parseToUtcDate(ticket.resolved_at).getTime() : parseToUtcDate(ticket.updated_at).getTime()) : null;
               const isPaused = ticket.status === 'waiting_on_requester' || ticket.sla_paused_at !== null;
-              const pausedTime = ticket.sla_paused_at ? new Date(ticket.sla_paused_at).getTime() : null;
+              const pausedTime = ticket.sla_paused_at ? parseToUtcDate(ticket.sla_paused_at).getTime() : null;
 
               const windowStart = windowData.startUtcMs;
               const windowEnd = windowData.endUtcMs;

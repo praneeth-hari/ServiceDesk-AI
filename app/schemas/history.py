@@ -1,3 +1,4 @@
+from app.schemas.common import UTCDateTime
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
@@ -13,6 +14,6 @@ class StatusHistoryRead(BaseModel):
     actor_name: Optional[str] = None
     from_status: Optional[TicketStatus]
     to_status: TicketStatus
-    created_at: datetime
+    created_at: UTCDateTime
 
     model_config = ConfigDict(from_attributes=True)
