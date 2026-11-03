@@ -56,6 +56,7 @@ def create_ticket(
         assignee_id=None,
         due_at=due_at,
         sla_paused_at=None,
+        resolved_at=None,
         created_at=now,
         updated_at=now,
     )
@@ -366,6 +367,12 @@ def update_ticket_status(
             ticket.due_at = add_business_minutes(ticket.due_at, paused_minutes, holidays)
         ticket.sla_paused_at = None
 
+    # Track resolved_at: set on resolved, clear on reopen, keep on close
+    if status_in.status == TicketStatus.RESOLVED:
+        ticket.resolved_at = now
+    elif old_status == TicketStatus.RESOLVED and status_in.status == TicketStatus.IN_PROGRESS:
+        ticket.resolved_at = None
+
     ticket.status = status_in.status
     ticket.updated_at = now
 
@@ -461,6 +468,7 @@ def get_ticket_status_history(
 
     stmt = (
         sa.select(TicketStatusHistory)
+        .options(joinedload(TicketStatusHistory.changed_by))
         .where(TicketStatusHistory.ticket_id == ticket.id)
         .order_by(TicketStatusHistory.created_at.asc(), TicketStatusHistory.id.asc())
     )

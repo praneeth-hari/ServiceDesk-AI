@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -40,3 +40,7 @@ class TicketComment(Base):
     # Relationships
     ticket: Mapped["Ticket"] = relationship("Ticket", back_populates="comments")
     author: Mapped["User"] = relationship("User")
+
+    @property
+    def author_name(self) -> Optional[str]:
+        return self.author.full_name if self.author else None

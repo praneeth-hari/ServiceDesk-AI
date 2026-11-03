@@ -350,16 +350,25 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ## Demo Data
 
-To populate the database with realistic sample tickets across all 6 categories, 4 priorities, workflow statuses (including `waiting_on_requester`), public/internal comments, and overdue SLA scenarios, run the demo seed script:
+To populate the database with ~16 realistic demo tickets spread over the last ~10 days with authentic timestamps relative to current time, covering all SLA lifecycle states (on track, at risk, breached, clock paused, resolved within SLA, resolved after breach, and closed), run the demo seed script:
 
 ```powershell
-# Using the safety confirmation flag
-python -m app.scripts.seed_demo --yes
+# 1. Preview what would be created without touching the database
+python -m app.scripts.seed_demo --dry-run
+# or: python scripts/seed_demo.py --dry-run
 
-# Or via environment variable
-$env:ALLOW_DEMO_SEED="1"
-python -m app.scripts.seed_demo
+# 2. Seed demo tickets (safe: only adds tickets, never touches users or holidays)
+python -m app.scripts.seed_demo --yes
+# or: python scripts/seed_demo.py --yes
+
+# 3. Wipe demo tickets, comments, and status history (requires --yes confirmation)
+python -m app.scripts.seed_demo --wipe-tickets --yes
+# Note: running --wipe-tickets without --yes is safe and only reports what would be deleted
 ```
+
+- **`--dry-run`**: Inspects current calendar and business hours and displays a formatted summary table of all 16 tickets, priorities, categories, SLA states, and comments that would be written, without making any database changes.
+- **`--wipe-tickets`**: Deletes all tickets, comments, and status history rows. For safety, it **requires `--yes`**; omitting `--yes` only prints the count of rows that would be deleted and exits cleanly without modifying the database. It never deletes users or holidays.
+- **`--yes` / `-y`**: Confirms execution of database writes or wipe operations.
 
 ### Demo Accounts
 

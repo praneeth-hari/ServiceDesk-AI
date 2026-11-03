@@ -45,6 +45,7 @@ class TicketRead(BaseModel):
     assignee_name: Optional[str] = None
     due_at: Optional[datetime] = None
     sla_paused_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
@@ -70,11 +71,9 @@ class TicketRead(BaseModel):
         return due < now and self.status in (TicketStatus.OPEN, TicketStatus.IN_PROGRESS)
 
 
-
 class PaginatedTickets(BaseModel):
     """Paginated response containing list of tickets and metadata."""
     items: list[TicketRead]
     total: int
     page: int
     page_size: int
-

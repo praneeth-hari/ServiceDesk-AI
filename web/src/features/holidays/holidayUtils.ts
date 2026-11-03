@@ -80,13 +80,13 @@ export function isWeekend(dateStr: string): boolean {
 }
 
 /**
- * Formats a "YYYY-MM-DD" string into "Jan 26, 2026" without Date constructor.
+ * Formats a "YYYY-MM-DD" string into "Jan 26, 2026" or "Oct 2, 2026" without Date constructor.
+ * Day is not zero-padded.
  */
 export function formatDateDisplay(dateStr: string): string {
   const { year, month, day } = parseDateParts(dateStr);
   const monthName = MONTH_NAMES[month - 1] || '';
-  const dayPadded = String(day).padStart(2, '0');
-  return `${monthName} ${dayPadded}, ${year}`;
+  return `${monthName} ${day}, ${year}`;
 }
 
 /**
@@ -108,4 +108,3 @@ export function sortHolidaysAsc(holidays: Holiday[]): Holiday[] {
     a.holiday_date.localeCompare(b.holiday_date)
   );
 }
-
