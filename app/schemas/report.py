@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
@@ -51,7 +51,7 @@ class AgentRankingItem(BaseModel):
 
 class DailyVolumeItem(BaseModel):
     """Report row: number of tickets created on a specific calendar day."""
-    date: str
+    date: date
     ticket_count: int
 
     model_config = ConfigDict(from_attributes=True)
