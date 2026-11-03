@@ -275,3 +275,34 @@ export function categoryHeat(
   }));
 }
 
+
+/**
+ * Filter tick points with an x coordinate so that adjacent labels do not overlap.
+ * Always keeps the first and last ticks; if an intermediate tick is within minDistance
+ * of its predecessor or the final tick, drops that intermediate tick.
+ */
+export function filterOverlappingTicks<T extends { x: number }>(
+  ticks: T[],
+  minDistance = 36
+): T[] {
+  if (ticks.length <= 2) return [...ticks];
+
+  const first = ticks[0];
+  const last = ticks[ticks.length - 1];
+  const kept: T[] = [first];
+
+  for (let i = 1; i < ticks.length - 1; i++) {
+    const current = ticks[i];
+    const prev = kept[kept.length - 1];
+
+    if (
+      current.x - prev.x >= minDistance &&
+      last.x - current.x >= minDistance
+    ) {
+      kept.push(current);
+    }
+  }
+
+  kept.push(last);
+  return kept;
+}

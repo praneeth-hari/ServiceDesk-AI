@@ -11,7 +11,7 @@ from app.schemas.report import (
     TicketsByCategoryItem,
     TicketsByStatusItem,
 )
-from app.schemas.holiday import HolidayCreate, HolidayRead
+from app.schemas.holiday import HolidayCreate, HolidayRead, HolidayUpdate
 from app.schemas.ticket import (
     PaginatedTickets,
     TicketAssign,
@@ -50,6 +50,7 @@ __all__ = [
     "TicketsByCategoryItem",
     "HolidayCreate",
     "HolidayRead",
+    "HolidayUpdate",
     "SimilarTicket",
     "TriageSuggestRequest",
     "TriageSuggestResponse",

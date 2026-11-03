@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
+import { getFriendlyErrorMessage } from '../../utils/errors';
 import { listTickets } from '../../api/tickets';
 import type { Ticket, TicketStatus, TicketPriority } from '../../api/types';
 import { FilterBar, type FilterState } from './components/FilterBar';
@@ -131,7 +132,7 @@ export const TicketsPage: React.FC = () => {
         }
       } catch (err) {
         if (!ignore) {
-          setError(err instanceof Error ? err.message : 'Failed to load tickets');
+          setError(getFriendlyErrorMessage(err, 'Failed to load tickets'));
           setLoading(false);
         }
       }

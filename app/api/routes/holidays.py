@@ -6,8 +6,8 @@ from app.api.deps import require_roles
 from app.db.session import get_db
 from app.models.enums import UserRole
 from app.models.user import User
-from app.schemas.holiday import HolidayCreate, HolidayRead
-from app.services.holidays import create_holiday, delete_holiday, list_holidays
+from app.schemas.holiday import HolidayCreate, HolidayRead, HolidayUpdate
+from app.services.holidays import create_holiday, delete_holiday, list_holidays, update_holiday
 
 router = APIRouter(prefix="/holidays", tags=["holidays"])
 
@@ -61,3 +61,24 @@ def remove_holiday(
     Delete a holiday by ID. Requires Admin role.
     """
     delete_holiday(db, holiday_id=id, current_user=current_user)
+
+
+@router.patch(
+    "/{id}",
+    response_model=HolidayRead,
+    status_code=status.HTTP_200_OK,
+    summary="Update a holiday (Admin only)",
+)
+def patch_holiday(
+    id: int,
+    holiday_in: HolidayUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.ADMIN])),
+) -> HolidayRead:
+    """
+    Update an existing public holiday. Requires Admin role.
+    Returns 404 Not Found if ID does not exist.
+    Returns 409 Conflict if new date belongs to a different holiday.
+    Changing to its own date is allowed.
+    """
+    return update_holiday(db, holiday_id=id, holiday_in=holiday_in, current_user=current_user)

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
+import { getFriendlyErrorMessage } from '../../utils/errors';
 import {
   getTicket,
   listComments,
@@ -126,7 +127,7 @@ export const TicketDetailPage: React.FC = () => {
           if (status === 404) {
             setErrorMessage('Ticket not found');
           } else {
-            setErrorMessage((err as { message?: string }).message || 'Failed to load ticket');
+            setErrorMessage(getFriendlyErrorMessage(err, 'Failed to load ticket'));
           }
         } else {
           setErrorMessage('Cannot reach the server. Please try again.');

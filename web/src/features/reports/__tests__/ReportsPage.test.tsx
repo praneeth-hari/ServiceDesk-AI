@@ -336,7 +336,7 @@ describe('ReportsPage', () => {
     );
 
     // Daily volume card failed, showing Retry
-    expect(await screen.findByText('Failed to load report data')).toBeInTheDocument();
+    expect(await screen.findByText('A server problem occurred. Please try again.')).toBeInTheDocument();
     const retryBtn = screen.getByRole('button', { name: 'Retry' });
     expect(retryBtn).toBeInTheDocument();
 
@@ -351,7 +351,7 @@ describe('ReportsPage', () => {
 
     // Verify recovery
     await waitFor(() => {
-      expect(screen.queryByText('Failed to load report data')).not.toBeInTheDocument();
+      expect(screen.queryByText('A server problem occurred. Please try again.')).not.toBeInTheDocument();
     });
   });
 
