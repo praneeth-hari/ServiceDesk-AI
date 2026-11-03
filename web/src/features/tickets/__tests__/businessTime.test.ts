@@ -30,14 +30,30 @@ describe('businessTime pure functions', () => {
     const d1 = parseToUtcDate('2026-11-03T04:27:00');
     expect(d1.toISOString()).toBe('2026-11-03T04:27:00.000Z');
 
-    // String with Z is parsed as UTC
+    // String with Z is parsed as UTC without double-appending Z
     const d2 = parseToUtcDate('2026-11-03T04:27:00Z');
     expect(d2.toISOString()).toBe('2026-11-03T04:27:00.000Z');
+
+    // String with timezone offset (+05:30) converts accurately to UTC
+    const dOffset = parseToUtcDate('2026-11-03T09:57:00+05:30');
+    expect(dOffset.toISOString()).toBe('2026-11-03T04:27:00.000Z');
+
+    // Naive string with space separator
+    const dSpace = parseToUtcDate('2026-11-03 04:27:00');
+    expect(dSpace.toISOString()).toBe('2026-11-03T04:27:00.000Z');
+
+    // Fractional seconds with and without Z
+    const dFracNaive = parseToUtcDate('2026-11-03T04:27:00.123');
+    expect(dFracNaive.toISOString()).toBe('2026-11-03T04:27:00.123Z');
+
+    const dFracZ = parseToUtcDate('2026-11-03T04:27:00.123Z');
+    expect(dFracZ.toISOString()).toBe('2026-11-03T04:27:00.123Z');
 
     // Date object returned as a cloned Date
     const orig = new Date('2026-11-03T04:27:00.000Z');
     const d3 = parseToUtcDate(orig);
     expect(d3.getTime()).toBe(orig.getTime());
+    expect(d3).not.toBe(orig); // different reference
   });
 
   it('computes business minutes within the same business day', () => {

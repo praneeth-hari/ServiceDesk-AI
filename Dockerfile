@@ -1,25 +1,50 @@
-FROM python:3.11-slim
+# Stage 1: Build the React web frontend bundle
+FROM node:22-alpine AS web
 
-# Prevent Python from writing .pyc files and enable unbuffered logging
+WORKDIR /web
+
+# Copy package descriptors first to leverage Docker layer caching
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+
+# Copy the rest of the web application source code and compile
+COPY web/ ./
+RUN npm run build
+
+# Stage 2: Production Python runtime
+FROM python:3.11-slim AS runtime
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Python dependencies
+# Install runtime Python dependencies only
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application source code
-COPY . .
+# Copy backend application source code, Alembic migrations, and runtime scripts
+COPY app/ /app/app/
+COPY alembic/ /app/alembic/
+COPY alembic.ini /app/alembic.ini
+COPY scripts/ /app/scripts/
+COPY docker/ /app/docker/
 
-# Expose API port
+# Copy compiled frontend from the web build stage
+COPY --from=web /web/dist /app/web/dist
+ENV WEB_DIST_DIR=/app/web/dist
+
+# Create and switch to a non-root system user for security
+RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser \
+    && chown -R appuser:appuser /app \
+    && chmod +x /app/docker/entrypoint.sh
+
+USER appuser
+
 EXPOSE 8000
 
-# Run FastAPI app with uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Health check using Python's standard urllib (no curl needed)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import os, urllib.request, sys; port = os.environ.get('PORT', '8000'); sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{port}/api/v1/health').getcode() == 200 else 1)"
+
+ENTRYPOINT ["/app/docker/entrypoint.sh"]

@@ -1,5 +1,5 @@
 import type { Comment, StatusHistory, TicketStatus } from '../../api/types';
-import { toKolkataWallClock } from './businessTime';
+import { parseToUtcDate, toKolkataWallClock } from './businessTime';
 
 /**
  * Resolves author/actor display name from direct name (author_name/actor_name)
@@ -71,8 +71,8 @@ export function mergeTimeline(
   ];
 
   return items.sort((a, b) => {
-    const timeA = new Date(a.created_at).getTime();
-    const timeB = new Date(b.created_at).getTime();
+    const timeA = parseToUtcDate(a.created_at).getTime();
+    const timeB = parseToUtcDate(b.created_at).getTime();
     if (timeA !== timeB) return timeA - timeB;
     // When timestamps match, place status history before comment
     if (a.kind !== b.kind) return a.kind === 'history' ? -1 : 1;
