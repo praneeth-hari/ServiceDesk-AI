@@ -1,0 +1,450 @@
+{
+    "id": "HW-051",
+    "title": "ERP DB server down - PSU fault",
+    "description": "erp-db-01 in server room B went down at 05:52. out-of-band console shows 'Power Supply 1 failure, Power Supply 2 failure', amber lights on both PSUs, wont power back on. erp unavailable for all sites, warehouse cant book in deliveries",
+    "category": "hardware",
+    "priority": "urgent",
+    "difficulty": "easy",
+    "label_note": "Failed power supplies in a production server are a physical fault, so it is hardware, and it is urgent because a business-critical system is down for every site."
+}
+{
+    "id": "HW-052",
+    "title": "need a usb-c to hdmi adapter",
+    "description": "Could I get a USB-C to HDMI adapter? I present in client offices a lot and their screens only take HDMI. I've been borrowing one from a colleague.",
+    "category": "hardware",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "An accessory request with a workaround is hardware and low."
+}
+{
+    "id": "HW-053",
+    "title": "screen flickers when I move the lid",
+    "description": "If I move the laptop lid even slightly the screen flickers or goes black for a second. Left at one angle it's fine, so I've stopped touching it, but it's getting more sensitive.",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Flicker tied to lid movement points to a loose display cable, so it is hardware, and it is medium because the laptop is still usable."
+}
+{
+    "id": "HW-054",
+    "title": "pc beeps 3 times wont start",
+    "description": "desktop under my desk goes beep beep beep (3 short) when i switch it on, fans spin, nothing on screen. monitor works with my laptop so its not the screen. cant do any of my invoicing",
+    "category": "hardware",
+    "priority": "high",
+    "difficulty": "easy",
+    "label_note": "POST beep codes with no display signal point to a component failure in the PC, so it is hardware, and it is high because the user is blocked."
+}
+{
+    "id": "HW-055",
+    "title": "wifi drops when I pick laptop up",
+    "description": "Strange one. My Wi-Fi drops every time I pick up or tilt the laptop and reconnects when I put it down again. People sitting next to me have no Wi-Fi problems, and it happens at home too.",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "hard",
+    "label_note": "Drops tied to physically moving one device, across locations, point to a loose internal antenna, so it is hardware and medium; it could be confused with network because the symptom is lost Wi-Fi."
+}
+{
+    "id": "HW-056",
+    "title": "water coming through ceiling onto desks",
+    "description": "Water is dripping through the ceiling tiles onto row D in the Tokyo office after the heavy rain, right over 6 desktop PCs. Two of them made a popping sound and switched off. We've moved the laptops we could, but the PCs are still plugged in under the drip.",
+    "category": "hardware",
+    "priority": "urgent",
+    "difficulty": "hard",
+    "label_note": "The IT task is water-damaged PCs that need powering down, recovering and replacing, so it is labelled hardware and urgent for safety and data-loss risk; the leak itself belongs to facilities, so it could be confused with other."
+}
+{
+    "id": "HW-057",
+    "title": "letters worn off keyboard",
+    "description": "the A S D and E letters have worn off my keyboard, i touch type so it doesnt really matter, just looks a bit grim",
+    "category": "hardware",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "Cosmetic wear on a working keyboard is hardware and low."
+}
+{
+    "id": "HW-058",
+    "title": "work phone won't turn on - can't approve sign-ins",
+    "description": "My company mobile won't switch on at all since last night, not even on the charger. The authenticator app is on it, so I can't approve sign-ins for anything, and it's my only phone for client calls. I'm on the road all week.",
+    "category": "hardware",
+    "priority": "high",
+    "difficulty": "hard",
+    "label_note": "The root cause is a dead device, so it is hardware, and it is high because the user is blocked; it could be confused with access because the visible impact is failed MFA approvals."
+}
+{
+    "id": "HW-059",
+    "title": "one speaker crackles",
+    "description": "The right speaker on my laptop crackles and buzzes whenever there's any sound, even at low volume. Headphones are fine, so I'm using those for calls.",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "A faulty internal speaker is hardware, and it is medium because headphones are a workaround."
+}
+{
+    "id": "HW-060",
+    "title": "sorting line 2 scanner not reading",
+    "description": "The fixed overhead scanner on sorting line 2 stopped reading barcodes at 7:15. The red laser is off and its status light blinks amber. Parcels are all going to the reject lane and line 2 is stopped. Line 1 can't take the extra volume.",
+    "category": "hardware",
+    "priority": "urgent",
+    "difficulty": "easy",
+    "label_note": "A failed fixed-mount scanner is hardware, and it is urgent because a business-critical sorting line is stopped."
+}
+{
+    "id": "HW-061",
+    "title": "headset only works one side",
+    "description": "my usb headset only plays sound in the left ear now, right side totally silent. still usable for calls but its weird after 8 hours",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "A one-sided headset fault is hardware, and it is medium because it is still usable."
+}
+{
+    "id": "HW-062",
+    "title": "monitor fell off arm and smashed",
+    "description": "The monitor arm at my desk snapped at the joint and the monitor fell face down. The screen is shattered. I'm on a desktop PC so I've got nothing to look at and I'm just sitting here.",
+    "category": "hardware",
+    "priority": "high",
+    "difficulty": "easy",
+    "label_note": "A broken monitor on a desktop-only setup is hardware, and it is high because the user can't work at all."
+}
+{
+    "id": "HW-063",
+    "title": "laptop bag strap broke",
+    "description": "strap on my laptop bag snapped at the clip, can i get a new bag or strap",
+    "category": "hardware",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "A replacement accessory request is hardware and low."
+}
+{
+    "id": "HW-064",
+    "title": "something wrong with screen",
+    "description": "something wrong with my screen since yesterday, hard to explain",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "hard",
+    "label_note": "The ticket is vague with no symptom given, so it is labelled hardware by the only clue, the screen, with medium as a placeholder; it could equally be a display setting (software)."
+}
+{
+    "id": "HW-065",
+    "title": "keeps blue screening MEMORY_MANAGEMENT",
+    "description": "pc crashed 4 times today with stop code MEMORY_MANAGEMENT, last one while i was saving a report. i think its the update from last week? ran the built in memory test because a forum said to and it said 'hardware problems were detected'",
+    "category": "hardware",
+    "priority": "high",
+    "difficulty": "hard",
+    "label_note": "A failed memory diagnostic points to faulty RAM, so it is hardware, and it is high because repeated crashes block work; the user's guess about the update points to software."
+}
+{
+    "id": "HW-066",
+    "title": "on-call phones all flat - charging rack dead",
+    "description": "The charging rack for the night team's on-call phones in the doctors' office has no power lights, and all 12 phones are flat or nearly flat. Night shift starts at 8pm and these phones are how the wards reach the doctors.",
+    "category": "hardware",
+    "priority": "urgent",
+    "difficulty": "easy",
+    "label_note": "A failed charging rack is hardware, and it is urgent because clinical communications for a whole shift depend on it."
+}
+{
+    "id": "HW-067",
+    "title": "copier grabbing several pages at once",
+    "description": "The copier on floor 1 pulls 3 or 4 sheets at once from the document feeder, so scanned contracts end up with missing pages. Single pages on the glass are fine, just slow.",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "A misfeeding document feeder is a mechanical fault, so it is hardware, and it is medium because the glass is a workaround."
+}
+{
+    "id": "HW-068",
+    "title": "webcam for desktop PC",
+    "description": "I'm on a desktop PC with no camera and I'm doing more video interviews now. Could I get an external webcam?",
+    "category": "hardware",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "A peripheral request is hardware and low."
+}
+{
+    "id": "HW-069",
+    "title": "rugged tablet screen shattered on site",
+    "description": "Field engineer here. I dropped my rugged tablet off a ladder at a customer site in Pune and the screen is shattered and won't respond to touch. All my job sheets and customer sign-offs are done on it, and I have four more site visits this week.",
+    "category": "hardware",
+    "priority": "high",
+    "difficulty": "easy",
+    "label_note": "Physical damage to a work device is hardware, and it is high because the engineer can't complete jobs."
+}
+{
+    "id": "HW-070",
+    "title": "monitor turns itself off after 10 mins",
+    "description": "My monitor switches itself off after about 10 minutes and the power light goes amber. I've changed every power and sleep setting I can find and it still does it. It only comes back if I unplug it and plug it in again.",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "hard",
+    "label_note": "The fault survives settings changes and needs a power cycle, which points to the monitor's power board, so it is hardware and medium; the user assumed power settings (software)."
+}
+{
+    "id": "HW-071",
+    "title": "both reporting screens dead in radiology",
+    "description": "Both diagnostic monitors on the reporting workstation in radiology went black at the same time and won't wake up, power lights off. It's the only workstation set up for reporting scans and A&E is waiting on reports.",
+    "category": "hardware",
+    "priority": "urgent",
+    "difficulty": "easy",
+    "label_note": "Failed diagnostic displays are hardware, and it is urgent because a business-critical clinical reporting function is down."
+}
+{
+    "id": "HW-072",
+    "title": "work phone battery dead by lunch",
+    "description": "company phone goes from 100 to 20 by lunchtime, used to last 2 days. i havent installed anything new. carrying a power bank for now",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Battery degradation is hardware, and it is medium because a power bank is a workaround."
+}
+{
+    "id": "HW-073",
+    "title": "dictaton mic not working",
+    "description": "my dictaiton microphone has stopped working, the record light comes on but nothing records and the cable looks frayed near the plug. i have about 40 clinic letters to do from this mornings list",
+    "category": "hardware",
+    "priority": "high",
+    "difficulty": "easy",
+    "label_note": "A damaged microphone cable is hardware, and it is high because a clinician can't produce patient letters."
+}
+{
+    "id": "HW-074",
+    "title": "monitor stand won't stay up",
+    "description": "The height adjustment on my monitor stand has gone loose and the screen slowly sinks during the day. I've put two books under it for now.",
+    "category": "hardware",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "A loose stand with a workaround is minor hardware, so it is low."
+}
+{
+    "id": "HW-075",
+    "title": "wireless mouse laggy",
+    "description": "wireless mouse lags and jumps even with new batteries",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "A faulty wireless mouse is hardware, and it is medium because it is an annoyance."
+}
+{
+    "id": "HW-076",
+    "title": "monitor dead, also can't open finance folder",
+    "description": "Two issues. My only monitor won't turn on, no power light, and I've tried another power cable. I'm on a desktop so I can't see anything. Separately, since this morning the finance shared folder says I don't have permission, but that can wait until I can see a screen.",
+    "category": "hardware",
+    "priority": "high",
+    "difficulty": "hard",
+    "label_note": "This ticket has two problems, and the primary one is the dead monitor (hardware), which blocks all work, so it is high; the folder permission is a separate access issue."
+}
+{
+    "id": "HW-077",
+    "title": "colours all yellow on my screen",
+    "description": "design team. my monitor has gone yellowish, whites look like old paper. ive reset it to factory settings from its menu and still the same. checking proofs on a colleagues screen for now",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "A colour fault that survives a factory reset is a monitor hardware issue, and it is medium because there is a workaround."
+}
+{
+    "id": "HW-078",
+    "title": "handheld cradles at depot not charging",
+    "description": "depot here. none of the driver handhelds charged overnight, the cradles at bank 2 have no lights at all. about 30 drivers cant start their routes, theyre all standing in the yard. bank 1 cradles work but only fit 10",
+    "category": "hardware",
+    "priority": "urgent",
+    "difficulty": "easy",
+    "label_note": "Failed charging cradles are hardware, and it is urgent because about 30 drivers and the day's deliveries are blocked."
+}
+{
+    "id": "HW-079",
+    "title": "spare charger for home",
+    "description": "can i get a second laptop charger to keep at home, im carrying one back and forth every day",
+    "category": "hardware",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "An accessory request is hardware and low."
+}
+{
+    "id": "HW-080",
+    "title": "lab PC doesn't see the instrument - driver?",
+    "description": "The PC connected to the spectrometer in lab 3 doesn't see the instrument any more. I assumed it was the driver, so I reinstalled it from the vendor disc, but still nothing. A USB stick in the same ports isn't detected either. We have samples that have to be run today.",
+    "category": "hardware",
+    "priority": "high",
+    "difficulty": "hard",
+    "label_note": "No device is detected on any port, which points to failed USB ports or a failed controller, so it is hardware, and it is high because time-sensitive lab work is blocked; the user's driver guess points to software."
+}
+{
+    "id": "HW-081",
+    "title": "webcam picture blurry",
+    "description": "My laptop webcam picture has gone blurry, like there's a smear on it. I've cleaned the lens and it's the same. Looking closely there's a scratch across it. People keep asking if I'm out of focus.",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "A scratched camera lens is physical damage, so it is hardware, and it is medium because the camera still works."
+}
+{
+    "id": "HW-082",
+    "title": "visitor badge printer not working",
+    "description": "The badge printer at main reception has stopped printing and just flashes red. We're handwriting visitor stickers for now. There are a lot of visitors this week because of the audit.",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "hard",
+    "label_note": "A failed badge printer is hardware; priority is debatable, since handwriting is a workaround (medium) but the visitor volume during an audit could justify high."
+}
+{
+    "id": "HW-083",
+    "title": "medical records scanner showing E-205",
+    "description": "The high-speed scanner in medical records jammed, and after we cleared it, it now shows 'E-205' and won't feed anything. Three of us scan all incoming paper records on it and everything is piling up.",
+    "category": "hardware",
+    "priority": "high",
+    "difficulty": "easy",
+    "label_note": "A scanner fault code after a jam is hardware, and it is high because a small team is blocked."
+}
+{
+    "id": "HW-084",
+    "title": "returning laptop after secondment",
+    "description": "My six-month secondment to the Tokyo team has finished and I was given a separate laptop for it. Where should I return it?",
+    "category": "hardware",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "Returning a device is a hardware request with no impact, so it is low."
+}
+{
+    "id": "HW-085",
+    "title": "monitors flicker when laptop is charging",
+    "description": "When my laptop charges through the dock, both external monitors flicker every few seconds. If I unplug the charger and run on battery the flicker stops. I've been charging it overnight instead.",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Flicker tied to charging through the dock points to a dock power fault, so it is hardware, and it is medium because there is a workaround."
+}
+{
+    "id": "HW-086",
+    "title": "cheque printer smudging - contractors paid tomorrow",
+    "description": "The cheque printer in finance is smudging everything, so the bank codes along the bottom are unreadable. The warehouse contractors are paid by cheque and they get paid tomorrow. It's the only printer set up with the special toner.",
+    "category": "hardware",
+    "priority": "urgent",
+    "difficulty": "hard",
+    "label_note": "A failing specialist printer is hardware; it is one device, so high is defensible, but it is labelled urgent because a business-critical payment run is at risk tomorrow."
+}
+{
+    "id": "HW-087",
+    "title": "SD card reader not reading",
+    "description": "The SD card slot on my laptop doesn't detect any card any more. I upload site inspection photos from my camera every day and I've been using a colleague's laptop to copy them over.",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "A failed built-in card reader is hardware, and it is medium because there is a workaround."
+}
+{
+    "id": "HW-088",
+    "title": "can't present - HDMI port not working",
+    "description": "The HDMI port on my laptop doesn't send anything to the boardroom screen or the TV in room 4. Other people's laptops work on the same cables. I'm presenting to a client in the boardroom in an hour.",
+    "category": "hardware",
+    "priority": "high",
+    "difficulty": "hard",
+    "label_note": "Others work with the same cables, which isolates the laptop's port, so it is hardware, and it is high because of the client deadline; it could be confused with other (meeting-room AV)."
+}
+{
+    "id": "HW-089",
+    "title": "tablets for stock audit pilot",
+    "description": "We'd like to try doing stock audits on tablets in the Chennai warehouse next quarter. Could we get 4 tablets with cases for a pilot?",
+    "category": "hardware",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "A planned device request is hardware and low."
+}
+{
+    "id": "HW-090",
+    "title": "backup drive not showing up anywhere",
+    "description": "My encrypted USB backup drive isn't recognised on any PC, and the unlock prompt doesn't even appear. It gets warm when plugged in and its light doesn't come on. Everything on it is also on the share, so I mainly want to know whether it can be recovered or replaced.",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "hard",
+    "label_note": "A drive that isn't detected on any PC and shows no light has failed physically, so it is hardware, and it is medium because the data is backed up; it could be confused with software or access because of the encryption unlock."
+}
+{
+    "id": "HW-091",
+    "title": "forklift terminal screen dim",
+    "description": "so the forklift terminals in the chiller section have always been a bit temperamental because of the cold, we know that, and one driver keeps leaving his gloves on the screen which doesnt help. anyway the one on forklift 6 has gone really dim, you can only read it if you cup your hand round it. driver is managing but its slowing him down",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "A failing display backlight is hardware, and it is medium because the device still works."
+}
+{
+    "id": "HW-092",
+    "title": "keyboard stopped working completely",
+    "description": "laptop keyboard stopped working completely, no keys at all, wfh today and no spare",
+    "category": "hardware",
+    "priority": "high",
+    "difficulty": "easy",
+    "label_note": "A dead built-in keyboard is hardware, and it is high because the remote user has no workaround."
+}
+{
+    "id": "HW-093",
+    "title": "phone keys 4 and 7 not working",
+    "description": "On my desk phone the 4 and 7 buttons don't do anything, so I can't dial any number containing those digits. I've been using my mobile when I need to.",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Dead keypad buttons are hardware, and it is medium because a mobile is a workaround."
+}
+{
+    "id": "HW-094",
+    "title": "noise cancelling headset request",
+    "description": "Our team moved next to the sales floor and it's very loud. Could I request a noise-cancelling headset for calls and focus work?",
+    "category": "hardware",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "A peripheral request is hardware and low."
+}
+{
+    "id": "HW-095",
+    "title": "Tokyo call centre PCs dead after power surge",
+    "description": "There was a power surge in the Tokyo office at about 9:20. Fifteen of the call centre desktop PCs won't power on now, the rest are fine. Those agents can't take customer calls and the queue keeps growing.",
+    "category": "hardware",
+    "priority": "urgent",
+    "difficulty": "easy",
+    "label_note": "Surge-damaged PCs are hardware, and it is urgent because many customer-facing agents are down."
+}
+{
+    "id": "HW-096",
+    "title": "laptop bottom panel loose",
+    "description": "two of the little screws on the bottom of my laptop fell out and the panel is lifting at the corner, it rattles when i type. still works",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "A loose casing is physical damage, so it is hardware, and it is medium because it is an annoyance that could get worse."
+}
+{
+    "id": "HW-097",
+    "title": "consent signature pad not working",
+    "description": "The signature pad we use for patient consent forms at day surgery admissions isn't responding and the pen doesn't register anything. Without it we can't complete consent electronically and patients are waiting to go through.",
+    "category": "hardware",
+    "priority": "high",
+    "difficulty": "easy",
+    "label_note": "A failed signature pad is hardware, and it is high because a clinical team's admission process is blocked."
+}
+{
+    "id": "HW-098",
+    "title": "dead pixels in the middle of screen",
+    "description": "There's a small cluster of dead pixels right in the middle of my laptop screen, a black dot about the size of a pea. It's not stopping me working, but it's exactly where I read text.",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Dead pixels are a display hardware fault, and it is medium because work continues."
+}
+{
+    "id": "HW-099",
+    "title": "old work phone - personal photos on it",
+    "description": "I got a new work phone a month ago and the old one is in my drawer. It has some personal photos on it I'd like to keep before I hand it back. Can someone help me get them off and then take the old phone?",
+    "category": "hardware",
+    "priority": "low",
+    "difficulty": "hard",
+    "label_note": "Returning a device and transferring its data is hardware handling and low; the personal-photos element could make it look like an other (general request) ticket."
+}
+{
+    "id": "HW-100",
+    "title": "power button sticks",
+    "description": "power button on my laptop sticks, have to press it 3 or 4 times hard to get it to turn on",
+    "category": "hardware",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "A sticking power button is a physical fault, so it is hardware, and it is medium because it still works with effort."
+}
