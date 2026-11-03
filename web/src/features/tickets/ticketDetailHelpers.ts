@@ -2,10 +2,8 @@ import type { Comment, StatusHistory, TicketStatus } from '../../api/types';
 import { toKolkataWallClock } from './businessTime';
 
 /**
- * Resolves author/actor display name from available ticket metadata and current user session.
- * NOTE: The backend CommentRead and StatusHistoryRead only return author_id / changed_by_id.
- * If the backend is updated in the future to return author_name or author_role directly,
- * this client-side resolver can be replaced.
+ * Resolves author/actor display name from direct name (author_name/actor_name)
+ * or falls back to available ticket metadata and current user session.
  */
 export function resolveActorName(
   actorId: number | null | undefined,
@@ -15,13 +13,17 @@ export function resolveActorName(
     assignee_id: number | null;
     assignee_name: string | null;
   },
-  currentUserId?: number | null
+  currentUserId?: number | null,
+  directName?: string | null
 ): string {
-  if (actorId === null || actorId === undefined) {
-    return 'System';
-  }
   if (currentUserId !== null && currentUserId !== undefined && actorId === currentUserId) {
     return 'You';
+  }
+  if (directName) {
+    return directName;
+  }
+  if (actorId === null || actorId === undefined) {
+    return 'System';
   }
   if (actorId === ticket.requester_id) {
     return ticket.requester_name || 'Requester';
@@ -91,16 +93,29 @@ export function formatKolkataDetailTime(input: Date | string | number | null | u
   const month = months[kolkata.getUTCMonth()];
   const hours = String(kolkata.getUTCHours()).padStart(2, '0');
   const minutes = String(kolkata.getUTCMinutes()).padStart(2, '0');
-  return `${dayName} ${day} ${month}, ${hours}:${minutes}`;
+  return `${dayName} ${day} ${month}, ${hours}:${minutes} IST`;
 }
 
 /**
- * Format due time: "due Mon 2 Nov, 17:00 (business hours)"
+ * Format due time: "due Mon 2 Nov, 17:00 IST"
  */
 export function formatKolkataDueTime(input: Date | string | number | null | undefined): string {
   if (!input) return '—';
   const formatted = formatKolkataDetailTime(input);
-  return `due ${formatted} (business hours)`;
+  return `due ${formatted}`;
+}
+
+export const STATUS_DISPLAY_LABELS: Record<string, string> = {
+  open: 'Open',
+  in_progress: 'In progress',
+  waiting_on_requester: 'Waiting on requester',
+  resolved: 'Resolved',
+  closed: 'Closed',
+};
+
+export function formatStatusLabel(status: string | null | undefined): string {
+  if (!status) return '—';
+  return STATUS_DISPLAY_LABELS[status] || status;
 }
 
 export interface AllowedAction {
@@ -131,4 +146,3 @@ export function getAllowedActions(currentStatus: TicketStatus): AllowedAction[] 
       return [];
   }
 }
-
