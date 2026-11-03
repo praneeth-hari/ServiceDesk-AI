@@ -7,10 +7,8 @@ import { LoginPage } from './pages/LoginPage';
 import { TicketsPage } from './features/tickets/TicketsPage';
 import { NewTicketPage } from './features/tickets/NewTicketPage';
 import { TicketDetailPage } from './features/tickets/TicketDetailPage';
-import {
-  ReportsPage,
-  HolidaysPage,
-} from './pages/PlaceholderPage';
+import { ReportsPage } from './features/reports/ReportsPage';
+import { HolidaysPage } from './pages/PlaceholderPage';
 
 export function App() {
   return (
