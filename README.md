@@ -38,6 +38,7 @@ Role-based IT helpdesk ticketing application with business-hours SLA tracking, r
 - [AI Triage & Duplicate Detection](#ai-triage--duplicate-detection)
 - [API Overview](#api-overview)
 - [Quick Start](#quick-start)
+- [Run with Docker](#run-with-docker)
 - [Demo Data](#demo-data)
 - [Testing & Quality](#testing--quality)
 - [Design Decisions](#design-decisions)
@@ -366,6 +367,33 @@ npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser (API calls are proxied automatically to `http://localhost:8000`).
+
+---
+
+## Run with Docker
+
+You can build and run the entire application (FastAPI backend + built React frontend) as a single container using the production multi-stage `Dockerfile`:
+
+### 1. Build the Docker image
+
+```powershell
+docker build -t servicedesk-ai .
+```
+
+### 2. Run the container
+
+Provide your database URL and a strong secret key (at least 32 characters in production) via environment variables, and map the port:
+
+```powershell
+docker run -d `
+  --name servicedesk-app `
+  -p 8000:8000 `
+  -e DATABASE_URL="mysql+pymysql://helpdesk:helpdesk_password@host.docker.internal:3306/helpdesk_db" `
+  -e SECRET_KEY="your-secure-random-secret-key-at-least-32-chars-long" `
+  servicedesk-ai
+```
+
+> **Note on Port Configuration**: If port 8000 is busy or blocked on your host, use another host port in the port mapping (e.g., `-p 8010:8000` to access the service at `http://localhost:8010`), or specify a custom container port via the `PORT` environment variable (e.g., `-e PORT=8010 -p 8010:8010`). Similarly, when running `uvicorn` directly outside Docker, pass `--port 8010`.
 
 ---
 
