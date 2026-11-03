@@ -5,8 +5,10 @@ import {
   buildTimelineWindow,
   mapTimeToPosition,
   formatDurationShort,
+  formatSlaText,
   toKolkataWallClock,
   fromKolkataWallClock,
+  parseToUtcDate,
 } from '../businessTime';
 
 describe('businessTime pure functions', () => {
@@ -21,6 +23,21 @@ describe('businessTime pure functions', () => {
     expect(wallClock.getUTCDate()).toBe(26);
     expect(wallClock.getUTCHours()).toBe(9);
     expect(wallClock.getUTCMinutes()).toBe(0);
+  });
+
+  it('normalizes naive ISO strings to UTC using parseToUtcDate', () => {
+    // Naive ISO string without timezone indicator should be parsed as UTC
+    const d1 = parseToUtcDate('2026-11-03T04:27:00');
+    expect(d1.toISOString()).toBe('2026-11-03T04:27:00.000Z');
+
+    // String with Z is parsed as UTC
+    const d2 = parseToUtcDate('2026-11-03T04:27:00Z');
+    expect(d2.toISOString()).toBe('2026-11-03T04:27:00.000Z');
+
+    // Date object returned as a cloned Date
+    const orig = new Date('2026-11-03T04:27:00.000Z');
+    const d3 = parseToUtcDate(orig);
+    expect(d3.getTime()).toBe(orig.getTime());
   });
 
   it('computes business minutes within the same business day', () => {
@@ -117,5 +134,109 @@ describe('businessTime pure functions', () => {
     expect(insidePos.x).toBeGreaterThan(0);
     expect(insidePos.x).toBeLessThan(window.totalWidth);
   });
-});
+describe('Breach duration and Time Left calculations (IST business hours 09:00 - 18:00)', () => {
+    // 1. Same-day due 09:57 IST, now 17:57 IST -> exactly 8h 00m elapsed
+    it('computes breached duration for due 09:57 IST and now 17:57 IST on the same day (8h 00m)', () => {
+      // 09:57 IST = 04:27 UTC
+      const dueIsoZ = '2026-11-03T04:27:00Z';
+      const nowIsoZ = '2026-11-03T12:27:00Z'; // 17:57 IST = 12:27 UTC
 
+      const remZ = computeBusinessMinutesRemaining(dueIsoZ, nowIsoZ);
+      expect(remZ).toBe(-480);
+      expect(formatDurationShort(remZ)).toBe('8h');
+      expect(formatSlaText(remZ, 'open', true, false)).toBe('breached 8h');
+
+      // Test with naive ISO string (as returned from SQLite/DB serialization without Z)
+      const dueNaive = '2026-11-03T04:27:00';
+      const nowNaive = '2026-11-03T12:27:00';
+      const remNaive = computeBusinessMinutesRemaining(dueNaive, nowNaive);
+      expect(remNaive).toBe(-480);
+      expect(formatDurationShort(remNaive)).toBe('8h');
+      expect(formatSlaText(remNaive, 'open', true, false)).toBe('breached 8h');
+
+      // Test with Date objects
+      const dueObj = fromKolkataWallClock(2026, 10, 3, 9, 57, 0);
+      const nowObj = fromKolkataWallClock(2026, 10, 3, 17, 57, 0);
+      expect(computeBusinessMinutesRemaining(dueObj, nowObj)).toBe(-480);
+    });
+
+    // 2. Due late in the day and now next morning
+    it('computes breached duration when due late in the day and now is next morning', () => {
+      // Due Monday Nov 2 at 17:30 IST (30m left until 18:00 close)
+      // Now Tuesday Nov 3 at 09:30 IST (30m into Tuesday workday)
+      // Total elapsed overdue business minutes = 30 + 30 = 60 mins (1h)
+      const due = fromKolkataWallClock(2026, 10, 2, 17, 30, 0);
+      const now = fromKolkataWallClock(2026, 10, 3, 9, 30, 0);
+
+      const rem = computeBusinessMinutesRemaining(due, now);
+      expect(rem).toBe(-60);
+      expect(formatDurationShort(rem)).toBe('1h');
+      expect(formatSlaText(rem, 'in_progress', true, false)).toBe('breached 1h');
+    });
+
+    // 3. Across a weekend
+    it('computes breached duration spanning a weekend', () => {
+      // Due Friday Oct 30 at 17:00 IST (60m left until 18:00 Friday close)
+      // Now Monday Nov 2 at 10:00 IST (60m into Monday workday, Sat/Sun 0m)
+      // Total overdue = 60 + 60 = 120 mins (2h)
+      const due = fromKolkataWallClock(2026, 9, 30, 17, 0, 0);
+      const now = fromKolkataWallClock(2026, 10, 2, 10, 0, 0);
+
+      const rem = computeBusinessMinutesRemaining(due, now);
+      expect(rem).toBe(-120);
+      expect(formatDurationShort(rem)).toBe('2h');
+      expect(formatSlaText(rem, 'open', true, false)).toBe('breached 2h');
+    });
+
+    // 4. Due exactly on the hour
+    it('computes breached duration when due exactly on the hour', () => {
+      // Due Tuesday Nov 3 at 10:00 IST, now Tuesday Nov 3 at 14:00 IST (4h overdue = 240 mins)
+      const due = fromKolkataWallClock(2026, 10, 3, 10, 0, 0);
+      const now = fromKolkataWallClock(2026, 10, 3, 14, 0, 0);
+
+      const rem = computeBusinessMinutesRemaining(due, now);
+      expect(rem).toBe(-240);
+      expect(formatDurationShort(rem)).toBe('4h');
+      expect(formatSlaText(rem, 'open', true, false)).toBe('breached 4h');
+    });
+
+    // 5. Same cases for "time left" before due time
+    it('computes time left before due time for all corresponding cases', () => {
+      // Case A: now 09:57 IST, due 17:57 IST same day -> 8h left (480 mins)
+      const nowA = fromKolkataWallClock(2026, 10, 3, 9, 57, 0);
+      const dueA = fromKolkataWallClock(2026, 10, 3, 17, 57, 0);
+      const remA = computeBusinessMinutesRemaining(dueA, nowA);
+      expect(remA).toBe(480);
+      expect(formatDurationShort(remA)).toBe('8h');
+      expect(formatSlaText(remA, 'open', false, false)).toBe('8h left');
+
+      // Also verify with naive strings for Case A
+      const remANaive = computeBusinessMinutesRemaining('2026-11-03T12:27:00', '2026-11-03T04:27:00');
+      expect(remANaive).toBe(480);
+
+      // Case B: now Monday 17:30 IST, due Tuesday 09:30 IST -> 1h left (60 mins)
+      const nowB = fromKolkataWallClock(2026, 10, 2, 17, 30, 0);
+      const dueB = fromKolkataWallClock(2026, 10, 3, 9, 30, 0);
+      const remB = computeBusinessMinutesRemaining(dueB, nowB);
+      expect(remB).toBe(60);
+      expect(formatDurationShort(remB)).toBe('1h');
+      expect(formatSlaText(remB, 'open', false, false)).toBe('1h left');
+
+      // Case C: now Friday 17:00 IST, due Monday 10:00 IST -> 2h left (120 mins)
+      const nowC = fromKolkataWallClock(2026, 9, 30, 17, 0, 0);
+      const dueC = fromKolkataWallClock(2026, 10, 2, 10, 0, 0);
+      const remC = computeBusinessMinutesRemaining(dueC, nowC);
+      expect(remC).toBe(120);
+      expect(formatDurationShort(remC)).toBe('2h');
+      expect(formatSlaText(remC, 'open', false, false)).toBe('2h left');
+
+      // Case D: now Tuesday 10:00 IST, due Tuesday 14:00 IST -> 4h left (240 mins)
+      const nowD = fromKolkataWallClock(2026, 10, 3, 10, 0, 0);
+      const dueD = fromKolkataWallClock(2026, 10, 3, 14, 0, 0);
+      const remD = computeBusinessMinutesRemaining(dueD, nowD);
+      expect(remD).toBe(240);
+      expect(formatDurationShort(remD)).toBe('4h');
+      expect(formatSlaText(remD, 'open', false, false)).toBe('4h left');
+    });
+  });
+});
