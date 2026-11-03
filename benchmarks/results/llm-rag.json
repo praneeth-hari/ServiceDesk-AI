@@ -1,0 +1,1026 @@
+{
+  "method": "llm-rag",
+  "base_method": "llm-rag",
+  "model_name": "llama3.1:8b",
+  "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+  "timestamp": "2026-11-03T17:10:48.812287+00:00",
+  "elapsed_seconds": 267.1,
+  "mean_latency_ms": 2376.69,
+  "median_latency_ms": 2366.79,
+  "metrics": {
+    "num_samples": 120,
+    "category_metrics": {
+      "accuracy": 0.875,
+      "correct_count": 105,
+      "ci_95": [
+        0.804,
+        0.9228
+      ],
+      "macro_f1": 0.8711,
+      "per_class": {
+        "network": {
+          "precision": 0.8636,
+          "recall": 0.95,
+          "f1": 0.9048,
+          "support": 20
+        },
+        "hardware": {
+          "precision": 0.7917,
+          "recall": 0.95,
+          "f1": 0.8636,
+          "support": 20
+        },
+        "software": {
+          "precision": 1.0,
+          "recall": 0.7,
+          "f1": 0.8235,
+          "support": 20
+        },
+        "access": {
+          "precision": 0.8636,
+          "recall": 0.95,
+          "f1": 0.9048,
+          "support": 20
+        },
+        "email": {
+          "precision": 0.9091,
+          "recall": 1.0,
+          "f1": 0.9524,
+          "support": 20
+        },
+        "other": {
+          "precision": 0.875,
+          "recall": 0.7,
+          "f1": 0.7778,
+          "support": 20
+        }
+      },
+      "confusion_matrix": {
+        "network": {
+          "network": 19,
+          "hardware": 0,
+          "software": 0,
+          "access": 0,
+          "email": 0,
+          "other": 1
+        },
+        "hardware": {
+          "network": 0,
+          "hardware": 19,
+          "software": 0,
+          "access": 0,
+          "email": 0,
+          "other": 1
+        },
+        "software": {
+          "network": 0,
+          "hardware": 3,
+          "software": 14,
+          "access": 2,
+          "email": 1,
+          "other": 0
+        },
+        "access": {
+          "network": 0,
+          "hardware": 0,
+          "software": 0,
+          "access": 19,
+          "email": 1,
+          "other": 0
+        },
+        "email": {
+          "network": 0,
+          "hardware": 0,
+          "software": 0,
+          "access": 0,
+          "email": 20,
+          "other": 0
+        },
+        "other": {
+          "network": 3,
+          "hardware": 2,
+          "software": 0,
+          "access": 1,
+          "email": 0,
+          "other": 14
+        }
+      },
+      "easy_accuracy": 0.9111,
+      "hard_accuracy": 0.7667,
+      "easy_count": 90,
+      "hard_count": 30
+    },
+    "priority_metrics": {
+      "accuracy": 0.6917,
+      "correct_count": 83,
+      "ci_95": [
+        0.6042,
+        0.7673
+      ],
+      "macro_f1": 0.6806,
+      "within_one_accuracy": 0.9833,
+      "per_class": {
+        "low": {
+          "precision": 0.913,
+          "recall": 0.6774,
+          "f1": 0.7778,
+          "support": 31
+        },
+        "medium": {
+          "precision": 0.7436,
+          "recall": 0.725,
+          "f1": 0.7342,
+          "support": 40
+        },
+        "high": {
+          "precision": 0.5,
+          "recall": 0.8846,
+          "f1": 0.6389,
+          "support": 26
+        },
+        "urgent": {
+          "precision": 0.8333,
+          "recall": 0.4348,
+          "f1": 0.5714,
+          "support": 23
+        }
+      },
+      "confusion_matrix": {
+        "low": {
+          "low": 21,
+          "medium": 8,
+          "high": 1,
+          "urgent": 1
+        },
+        "medium": {
+          "low": 2,
+          "medium": 29,
+          "high": 9,
+          "urgent": 0
+        },
+        "high": {
+          "low": 0,
+          "medium": 2,
+          "high": 23,
+          "urgent": 1
+        },
+        "urgent": {
+          "low": 0,
+          "medium": 0,
+          "high": 13,
+          "urgent": 10
+        }
+      }
+    },
+    "llm_metrics": {
+      "model_name": "llama3.1:8b",
+      "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+      "mean_latency_ms": 2376.69,
+      "median_latency_ms": 2366.79,
+      "invalid_count": 0,
+      "invalid_rate": 0.0
+    }
+  },
+  "predictions": [
+    {
+      "id": "ACC-010",
+      "predicted_category": "access",
+      "predicted_priority": "urgent",
+      "latency_ms": 2535.67,
+      "invalid": false
+    },
+    {
+      "id": "ACC-011",
+      "predicted_category": "access",
+      "predicted_priority": "high",
+      "latency_ms": 2224.39,
+      "invalid": false
+    },
+    {
+      "id": "ACC-022",
+      "predicted_category": "access",
+      "predicted_priority": "medium",
+      "latency_ms": 2222.76,
+      "invalid": false
+    },
+    {
+      "id": "ACC-027",
+      "predicted_category": "access",
+      "predicted_priority": "high",
+      "latency_ms": 2335.58,
+      "invalid": false
+    },
+    {
+      "id": "ACC-031",
+      "predicted_category": "access",
+      "predicted_priority": "low",
+      "latency_ms": 2276.86,
+      "invalid": false
+    },
+    {
+      "id": "ACC-042",
+      "predicted_category": "access",
+      "predicted_priority": "medium",
+      "latency_ms": 2322.92,
+      "invalid": false
+    },
+    {
+      "id": "ACC-044",
+      "predicted_category": "access",
+      "predicted_priority": "high",
+      "latency_ms": 2388.03,
+      "invalid": false
+    },
+    {
+      "id": "ACC-046",
+      "predicted_category": "access",
+      "predicted_priority": "high",
+      "latency_ms": 2332.53,
+      "invalid": false
+    },
+    {
+      "id": "ACC-050",
+      "predicted_category": "access",
+      "predicted_priority": "medium",
+      "latency_ms": 2420.94,
+      "invalid": false
+    },
+    {
+      "id": "ACC-053",
+      "predicted_category": "access",
+      "predicted_priority": "medium",
+      "latency_ms": 2506.94,
+      "invalid": false
+    },
+    {
+      "id": "ACC-055",
+      "predicted_category": "access",
+      "predicted_priority": "high",
+      "latency_ms": 2485.55,
+      "invalid": false
+    },
+    {
+      "id": "ACC-058",
+      "predicted_category": "access",
+      "predicted_priority": "low",
+      "latency_ms": 2303.19,
+      "invalid": false
+    },
+    {
+      "id": "ACC-070",
+      "predicted_category": "access",
+      "predicted_priority": "high",
+      "latency_ms": 2240.87,
+      "invalid": false
+    },
+    {
+      "id": "ACC-075",
+      "predicted_category": "access",
+      "predicted_priority": "high",
+      "latency_ms": 2288.28,
+      "invalid": false
+    },
+    {
+      "id": "ACC-077",
+      "predicted_category": "email",
+      "predicted_priority": "high",
+      "latency_ms": 2345.54,
+      "invalid": false
+    },
+    {
+      "id": "ACC-079",
+      "predicted_category": "access",
+      "predicted_priority": "low",
+      "latency_ms": 2259.77,
+      "invalid": false
+    },
+    {
+      "id": "ACC-080",
+      "predicted_category": "access",
+      "predicted_priority": "high",
+      "latency_ms": 2307.09,
+      "invalid": false
+    },
+    {
+      "id": "ACC-088",
+      "predicted_category": "access",
+      "predicted_priority": "medium",
+      "latency_ms": 2181.03,
+      "invalid": false
+    },
+    {
+      "id": "ACC-090",
+      "predicted_category": "access",
+      "predicted_priority": "medium",
+      "latency_ms": 2333.68,
+      "invalid": false
+    },
+    {
+      "id": "ACC-095",
+      "predicted_category": "access",
+      "predicted_priority": "low",
+      "latency_ms": 2239.87,
+      "invalid": false
+    },
+    {
+      "id": "EML-002",
+      "predicted_category": "email",
+      "predicted_priority": "low",
+      "latency_ms": 2190.7,
+      "invalid": false
+    },
+    {
+      "id": "EML-003",
+      "predicted_category": "email",
+      "predicted_priority": "medium",
+      "latency_ms": 2313.82,
+      "invalid": false
+    },
+    {
+      "id": "EML-009",
+      "predicted_category": "email",
+      "predicted_priority": "medium",
+      "latency_ms": 2209.58,
+      "invalid": false
+    },
+    {
+      "id": "EML-015",
+      "predicted_category": "email",
+      "predicted_priority": "urgent",
+      "latency_ms": 2307.96,
+      "invalid": false
+    },
+    {
+      "id": "EML-017",
+      "predicted_category": "email",
+      "predicted_priority": "medium",
+      "latency_ms": 2396.99,
+      "invalid": false
+    },
+    {
+      "id": "EML-020",
+      "predicted_category": "email",
+      "predicted_priority": "high",
+      "latency_ms": 2337.43,
+      "invalid": false
+    },
+    {
+      "id": "EML-026",
+      "predicted_category": "email",
+      "predicted_priority": "high",
+      "latency_ms": 2317.87,
+      "invalid": false
+    },
+    {
+      "id": "EML-028",
+      "predicted_category": "email",
+      "predicted_priority": "high",
+      "latency_ms": 2486.34,
+      "invalid": false
+    },
+    {
+      "id": "EML-035",
+      "predicted_category": "email",
+      "predicted_priority": "high",
+      "latency_ms": 2366.15,
+      "invalid": false
+    },
+    {
+      "id": "EML-037",
+      "predicted_category": "email",
+      "predicted_priority": "urgent",
+      "latency_ms": 2334.31,
+      "invalid": false
+    },
+    {
+      "id": "EML-043",
+      "predicted_category": "email",
+      "predicted_priority": "high",
+      "latency_ms": 2445.31,
+      "invalid": false
+    },
+    {
+      "id": "EML-048",
+      "predicted_category": "email",
+      "predicted_priority": "high",
+      "latency_ms": 2296.24,
+      "invalid": false
+    },
+    {
+      "id": "EML-050",
+      "predicted_category": "email",
+      "predicted_priority": "medium",
+      "latency_ms": 2295.85,
+      "invalid": false
+    },
+    {
+      "id": "EML-058",
+      "predicted_category": "email",
+      "predicted_priority": "high",
+      "latency_ms": 2317.92,
+      "invalid": false
+    },
+    {
+      "id": "EML-059",
+      "predicted_category": "email",
+      "predicted_priority": "medium",
+      "latency_ms": 2294.22,
+      "invalid": false
+    },
+    {
+      "id": "EML-075",
+      "predicted_category": "email",
+      "predicted_priority": "medium",
+      "latency_ms": 2167.26,
+      "invalid": false
+    },
+    {
+      "id": "EML-091",
+      "predicted_category": "email",
+      "predicted_priority": "medium",
+      "latency_ms": 2244.66,
+      "invalid": false
+    },
+    {
+      "id": "EML-093",
+      "predicted_category": "email",
+      "predicted_priority": "high",
+      "latency_ms": 2269.36,
+      "invalid": false
+    },
+    {
+      "id": "EML-099",
+      "predicted_category": "email",
+      "predicted_priority": "high",
+      "latency_ms": 2323.99,
+      "invalid": false
+    },
+    {
+      "id": "EML-100",
+      "predicted_category": "email",
+      "predicted_priority": "low",
+      "latency_ms": 2306.38,
+      "invalid": false
+    },
+    {
+      "id": "HW-016",
+      "predicted_category": "hardware",
+      "predicted_priority": "medium",
+      "latency_ms": 2165.22,
+      "invalid": false
+    },
+    {
+      "id": "HW-017",
+      "predicted_category": "hardware",
+      "predicted_priority": "medium",
+      "latency_ms": 2371.63,
+      "invalid": false
+    },
+    {
+      "id": "HW-024",
+      "predicted_category": "hardware",
+      "predicted_priority": "low",
+      "latency_ms": 2288.65,
+      "invalid": false
+    },
+    {
+      "id": "HW-027",
+      "predicted_category": "hardware",
+      "predicted_priority": "medium",
+      "latency_ms": 2356.53,
+      "invalid": false
+    },
+    {
+      "id": "HW-028",
+      "predicted_category": "hardware",
+      "predicted_priority": "high",
+      "latency_ms": 2376.8,
+      "invalid": false
+    },
+    {
+      "id": "HW-035",
+      "predicted_category": "hardware",
+      "predicted_priority": "high",
+      "latency_ms": 2404.57,
+      "invalid": false
+    },
+    {
+      "id": "HW-046",
+      "predicted_category": "hardware",
+      "predicted_priority": "medium",
+      "latency_ms": 2396.76,
+      "invalid": false
+    },
+    {
+      "id": "HW-049",
+      "predicted_category": "hardware",
+      "predicted_priority": "high",
+      "latency_ms": 2423.52,
+      "invalid": false
+    },
+    {
+      "id": "HW-062",
+      "predicted_category": "hardware",
+      "predicted_priority": "high",
+      "latency_ms": 2371.83,
+      "invalid": false
+    },
+    {
+      "id": "HW-064",
+      "predicted_category": "hardware",
+      "predicted_priority": "medium",
+      "latency_ms": 2267.26,
+      "invalid": false
+    },
+    {
+      "id": "HW-068",
+      "predicted_category": "hardware",
+      "predicted_priority": "high",
+      "latency_ms": 2305.72,
+      "invalid": false
+    },
+    {
+      "id": "HW-072",
+      "predicted_category": "hardware",
+      "predicted_priority": "medium",
+      "latency_ms": 2282.27,
+      "invalid": false
+    },
+    {
+      "id": "HW-080",
+      "predicted_category": "hardware",
+      "predicted_priority": "high",
+      "latency_ms": 2442.71,
+      "invalid": false
+    },
+    {
+      "id": "HW-081",
+      "predicted_category": "hardware",
+      "predicted_priority": "high",
+      "latency_ms": 2297.92,
+      "invalid": false
+    },
+    {
+      "id": "HW-083",
+      "predicted_category": "hardware",
+      "predicted_priority": "high",
+      "latency_ms": 2367.73,
+      "invalid": false
+    },
+    {
+      "id": "HW-086",
+      "predicted_category": "hardware",
+      "predicted_priority": "high",
+      "latency_ms": 2440.26,
+      "invalid": false
+    },
+    {
+      "id": "HW-089",
+      "predicted_category": "hardware",
+      "predicted_priority": "low",
+      "latency_ms": 2412.47,
+      "invalid": false
+    },
+    {
+      "id": "HW-091",
+      "predicted_category": "hardware",
+      "predicted_priority": "medium",
+      "latency_ms": 2531.08,
+      "invalid": false
+    },
+    {
+      "id": "HW-095",
+      "predicted_category": "hardware",
+      "predicted_priority": "urgent",
+      "latency_ms": 2477.78,
+      "invalid": false
+    },
+    {
+      "id": "HW-099",
+      "predicted_category": "other",
+      "predicted_priority": "low",
+      "latency_ms": 2289.84,
+      "invalid": false
+    },
+    {
+      "id": "NET-002",
+      "predicted_category": "network",
+      "predicted_priority": "high",
+      "latency_ms": 2430.49,
+      "invalid": false
+    },
+    {
+      "id": "NET-017",
+      "predicted_category": "network",
+      "predicted_priority": "low",
+      "latency_ms": 2422.89,
+      "invalid": false
+    },
+    {
+      "id": "NET-026",
+      "predicted_category": "network",
+      "predicted_priority": "high",
+      "latency_ms": 2434.86,
+      "invalid": false
+    },
+    {
+      "id": "NET-028",
+      "predicted_category": "network",
+      "predicted_priority": "medium",
+      "latency_ms": 2467.58,
+      "invalid": false
+    },
+    {
+      "id": "NET-029",
+      "predicted_category": "network",
+      "predicted_priority": "high",
+      "latency_ms": 2372.93,
+      "invalid": false
+    },
+    {
+      "id": "NET-031",
+      "predicted_category": "network",
+      "predicted_priority": "high",
+      "latency_ms": 2460.9,
+      "invalid": false
+    },
+    {
+      "id": "NET-035",
+      "predicted_category": "network",
+      "predicted_priority": "medium",
+      "latency_ms": 2219.38,
+      "invalid": false
+    },
+    {
+      "id": "NET-038",
+      "predicted_category": "network",
+      "predicted_priority": "medium",
+      "latency_ms": 2369.91,
+      "invalid": false
+    },
+    {
+      "id": "NET-040",
+      "predicted_category": "network",
+      "predicted_priority": "medium",
+      "latency_ms": 2406.72,
+      "invalid": false
+    },
+    {
+      "id": "NET-041",
+      "predicted_category": "network",
+      "predicted_priority": "urgent",
+      "latency_ms": 2441.03,
+      "invalid": false
+    },
+    {
+      "id": "NET-048",
+      "predicted_category": "network",
+      "predicted_priority": "low",
+      "latency_ms": 2357.08,
+      "invalid": false
+    },
+    {
+      "id": "NET-055",
+      "predicted_category": "network",
+      "predicted_priority": "urgent",
+      "latency_ms": 2472.12,
+      "invalid": false
+    },
+    {
+      "id": "NET-060",
+      "predicted_category": "other",
+      "predicted_priority": "medium",
+      "latency_ms": 2418.01,
+      "invalid": false
+    },
+    {
+      "id": "NET-062",
+      "predicted_category": "network",
+      "predicted_priority": "medium",
+      "latency_ms": 2479.7,
+      "invalid": false
+    },
+    {
+      "id": "NET-069",
+      "predicted_category": "network",
+      "predicted_priority": "low",
+      "latency_ms": 2717.84,
+      "invalid": false
+    },
+    {
+      "id": "NET-074",
+      "predicted_category": "network",
+      "predicted_priority": "medium",
+      "latency_ms": 2527.09,
+      "invalid": false
+    },
+    {
+      "id": "NET-082",
+      "predicted_category": "network",
+      "predicted_priority": "medium",
+      "latency_ms": 2476.31,
+      "invalid": false
+    },
+    {
+      "id": "NET-091",
+      "predicted_category": "network",
+      "predicted_priority": "medium",
+      "latency_ms": 2393.78,
+      "invalid": false
+    },
+    {
+      "id": "NET-093",
+      "predicted_category": "network",
+      "predicted_priority": "high",
+      "latency_ms": 2334.1,
+      "invalid": false
+    },
+    {
+      "id": "NET-097",
+      "predicted_category": "network",
+      "predicted_priority": "urgent",
+      "latency_ms": 2511.07,
+      "invalid": false
+    },
+    {
+      "id": "OTH-004",
+      "predicted_category": "network",
+      "predicted_priority": "high",
+      "latency_ms": 2452.95,
+      "invalid": false
+    },
+    {
+      "id": "OTH-007",
+      "predicted_category": "other",
+      "predicted_priority": "low",
+      "latency_ms": 2225.53,
+      "invalid": false
+    },
+    {
+      "id": "OTH-021",
+      "predicted_category": "other",
+      "predicted_priority": "low",
+      "latency_ms": 2323.93,
+      "invalid": false
+    },
+    {
+      "id": "OTH-024",
+      "predicted_category": "hardware",
+      "predicted_priority": "high",
+      "latency_ms": 2335.43,
+      "invalid": false
+    },
+    {
+      "id": "OTH-031",
+      "predicted_category": "hardware",
+      "predicted_priority": "low",
+      "latency_ms": 2312.22,
+      "invalid": false
+    },
+    {
+      "id": "OTH-041",
+      "predicted_category": "other",
+      "predicted_priority": "low",
+      "latency_ms": 2261.03,
+      "invalid": false
+    },
+    {
+      "id": "OTH-042",
+      "predicted_category": "other",
+      "predicted_priority": "medium",
+      "latency_ms": 2210.29,
+      "invalid": false
+    },
+    {
+      "id": "OTH-045",
+      "predicted_category": "network",
+      "predicted_priority": "urgent",
+      "latency_ms": 2265.85,
+      "invalid": false
+    },
+    {
+      "id": "OTH-048",
+      "predicted_category": "other",
+      "predicted_priority": "low",
+      "latency_ms": 2226.54,
+      "invalid": false
+    },
+    {
+      "id": "OTH-056",
+      "predicted_category": "other",
+      "predicted_priority": "urgent",
+      "latency_ms": 2489.59,
+      "invalid": false
+    },
+    {
+      "id": "OTH-066",
+      "predicted_category": "network",
+      "predicted_priority": "urgent",
+      "latency_ms": 2444.79,
+      "invalid": false
+    },
+    {
+      "id": "OTH-072",
+      "predicted_category": "other",
+      "predicted_priority": "medium",
+      "latency_ms": 2247.06,
+      "invalid": false
+    },
+    {
+      "id": "OTH-073",
+      "predicted_category": "other",
+      "predicted_priority": "high",
+      "latency_ms": 2356.53,
+      "invalid": false
+    },
+    {
+      "id": "OTH-077",
+      "predicted_category": "other",
+      "predicted_priority": "low",
+      "latency_ms": 2456.53,
+      "invalid": false
+    },
+    {
+      "id": "OTH-080",
+      "predicted_category": "other",
+      "predicted_priority": "high",
+      "latency_ms": 2370.55,
+      "invalid": false
+    },
+    {
+      "id": "OTH-081",
+      "predicted_category": "other",
+      "predicted_priority": "low",
+      "latency_ms": 2367.43,
+      "invalid": false
+    },
+    {
+      "id": "OTH-083",
+      "predicted_category": "other",
+      "predicted_priority": "low",
+      "latency_ms": 2444.6,
+      "invalid": false
+    },
+    {
+      "id": "OTH-090",
+      "predicted_category": "access",
+      "predicted_priority": "medium",
+      "latency_ms": 2749.31,
+      "invalid": false
+    },
+    {
+      "id": "OTH-092",
+      "predicted_category": "other",
+      "predicted_priority": "high",
+      "latency_ms": 2848.45,
+      "invalid": false
+    },
+    {
+      "id": "OTH-097",
+      "predicted_category": "other",
+      "predicted_priority": "high",
+      "latency_ms": 2532.19,
+      "invalid": false
+    },
+    {
+      "id": "SW-004",
+      "predicted_category": "software",
+      "predicted_priority": "high",
+      "latency_ms": 2514.5,
+      "invalid": false
+    },
+    {
+      "id": "SW-005",
+      "predicted_category": "access",
+      "predicted_priority": "high",
+      "latency_ms": 2505.36,
+      "invalid": false
+    },
+    {
+      "id": "SW-011",
+      "predicted_category": "hardware",
+      "predicted_priority": "medium",
+      "latency_ms": 2423.84,
+      "invalid": false
+    },
+    {
+      "id": "SW-012",
+      "predicted_category": "software",
+      "predicted_priority": "high",
+      "latency_ms": 2427.29,
+      "invalid": false
+    },
+    {
+      "id": "SW-017",
+      "predicted_category": "software",
+      "predicted_priority": "high",
+      "latency_ms": 2480.2,
+      "invalid": false
+    },
+    {
+      "id": "SW-023",
+      "predicted_category": "hardware",
+      "predicted_priority": "medium",
+      "latency_ms": 2361.69,
+      "invalid": false
+    },
+    {
+      "id": "SW-029",
+      "predicted_category": "software",
+      "predicted_priority": "urgent",
+      "latency_ms": 2417.47,
+      "invalid": false
+    },
+    {
+      "id": "SW-030",
+      "predicted_category": "software",
+      "predicted_priority": "medium",
+      "latency_ms": 2468.13,
+      "invalid": false
+    },
+    {
+      "id": "SW-047",
+      "predicted_category": "software",
+      "predicted_priority": "low",
+      "latency_ms": 2455.47,
+      "invalid": false
+    },
+    {
+      "id": "SW-048",
+      "predicted_category": "software",
+      "predicted_priority": "high",
+      "latency_ms": 2528.25,
+      "invalid": false
+    },
+    {
+      "id": "SW-060",
+      "predicted_category": "access",
+      "predicted_priority": "urgent",
+      "latency_ms": 2388.81,
+      "invalid": false
+    },
+    {
+      "id": "SW-068",
+      "predicted_category": "hardware",
+      "predicted_priority": "medium",
+      "latency_ms": 2750.61,
+      "invalid": false
+    },
+    {
+      "id": "SW-069",
+      "predicted_category": "software",
+      "predicted_priority": "medium",
+      "latency_ms": 2356.11,
+      "invalid": false
+    },
+    {
+      "id": "SW-077",
+      "predicted_category": "software",
+      "predicted_priority": "high",
+      "latency_ms": 2415.92,
+      "invalid": false
+    },
+    {
+      "id": "SW-079",
+      "predicted_category": "software",
+      "predicted_priority": "medium",
+      "latency_ms": 2530.69,
+      "invalid": false
+    },
+    {
+      "id": "SW-082",
+      "predicted_category": "software",
+      "predicted_priority": "high",
+      "latency_ms": 2362.38,
+      "invalid": false
+    },
+    {
+      "id": "SW-086",
+      "predicted_category": "software",
+      "predicted_priority": "medium",
+      "latency_ms": 2309.91,
+      "invalid": false
+    },
+    {
+      "id": "SW-091",
+      "predicted_category": "software",
+      "predicted_priority": "low",
+      "latency_ms": 2271.22,
+      "invalid": false
+    },
+    {
+      "id": "SW-094",
+      "predicted_category": "email",
+      "predicted_priority": "high",
+      "latency_ms": 2291.99,
+      "invalid": false
+    },
+    {
+      "id": "SW-096",
+      "predicted_category": "software",
+      "predicted_priority": "low",
+      "latency_ms": 2263.48,
+      "invalid": false
+    }
+  ]
+}
