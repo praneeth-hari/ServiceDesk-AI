@@ -1,12 +1,15 @@
 # ServiceDesk-AI
 
-Role-based IT helpdesk ticketing REST API with business-hours SLA tracking, raw SQL reports, AI triage suggestions, and a Streamlit dashboard.
+Role-based IT helpdesk ticketing application with business-hours SLA tracking, raw SQL reports, AI triage suggestions, and a modern React web UI served directly by FastAPI.
 
 [![CI](https://github.com/praneeth-hari/ServiceDesk-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/praneeth-hari/ServiceDesk-AI/actions/workflows/ci.yml)
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)
+![React](https://img.shields.io/badge/React-19-61DAFB.svg)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg)
+![TailwindCSS](https://img.shields.io/badge/Tailwind-4.0-38B2AC.svg)
 ![MySQL 8](https://img.shields.io/badge/mysql-8.0-4479A1.svg)
-![Tests](https://img.shields.io/badge/tests-181%20collected-brightgreen)
+![Tests](https://img.shields.io/badge/tests-166%20collected-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
@@ -17,11 +20,12 @@ Role-based IT helpdesk ticketing REST API with business-hours SLA tracking, raw 
 | Metric / Dimension | Specification |
 | :--- | :--- |
 | **API Endpoints** | 29 REST endpoints (`/api/v1`) |
-| **Test Suite** | 181 collected tests (177 passed, 4 skipped without MySQL / optional dependencies) |
-| **Code Coverage** | 96% statement coverage (`app`) |
+| **Frontend UI** | Modern single-page app (React 19, TypeScript, Tailwind CSS, Vite) |
+| **Serving Mode** | Unified service: FastAPI serves both the JSON REST API and the built SPA bundle |
+| **Business Hours SLA** | 09:00–18:00 IST Monday–Friday, calendar-aware with holiday pauses |
 | **Database Migrations** | 8 Alembic schema migration versions |
 | **SQL Reports** | 9 raw SQL analytical reports (CTEs, `RANK()` window functions) |
-| **CI Jobs** | 2 GitHub Actions jobs (Pytest & Coverage, MySQL 8 Migrations & Integration) |
+| **CI Jobs** | 3 GitHub Actions jobs (Pytest & Coverage, MySQL 8 Migrations, Web Frontend) |
 
 ---
 
@@ -34,7 +38,6 @@ Role-based IT helpdesk ticketing REST API with business-hours SLA tracking, raw 
 - [AI Triage & Duplicate Detection](#ai-triage--duplicate-detection)
 - [API Overview](#api-overview)
 - [Quick Start](#quick-start)
-- [Web UI (in progress)](#web-ui-in-progress)
 - [Demo Data](#demo-data)
 - [Testing & Quality](#testing--quality)
 - [Design Decisions](#design-decisions)
@@ -51,30 +54,52 @@ Role-based IT helpdesk ticketing REST API with business-hours SLA tracking, raw 
 | :--- | :--- |
 | **Authentication & Roles** | JWT authentication with bcrypt hashing (72-byte limit validation). Three roles: `requester`, `agent`, and `admin`. |
 | **Ticket Workflow** | Enforced state transitions (`open` -> `in_progress` <-> `waiting_on_requester`, `in_progress` -> `resolved` -> `closed`, with reopen). Invalid moves return 409. |
-| **Business-Hours SLA** | SLA calculated strictly within configurable working hours (`WORK_TIMEZONE`, `WORK_DAY_START`, `WORK_DAY_END`, `WORK_DAYS`) and organization holidays. |
+| **Business-Hours SLA** | SLA calculated strictly within operational hours (09:00–18:00 IST, Mon–Fri) and organization holidays. |
 | **Pausable SLA Clock** | Moving to `waiting_on_requester` freezes the SLA clock (`sla_paused_at`); resuming to `in_progress` pushes `due_at` forward by exact elapsed business minutes. |
-| **Holidays Management** | Admin CRUD API for organizational holiday calendars (`/api/v1/holidays`), preventing SLA calculations on non-working dates. |
-| **AI Triage & Duplicates** | Advisory category/priority suggestions via similarity-weighted kNN voting; duplicate detection over active tickets using L2-normalized cosine embeddings; interactive Streamlit dashboard support with on-demand suggestions, duplicate alerts, and staff-only similar ticket discovery. |
-| **Comments & History** | Public comments and staff-only `is_internal` notes. Full status change audit history recorded on state changes. |
+| **Holidays Management** | Admin CRUD API and web management (`/api/v1/holidays`), preventing SLA calculations on non-working dates. |
+| **AI Triage & Duplicates** | Advisory category/priority suggestions via similarity-weighted kNN voting; duplicate detection over active tickets using L2-normalized cosine embeddings; real-time debounced suggestions in the web UI. |
+| **Comments & History** | Public comments and staff-only `is_internal` notes. Full status change audit history recorded on state changes with author attribution. |
 | **Search & Pagination** | Sanitized keyword search (`q`), multi-criteria filtering, multi-field sorting, and offset pagination. |
 | **SQL Reports** | 9 raw SQL reports using aggregations, `LEFT JOIN`, Common Table Expressions (CTEs), and `RANK()` window functions. |
-| **Streamlit Dashboard** | Complete management portal covering tickets list, new ticket AI triage, ticket details with audit trail, holiday calendar management, and KPI analytics. |
+| **Web UI Portal** | Modern React + TypeScript SPA featuring pure-SVG SLA Runway timeline, sortable table, debounced AI triage, rich detail page with activity timeline, and reports charts. |
 
 ---
 
 ## Architecture
 
-The system uses a layered architecture separating transport, business logic, persistence, and presentation.
+ServiceDesk-AI can run as a **single unified service** or in **development mode** with hot reload:
+
+- **Unified / Production Mode**: FastAPI runs on port 8000 and serves both the REST API (`/api/v1/*`, `/docs`, `/redoc`) and the static production build of the React application (`web/dist/`). Client-side SPA routes fallback to `index.html` with `Cache-Control: no-cache` while static assets under `/assets` are cacheable.
+- **Development Mode**: FastAPI runs the backend API on port 8000, while the Vite dev server runs the frontend on port 5173 with hot module replacement (HMR) and proxies API requests to `http://localhost:8000`.
 
 ```mermaid
 flowchart TD
-    Client["Streamlit Dashboard (Port 8501)"] -->|"HTTP / REST (JWT Auth)"| Routes["FastAPI Routes (/api/v1)"]
-    Routes --> Services["Service Layer (Business Logic & Workflows)"]
-    Services --> AI["AI Layer (HashingVectorizer / SBERT Embeddings)"]
-    Services --> Models["SQLAlchemy 2.x Models"]
-    Models --> DB[("MySQL 8 Database")]
-    Alembic["Alembic Migrations (8 Versions)"] -.->|"Schema DDL"| DB
-    CI["GitHub Actions CI"] -.->|"Automated Tests & Migration Check"| Routes
+    subgraph Browser ["Web Browser"]
+        UI["React SPA Client"]
+    end
+
+    subgraph Server ["Unified FastAPI Server (Port 8000)"]
+        SPA["Static Files & SPA Catch-All (web/dist)"]
+        Routes["FastAPI REST Routes (/api/v1)"]
+        Services["Service Layer (Business Logic & Workflows)"]
+        AI["AI Layer (HashingVectorizer / SBERT Embeddings)"]
+        Models["SQLAlchemy 2.x Models"]
+    end
+
+    subgraph Data ["Data & CI"]
+        DB[("MySQL 8 Database")]
+        Alembic["Alembic Migrations (8 Versions)"]
+        CI["GitHub Actions CI"]
+    end
+
+    UI -->|"Page & Assets (/, /assets/*)"| SPA
+    UI -->|"HTTP / REST (JWT Auth)"| Routes
+    Routes --> Services
+    Services --> AI
+    Services --> Models
+    Models --> DB
+    Alembic -.->|"Schema DDL"| DB
+    CI -.->|"Automated Tests & Builds"| Server
 ```
 
 ---
@@ -128,6 +153,7 @@ erDiagram
         datetime sla_paused_at
         datetime created_at
         datetime updated_at
+        datetime resolved_at
     }
 
     holidays {
@@ -230,7 +256,7 @@ All routes are prefixed with `/api/v1`. Interactive documentation is available a
 
 ## Quick Start
 
-Follow these steps to run the API and Streamlit dashboard locally on Windows PowerShell.
+Follow these steps to run ServiceDesk-AI locally on Windows PowerShell.
 
 ### 1. Clone the repository
 
@@ -250,7 +276,6 @@ python -m venv .venv
 
 ```powershell
 pip install -r requirements.txt -r requirements-dev.txt
-pip install -r dashboard/requirements.txt
 ```
 
 > **Optional**: To enable the optional dense semantic embedding backend (`sbert` / `sentence-transformers`), also install:
@@ -273,6 +298,7 @@ Key configuration settings (with default values):
 - `WORK_DAY_START`: Working day operational start time (default: `09:00`)
 - `WORK_DAY_END`: Working day operational end time (default: `18:00`)
 - `WORK_DAYS`: Operational days as JSON list of integers 0=Mon..6=Sun (default: `[0, 1, 2, 3, 4]`)
+- `WEB_DIST_DIR`: Path to built web assets directory (default: `web/dist`)
 
 ### 5. Start MySQL database container
 
@@ -286,71 +312,66 @@ docker compose up -d db
 alembic upgrade head
 ```
 
-### 7. Create an administrator account or populate demo data
+### 7. Populate demo data or create an administrator account
 
-To create an administrator account:
+To populate 36 realistic demo tickets with relative timestamps, audit history, comments, and AI embeddings:
+
+```powershell
+python -m app.scripts.seed_demo --yes
+# or: python scripts/seed_demo.py --yes
+```
+
+To create a separate administrator account:
 
 ```powershell
 python -m app.scripts.create_admin --email admin@example.com --password AdminPassword123! --name "System Admin"
 ```
 
-Or populate realistic demo data across all workflows, reports, and AI triage embeddings:
+### 8. Run the Application
+
+You can run ServiceDesk-AI in either of two modes:
+
+#### Mode A: Unified Production-Style Service (Single Service on Port 8000)
+
+FastAPI serves both the REST API and the built React frontend application from a single process:
 
 ```powershell
-python -m app.scripts.seed_demo --yes
+# Step A1: Build the React web frontend bundle
+cd web
+npm install
+npm run build
+cd ..
+
+# Step A2: Start FastAPI server
+python -m uvicorn app.main:app --port 8000
 ```
 
-### 8. Run the FastAPI backend
+Open [http://localhost:8000](http://localhost:8000) in your browser. Both the web interface and the API (`/api/v1/*`) are served together.
 
-In Terminal 1:
+#### Mode B: Development Mode (Hot Reloading Frontend & Backend)
 
-```powershell
-python -m uvicorn app.main:app --reload --port 8000
-```
-
-### 9. Run the Streamlit dashboard
-
-In a separate PowerShell terminal (Terminal 2):
-
-```powershell
-.venv\Scripts\Activate.ps1
-python -m streamlit run dashboard/app.py
-```
-
-The dashboard will open automatically in your browser at `http://localhost:8501`. For detailed dashboard documentation, see [dashboard/README.md](dashboard/README.md).
-
----
-
-## Web UI (in progress)
-
-A modern React + TypeScript + Tailwind web application (`web/`) is currently in development and will replace the Streamlit dashboard in a later phase. Currently, it supports authentication, the app shell foundation with role-based routing, the Tickets screen (pure-SVG business-hours SLA Runway timeline and sortable table view), the New Ticket screen (real-time debounced AI triage suggestions and duplicate detection), the Ticket Detail screen (merged activity timeline, staff internal notes, reply composer, SLA status and progress countdown, workflow transition actions with confirmation, staff assignment, and similar tickets discovery), and the Reports screen.
-
-To run the Web UI locally:
+For active frontend or backend development:
 
 **Terminal 1 (Backend API):**
 ```powershell
+.venv\Scripts\Activate.ps1
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-**Terminal 2 (Web Frontend):**
+**Terminal 2 (Web Frontend with Vite HMR):**
 ```powershell
 cd web
 npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
-
-**Demo Login:**
-- **Agent**: `agent@example.com` / `AgentPassword123!`
-- **Admin**: `admin@example.com` / `AdminPassword123!`
-- **Requester**: `requester@example.com` / `RequesterPassword123!`
+Open [http://localhost:5173](http://localhost:5173) in your browser (API calls are proxied automatically to `http://localhost:8000`).
 
 ---
 
 ## Demo Data
 
-To populate the database with ~16 realistic demo tickets spread over the last ~10 days with authentic timestamps relative to current time, covering all SLA lifecycle states (on track, at risk, breached, clock paused, resolved within SLA, resolved after breach, and closed), run the demo seed script:
+To populate the database with 36 realistic demo tickets spread across the last 3 weeks with authentic timestamps relative to current time, covering all SLA lifecycle states (on track, at risk, breached, clock paused, resolved within SLA, resolved after breach, and closed), run the demo seed script:
 
 ```powershell
 # 1. Preview what would be created without touching the database
@@ -361,13 +382,13 @@ python -m app.scripts.seed_demo --dry-run
 python -m app.scripts.seed_demo --yes
 # or: python scripts/seed_demo.py --yes
 
-# 3. Wipe demo tickets, comments, and status history (requires --yes confirmation)
+# 3. Wipe demo tickets, comments, status history, and embeddings (requires --yes confirmation)
 python -m app.scripts.seed_demo --wipe-tickets --yes
 # Note: running --wipe-tickets without --yes is safe and only reports what would be deleted
 ```
 
-- **`--dry-run`**: Inspects current calendar and business hours and displays a formatted summary table of all 16 tickets, priorities, categories, SLA states, and comments that would be written, without making any database changes.
-- **`--wipe-tickets`**: Deletes all tickets, comments, and status history rows. For safety, it **requires `--yes`**; omitting `--yes` only prints the count of rows that would be deleted and exits cleanly without modifying the database. It never deletes users or holidays.
+- **`--dry-run`**: Inspects current calendar and business hours (09:00–18:00 IST) and displays a formatted summary table of all 36 tickets, priorities, categories, SLA states, and comments that would be written, without making any database changes.
+- **`--wipe-tickets`**: Deletes all tickets, comments, status history, and embedding rows. For safety, it **requires `--yes`**; omitting `--yes` only prints the count of rows that would be deleted and exits cleanly without modifying the database. It never deletes users or holidays.
 - **`--yes` / `-y`**: Confirms execution of database writes or wipe operations.
 
 ### Demo Accounts
@@ -385,32 +406,43 @@ python -m app.scripts.seed_demo --wipe-tickets --yes
 
 ## Testing & Quality
 
-Run the test suite locally with coverage reporting:
+Run backend tests with coverage reporting:
 
 ```powershell
 pytest --cov=app --cov-report=term-missing --cov-fail-under=85
 ```
 
-GitHub Actions CI runs the full test suite with coverage enforcement and executes MySQL 8 migration checks (`upgrade -> downgrade -> upgrade`) on every push and pull request.
+Run frontend linting, tests, and production build:
+
+```powershell
+cd web
+npm run lint
+npm test
+npm run build
+cd ..
+```
+
+GitHub Actions CI runs the full test suite with coverage enforcement, executes MySQL 8 migration checks (`upgrade -> downgrade -> upgrade`), and builds and tests the React frontend on every push and pull request.
 
 ---
 
 ## Design Decisions
 
+- **Unified Single-Service Deployment**: In production-style operation, FastAPI mounts `web/dist` static assets and serves client-side SPA routes fallback to `index.html` with `Cache-Control: no-cache`, eliminating the need for a separate web server while preventing path traversal and protecting API routes.
 - **404 Instead of 403 for Foreign Tickets**: Requesters attempting to view another user's ticket receive a 404 Not Found rather than 403 Forbidden to prevent ticket ID enumeration.
 - **Requester Identity Bound to JWT**: The `requester_id` is always extracted from the authenticated user token, preventing users from creating tickets on behalf of others.
 - **Service-Layer State Machine**: Status transitions are defined centrally in `app/services/tickets.py` rather than within routes, guaranteeing uniform business rule enforcement.
-- **Business-Hours SLA & Pausable Clock**: SLA deadlines (`due_at`) are calculated strictly during operational business hours, skipping off-hours, weekends, and database-registered holidays. Transitioning a ticket to `waiting_on_requester` pauses the SLA clock by setting `sla_paused_at`, removing it from overdue queries. Returning to `in_progress` computes exact elapsed business minutes and shifts `due_at` forward proportionally.
+- **Business-Hours SLA & Pausable Clock**: SLA deadlines (`due_at`) are calculated strictly during operational business hours (09:00–18:00 IST), skipping off-hours, weekends, and database-registered holidays. Transitioning a ticket to `waiting_on_requester` pauses the SLA clock by setting `sla_paused_at`, removing it from overdue queries. Returning to `in_progress` computes exact elapsed business minutes and shifts `due_at` forward proportionally.
 - **Advisory AI Triage & Privacy**: Category and priority suggestions use similarity-weighted k-Nearest Neighbours over historically resolved tickets. Recommendations never auto-mutate tickets; requesters only see their own tickets in evidence and duplicate candidate lists.
 - **Bcrypt 72-Byte Limit Validation**: Pydantic validators explicitly check the UTF-8 byte length (maximum 72 bytes) before passing passwords to bcrypt, avoiding silent password truncation.
-- **Dual-Engine Test Strategy**: Local unit tests run against fast in-memory SQLite (`sqlite:///:memory:`) for sub-second execution, while CI executes against MySQL 8 to validate SQL window functions and migrations (which caught a real MySQL-only downgrade bug in migration 0002).
+- **Dual-Engine Test Strategy**: Local unit tests run against fast in-memory SQLite (`sqlite:///:memory:`) for sub-second execution, while CI executes against MySQL 8 to validate SQL window functions and migrations.
 - **Correlation Request-ID Logging**: Middleware extracts or generates an `X-Request-ID` stored in `contextvars`, including it in all log entries across the request lifecycle without logging sensitive tokens or passwords.
 
 ---
 
 ## Known Limitations
 
-- **Lexical vs. Semantic AI Triage**: The default `hashing-v2` backend uses sublinear-scaled word n-grams (with stop words removed) and character 3-5 n-grams (dim=4096). On our benchmark dataset, category accuracy reaches 58.33% with 100% suggestion coverage (at threshold 0.12). sbert is supported as an optional pluggable embedder (requirements-ai.txt) but has not been measured on this dataset.
+- **Lexical vs. Semantic AI Triage**: The default `hashing-v2` backend uses sublinear-scaled word n-grams (with stop words removed) and character 3-5 n-grams (dim=4096). On our benchmark dataset, category accuracy reaches 58.33% with 100% suggestion coverage (at threshold 0.12). sbert is supported as an optional pluggable embedder (`requirements-ai.txt`) but requires additional dependencies.
 - **Offset Pagination**: Pagination uses standard SQL `LIMIT` / `OFFSET`, which is straightforward for moderate datasets but less performant on massive tables than keyset pagination.
 - **User Roster Access**: Only admins can list users; agents must input target agent IDs manually when assigning tickets.
 - **No Email Notifications**: Ticket lifecycle events and comments are tracked in database history rather than sending outbound email alerts.
@@ -431,13 +463,11 @@ GitHub Actions CI runs the full test suite with coverage enforcement and execute
 │   ├── schemas/          # Pydantic models for validation and response serialization
 │   ├── scripts/          # Administrative CLI utilities (admin, demo seed, reindex, eval)
 │   └── services/         # Business logic layer (tickets workflow, reports, auth, triage)
-├── dashboard/            # Streamlit web portal client and analytics views
-│   └── views/            # Screen views (login, tickets, new ticket, detail, holidays, reports)
 ├── data/                 # Benchmark evaluation dataset (synthetic helpdesk tickets)
 ├── docs/                 # Documentation assets
-├── tests/                # Automated pytest test suites (181 collected tests)
-│   └── dashboard/        # Dashboard API client, formatting, and smoke tests
-├── web/                  # Web frontend application (React, TypeScript, Vite, Tailwind)
+├── scripts/              # Helper entrypoints (seed_demo.py)
+├── tests/                # Automated pytest test suites (166 collected tests)
+├── web/                  # Web frontend application (React 19, TypeScript, Vite, Tailwind 4)
 ├── docker-compose.yml    # Multi-container orchestration for MySQL 8 and backend
 ├── Dockerfile            # Container build specification for FastAPI app
 ├── LICENSE               # MIT License

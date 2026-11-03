@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 import logging
+from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.routes import auth, health, holidays, reports, tickets, triage, users
@@ -28,18 +30,6 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version=settings.VERSION,
-    lifespan=lifespan,
-)
-
-# Add Request ID and logging middleware
-app.add_middleware(RequestIDLoggingMiddleware)
-
-
-
-@app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     """
     Standardize all HTTP error responses into {"error": {"message": "..."}} format.
@@ -50,7 +40,6 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
     )
 
 
-@app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """
     Standardize request validation errors into {"error": {"message": "..."}} format.
@@ -62,11 +51,110 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-# Include API routers under /api/v1
-app.include_router(health.router, prefix=settings.API_V1_STR)
-app.include_router(auth.router, prefix=settings.API_V1_STR)
-app.include_router(users.router, prefix=settings.API_V1_STR)
-app.include_router(tickets.router, prefix=settings.API_V1_STR)
-app.include_router(holidays.router, prefix=settings.API_V1_STR)
-app.include_router(reports.router, prefix=settings.API_V1_STR)
-app.include_router(triage.router, prefix=settings.API_V1_STR)
+def mount_frontend(app: FastAPI, dist_dir_override: str | None = None) -> None:
+    """
+    Mount the built frontend distribution if WEB_DIST_DIR exists and contains index.html.
+    Serves static assets, index.html at root, and falls back to index.html for client-side routes.
+    Never intercepts /api/*, /docs, /redoc, or /openapi.json.
+    """
+    dist_setting = dist_dir_override if dist_dir_override is not None else settings.WEB_DIST_DIR
+    dist_path = Path(dist_setting)
+    if not dist_path.is_absolute():
+        repo_root = Path(__file__).resolve().parent.parent
+        # Check cwd first, then relative to repo root
+        if not (dist_path.is_dir() and (dist_path / "index.html").is_file()):
+            dist_path = repo_root / dist_setting
+
+    index_file = dist_path / "index.html"
+    if not (dist_path.is_dir() and index_file.is_file()):
+        logger.info("Web dist directory not found or index.html missing at '%s'. Web UI will not be served.", dist_path)
+        return
+
+    logger.info("Serving web UI from '%s'", dist_path)
+
+    # 1. Mount /assets directory if it exists (hashed static bundles)
+    assets_dir = dist_path / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    # 2. Serve index.html at "/" with no-cache
+    @app.get("/", include_in_schema=False)
+    async def serve_root() -> FileResponse:
+        return FileResponse(
+            str(index_file),
+            media_type="text/html",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
+
+    # 3. SPA catch-all for client-side routing & top-level static assets (e.g. favicon.ico, vite.svg)
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa_or_static(full_path: str) -> FileResponse:
+        norm_path = full_path.lstrip("/")
+
+        # Never intercept API, docs, openapi, or redoc paths
+        if (
+            norm_path.startswith("api/")
+            or norm_path == "api"
+            or norm_path.startswith("docs")
+            or norm_path.startswith("redoc")
+            or norm_path == "openapi.json"
+        ):
+            raise StarletteHTTPException(status_code=404, detail="Not Found")
+
+        # Reject path traversal and hidden dotfile attempts immediately
+        if ".." in norm_path or norm_path.startswith(".") or "/." in norm_path or "\\." in norm_path:
+            raise StarletteHTTPException(status_code=404, detail="Not Found")
+
+        # Check if an actual static file exists in dist_path
+        try:
+            target = (dist_path / norm_path).resolve()
+            if not target.is_relative_to(dist_path.resolve()):
+                raise StarletteHTTPException(status_code=404, detail="Not Found")
+            if target.is_file():
+                return FileResponse(str(target))
+        except (ValueError, RuntimeError):
+            raise StarletteHTTPException(status_code=404, detail="Not Found")
+
+        # If a path has a file extension and was not found, return 404 (not an SPA client route)
+        if Path(norm_path).suffix:
+            raise StarletteHTTPException(status_code=404, detail="Not Found")
+
+        # Return index.html for client-side routes (e.g., /tickets/36, /reports)
+        return FileResponse(
+            str(index_file),
+            media_type="text/html",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
+
+
+def create_app(web_dist_dir: str | None = None) -> FastAPI:
+    """Create and configure the FastAPI application."""
+    application = FastAPI(
+        title=settings.PROJECT_NAME,
+        version=settings.VERSION,
+        lifespan=lifespan,
+    )
+
+    # Add Request ID and logging middleware
+    application.add_middleware(RequestIDLoggingMiddleware)
+
+    # Exception handlers
+    application.add_exception_handler(StarletteHTTPException, http_exception_handler)
+    application.add_exception_handler(RequestValidationError, validation_exception_handler)
+
+    # Include API routers under /api/v1
+    application.include_router(health.router, prefix=settings.API_V1_STR)
+    application.include_router(auth.router, prefix=settings.API_V1_STR)
+    application.include_router(users.router, prefix=settings.API_V1_STR)
+    application.include_router(tickets.router, prefix=settings.API_V1_STR)
+    application.include_router(holidays.router, prefix=settings.API_V1_STR)
+    application.include_router(reports.router, prefix=settings.API_V1_STR)
+    application.include_router(triage.router, prefix=settings.API_V1_STR)
+
+    # Mount built frontend
+    mount_frontend(application, dist_dir_override=web_dist_dir)
+
+    return application
+
+
+app = create_app()

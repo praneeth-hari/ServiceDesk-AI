@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     WORK_DAY_END: str = "18:00"
     WORK_DAYS: list[int] = [0, 1, 2, 3, 4]  # Monday=0 to Friday=4
 
+    # Web UI Built Distribution Directory
+    WEB_DIST_DIR: str = "web/dist"
+
     # AI Triage and Duplicate Detection Settings
     AI_EMBEDDER: str = "hashing"
     AI_DUPLICATE_THRESHOLD: float = 0.80

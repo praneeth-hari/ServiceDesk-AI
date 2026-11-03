@@ -182,6 +182,112 @@ def get_demo_ticket_blueprints(
     t16_resolved = add_business_minutes(t16_created, 480, holidays)
     t16_closed = add_business_minutes(t16_resolved, 480, holidays)
 
+    # Historical tickets 17-36 (20 additional historical tickets over the last 3 weeks)
+    # 17. Related to #8 (Network / Urgent - core switch boot loop)
+    t17_created = subtract_business_minutes(now, 3800, holidays)
+    t17_due = calculate_due_at(TicketPriority.URGENT, t17_created, holidays)
+    t17_resolved = add_business_minutes(t17_created, 60, holidays)
+
+    # 18. Related to #4 (Network / High - Tokyo VPN gateway slowness)
+    t18_created = subtract_business_minutes(now, 4000, holidays)
+    t18_due = calculate_due_at(TicketPriority.HIGH, t18_created, holidays)
+    t18_resolved = add_business_minutes(t17_created, 180, holidays)
+
+    # 19. Related to #7 (Access / Urgent - SAML SSO login failure)
+    t19_created = subtract_business_minutes(now, 4200, holidays)
+    t19_due = calculate_due_at(TicketPriority.URGENT, t19_created, holidays)
+    t19_resolved = add_business_minutes(t19_due, 180, holidays) # resolved late
+
+    # 20. Related to #15 (Email / High - Mailbox storage quota)
+    t20_created = subtract_business_minutes(now, 4500, holidays)
+    t20_due = calculate_due_at(TicketPriority.HIGH, t20_created, holidays)
+    t20_resolved = add_business_minutes(t20_created, 240, holidays)
+
+    # 21. Hardware / High - Battery swelling (resolved late)
+    t21_created = subtract_business_minutes(now, 4700, holidays)
+    t21_due = calculate_due_at(TicketPriority.HIGH, t21_created, holidays)
+    t21_resolved = add_business_minutes(t21_due, 120, holidays)
+
+    # 22. Software / Urgent - PostgreSQL connection pool (resolved within SLA)
+    t22_created = subtract_business_minutes(now, 5000, holidays)
+    t22_due = calculate_due_at(TicketPriority.URGENT, t22_created, holidays)
+    t22_resolved = add_business_minutes(t22_created, 90, holidays)
+
+    # 23. Software / Medium - SSL certificate expiration (closed)
+    t23_created = subtract_business_minutes(now, 5200, holidays)
+    t23_due = calculate_due_at(TicketPriority.MEDIUM, t23_created, holidays)
+    t23_resolved = add_business_minutes(t23_created, 300, holidays)
+    t23_closed = add_business_minutes(t23_resolved, 480, holidays)
+
+    # 24. Hardware / Low - Developer workstation setup (resolved within SLA)
+    t24_created = subtract_business_minutes(now, 5400, holidays)
+    t24_due = calculate_due_at(TicketPriority.LOW, t24_created, holidays)
+    t24_resolved = add_business_minutes(t24_created, 600, holidays)
+
+    # 25. Access / Medium - GitHub enterprise invite (resolved late)
+    t25_created = subtract_business_minutes(now, 5700, holidays)
+    t25_due = calculate_due_at(TicketPriority.MEDIUM, t25_created, holidays)
+    t25_resolved = add_business_minutes(t25_due, 180, holidays)
+
+    # 26. Email / Low - Phishing report false alarm (closed)
+    t26_created = subtract_business_minutes(now, 5900, holidays)
+    t26_due = calculate_due_at(TicketPriority.LOW, t26_created, holidays)
+    t26_resolved = add_business_minutes(t26_created, 480, holidays)
+    t26_closed = add_business_minutes(t26_resolved, 300, holidays)
+
+    # 27. Hardware / Medium - Conference room display (resolved within SLA)
+    t27_created = subtract_business_minutes(now, 6200, holidays)
+    t27_due = calculate_due_at(TicketPriority.MEDIUM, t27_created, holidays)
+    t27_resolved = add_business_minutes(t27_created, 240, holidays)
+
+    # 28. Software / High - Kubernetes ingress crashloop (resolved late)
+    t28_created = subtract_business_minutes(now, 6400, holidays)
+    t28_due = calculate_due_at(TicketPriority.HIGH, t28_created, holidays)
+    t28_resolved = add_business_minutes(t28_due, 150, holidays)
+
+    # 29. Other / Medium - Offboarding asset recovery (closed)
+    t29_created = subtract_business_minutes(now, 6700, holidays)
+    t29_due = calculate_due_at(TicketPriority.MEDIUM, t29_created, holidays)
+    t29_resolved = add_business_minutes(t29_created, 360, holidays)
+    t29_closed = add_business_minutes(t29_resolved, 240, holidays)
+
+    # 30. Network / Medium - Wi-Fi roaming disconnects (resolved within SLA)
+    t30_created = subtract_business_minutes(now, 6900, holidays)
+    t30_due = calculate_due_at(TicketPriority.MEDIUM, t30_created, holidays)
+    t30_resolved = add_business_minutes(t30_created, 420, holidays)
+
+    # 31. Access / Low - Jira service desk license (resolved within SLA)
+    t31_created = subtract_business_minutes(now, 7200, holidays)
+    t31_due = calculate_due_at(TicketPriority.LOW, t31_created, holidays)
+    t31_resolved = add_business_minutes(t31_created, 300, holidays)
+
+    # 32. Email / High - DKIM signature validation (resolved late)
+    t32_created = subtract_business_minutes(now, 7400, holidays)
+    t32_due = calculate_due_at(TicketPriority.HIGH, t32_created, holidays)
+    t32_resolved = add_business_minutes(t32_due, 200, holidays)
+
+    # 33. Hardware / Low - Standing desk motor (closed)
+    t33_created = subtract_business_minutes(now, 7600, holidays)
+    t33_due = calculate_due_at(TicketPriority.LOW, t33_created, holidays)
+    t33_resolved = add_business_minutes(t33_created, 360, holidays)
+    t33_closed = add_business_minutes(t33_resolved, 480, holidays)
+
+    # 34. Software / Urgent - Redis memory alert (resolved within SLA)
+    t34_created = subtract_business_minutes(now, 7800, holidays)
+    t34_due = calculate_due_at(TicketPriority.URGENT, t34_created, holidays)
+    t34_resolved = add_business_minutes(t34_created, 60, holidays)
+
+    # 35. Access / High - MFA reset phone replacement (resolved within SLA)
+    t35_created = subtract_business_minutes(now, 8000, holidays)
+    t35_due = calculate_due_at(TicketPriority.HIGH, t35_created, holidays)
+    t35_resolved = add_business_minutes(t35_created, 180, holidays)
+
+    # 36. Hardware / Low - Office printer maintenance (closed)
+    t36_created = subtract_business_minutes(now, 8200, holidays)
+    t36_due = calculate_due_at(TicketPriority.LOW, t36_created, holidays)
+    t36_resolved = add_business_minutes(t36_created, 300, holidays)
+    t36_closed = add_business_minutes(t36_resolved, 300, holidays)
+
     return [
         {
             "num": 1,
@@ -644,6 +750,490 @@ def get_demo_ticket_blueprints(
                     "body": "Closing ticket following user confirmation.",
                     "is_internal": True,
                     "created_at": t16_closed,
+                },
+            ],
+        },
+        {
+            "num": 17,
+            "title": "Core switch boot loop after firmware upgrade in server room B",
+            "description": "Cisco Catalyst core switch in server room B stuck in reboot loop following 17.06 IOS upgrade affecting engineering VLAN.",
+            "category": TicketCategory.NETWORK,
+            "priority": TicketPriority.URGENT,
+            "created_at": t17_created,
+            "due_at": t17_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t17_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved within SLA",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Connected console rollover cable. Boot flash contained corrupted microcode binary.",
+                    "is_internal": True,
+                    "created_at": t17_created + timedelta(minutes=20),
+                },
+                {
+                    "author": "agent@example.com",
+                    "body": "Restored golden IOS release image via TFTP and verified STP convergence.",
+                    "is_internal": False,
+                    "created_at": t17_resolved,
+                },
+            ],
+        },
+        {
+            "num": 18,
+            "title": "High latency and packet loss on Tokyo VPN gateway",
+            "description": "Tokyo VPN gateway tunnel degradation and packet loss affecting APAC remote staff accessing code repositories.",
+            "category": TicketCategory.NETWORK,
+            "priority": TicketPriority.HIGH,
+            "created_at": t18_created,
+            "due_at": t18_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t18_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved within SLA",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Upstream NTT transit provider reported underwater fiber cut near Okinawa.",
+                    "is_internal": True,
+                    "created_at": t18_created + timedelta(minutes=45),
+                },
+                {
+                    "author": "agent@example.com",
+                    "body": "Rerouted IPsec tunnel traffic via secondary Osaka peering gateway.",
+                    "is_internal": False,
+                    "created_at": t18_resolved,
+                },
+            ],
+        },
+        {
+            "num": 19,
+            "title": "SAML SSO authentication failure on NetSuite financial portal",
+            "description": "Finance users receiving SAML response status invalid on NetSuite SSO login via Okta identity provider.",
+            "category": TicketCategory.ACCESS,
+            "priority": TicketPriority.URGENT,
+            "created_at": t19_created,
+            "due_at": t19_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t19_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved late",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Okta signing certificate rotated automatically without updating NetSuite metadata.",
+                    "is_internal": True,
+                    "created_at": t19_created + timedelta(minutes=30),
+                },
+                {
+                    "author": "agent@example.com",
+                    "body": "Manually uploaded SHA256 X.509 certificate to NetSuite SAML setup.",
+                    "is_internal": False,
+                    "created_at": t19_resolved,
+                },
+            ],
+        },
+        {
+            "num": 20,
+            "title": "Mailbox storage quota exceeded for VP of Engineering",
+            "description": "Executive mailbox reached capacity limit with bouncing calendar invitations and attachments.",
+            "category": TicketCategory.EMAIL,
+            "priority": TicketPriority.HIGH,
+            "created_at": t20_created,
+            "due_at": t20_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t20_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved within SLA",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Provisioned Exchange Online Plan 2 license with 100GB mailbox quota.",
+                    "is_internal": False,
+                    "created_at": t20_resolved,
+                },
+            ],
+        },
+        {
+            "num": 21,
+            "title": "MacBook Pro battery swelling and trackpad bulge",
+            "description": "Developer laptop battery expanding, causing trackpad click mechanism to fail.",
+            "category": TicketCategory.HARDWARE,
+            "priority": TicketPriority.HIGH,
+            "created_at": t21_created,
+            "due_at": t21_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t21_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved late",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Safety hazard flagged. Swapped user to loaner laptop and sent unit to Apple Authorized repair.",
+                    "is_internal": False,
+                    "created_at": t21_resolved,
+                },
+            ],
+        },
+        {
+            "num": 22,
+            "title": "Production PostgreSQL connection pool exhaustion",
+            "description": "PgBouncer pool saturated with idle connections during payment processing batch.",
+            "category": TicketCategory.SOFTWARE,
+            "priority": TicketPriority.URGENT,
+            "created_at": t22_created,
+            "due_at": t22_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t22_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved within SLA",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Terminated orphaned backend transactions and increased max_client_conn parameter.",
+                    "is_internal": False,
+                    "created_at": t22_resolved,
+                },
+            ],
+        },
+        {
+            "num": 23,
+            "title": "SSL certificate expiration on internal wiki documentation",
+            "description": "Let's Encrypt renewal hook failed on Confluence internal wiki host.",
+            "category": TicketCategory.SOFTWARE,
+            "priority": TicketPriority.MEDIUM,
+            "created_at": t23_created,
+            "due_at": t23_due,
+            "status": TicketStatus.CLOSED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t23_resolved,
+            "closed_at": t23_closed,
+            "expected_state": "Closed",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Fixed certbot route53 credentials and reloaded nginx proxy.",
+                    "is_internal": False,
+                    "created_at": t23_resolved,
+                },
+                {
+                    "author": "admin@example.com",
+                    "body": "Verified HTTPS padlock and closed ticket.",
+                    "is_internal": True,
+                    "created_at": t23_closed,
+                },
+            ],
+        },
+        {
+            "num": 24,
+            "title": "New hire developer workstation provisioning for QA team",
+            "description": "Need standard Ubuntu workstation setup with Docker, VS Code, and VPN credentials.",
+            "category": TicketCategory.HARDWARE,
+            "priority": TicketPriority.LOW,
+            "created_at": t24_created,
+            "due_at": t24_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t24_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved within SLA",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Dell Precision workstation imaged via PXE boot and placed on QA desk 8.",
+                    "is_internal": False,
+                    "created_at": t24_resolved,
+                },
+            ],
+        },
+        {
+            "num": 25,
+            "title": "GitHub enterprise organization invite not received",
+            "description": "Contractor cannot accept invitation to private repositories for frontend project.",
+            "category": TicketCategory.ACCESS,
+            "priority": TicketPriority.MEDIUM,
+            "created_at": t25_created,
+            "due_at": t25_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t25_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved late",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Resent invitation to verified corporate email and verified 2FA compliance.",
+                    "is_internal": False,
+                    "created_at": t25_resolved,
+                },
+            ],
+        },
+        {
+            "num": 26,
+            "title": "Phishing simulation email report false alarm",
+            "description": "Security team annual awareness campaign caught multiple employees reporting real newsletter.",
+            "category": TicketCategory.EMAIL,
+            "priority": TicketPriority.LOW,
+            "created_at": t26_created,
+            "due_at": t26_due,
+            "status": TicketStatus.CLOSED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t26_resolved,
+            "closed_at": t26_closed,
+            "expected_state": "Closed",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Confirmed message was legitimate marketing update. Whitelisted sender in Proofpoint.",
+                    "is_internal": False,
+                    "created_at": t26_resolved,
+                },
+            ],
+        },
+        {
+            "num": 27,
+            "title": "Conference room display audio distorted during all-hands",
+            "description": "HDMI and Polycom ceiling mic echoing in 5th floor boardroom.",
+            "category": TicketCategory.HARDWARE,
+            "priority": TicketPriority.MEDIUM,
+            "created_at": t27_created,
+            "due_at": t27_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t27_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved within SLA",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Rebooted DSP audio mixer and updated firmware on Zoom Room controller.",
+                    "is_internal": False,
+                    "created_at": t27_resolved,
+                },
+            ],
+        },
+        {
+            "num": 28,
+            "title": "Kubernetes pod crashloop backoff on staging ingress",
+            "description": "Nginx ingress controller crashing after cert-manager configmap schema change.",
+            "category": TicketCategory.SOFTWARE,
+            "priority": TicketPriority.HIGH,
+            "created_at": t28_created,
+            "due_at": t28_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t28_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved late",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Rolled back ingress-nginx Helm release to v1.9.4 and restored staging traffic.",
+                    "is_internal": False,
+                    "created_at": t28_resolved,
+                },
+            ],
+        },
+        {
+            "num": 29,
+            "title": "Offboarding asset recovery and account suspension",
+            "description": "Employee departure checklist: revoke Google Workspace, AWS IAM, and retrieve badge.",
+            "category": TicketCategory.OTHER,
+            "priority": TicketPriority.MEDIUM,
+            "created_at": t29_created,
+            "due_at": t29_due,
+            "status": TicketStatus.CLOSED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t29_resolved,
+            "closed_at": t29_closed,
+            "expected_state": "Closed",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "All accounts deprovisioned and security keys retrieved.",
+                    "is_internal": True,
+                    "created_at": t29_resolved,
+                },
+            ],
+        },
+        {
+            "num": 30,
+            "title": "Wi-Fi roaming disconnects between 3rd and 4th floors",
+            "description": "Aruba AP handover failure drops Slack calls while walking between buildings.",
+            "category": TicketCategory.NETWORK,
+            "priority": TicketPriority.MEDIUM,
+            "created_at": t30_created,
+            "due_at": t30_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t30_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved within SLA",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Adjusted 802.11k/r neighbor report thresholds and 5GHz transmit power on stairwell APs.",
+                    "is_internal": False,
+                    "created_at": t30_resolved,
+                },
+            ],
+        },
+        {
+            "num": 31,
+            "title": "Jira software service desk license allocation",
+            "description": "Need agent seat assigned to new Tier 2 support engineer joining next Monday.",
+            "category": TicketCategory.ACCESS,
+            "priority": TicketPriority.LOW,
+            "created_at": t31_created,
+            "due_at": t31_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t31_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved within SLA",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Allocated Atlassian Access license and assigned to Service Desk Agents group.",
+                    "is_internal": False,
+                    "created_at": t31_resolved,
+                },
+            ],
+        },
+        {
+            "num": 32,
+            "title": "DKIM signature validation failure on transactional emails",
+            "description": "SendGrid transactional receipts failing DMARC alignment due to selector rotation.",
+            "category": TicketCategory.EMAIL,
+            "priority": TicketPriority.HIGH,
+            "created_at": t32_created,
+            "due_at": t32_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t32_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved late",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Published CNAME record for new s1 selector in Cloudflare DNS.",
+                    "is_internal": False,
+                    "created_at": t32_resolved,
+                },
+            ],
+        },
+        {
+            "num": 33,
+            "title": "Standing desk motor unresponsive on workstation 12C",
+            "description": "Height adjustable desk stuck at maximum height with error code E08.",
+            "category": TicketCategory.HARDWARE,
+            "priority": TicketPriority.LOW,
+            "created_at": t33_created,
+            "due_at": t33_due,
+            "status": TicketStatus.CLOSED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t33_resolved,
+            "closed_at": t33_closed,
+            "expected_state": "Closed",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Performed manual reset sequence (hold down for 10s). Desk operating smoothly.",
+                    "is_internal": False,
+                    "created_at": t33_resolved,
+                },
+            ],
+        },
+        {
+            "num": 34,
+            "title": "Redis cluster high memory fragmentation alert",
+            "description": "Session store Redis node 3 memory usage exceeded 90% threshold during flash sale.",
+            "category": TicketCategory.SOFTWARE,
+            "priority": TicketPriority.URGENT,
+            "created_at": t34_created,
+            "due_at": t34_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t34_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved within SLA",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Enabled active defragmentation and flushed expired session keys.",
+                    "is_internal": False,
+                    "created_at": t34_resolved,
+                },
+            ],
+        },
+        {
+            "num": 35,
+            "title": "Multi-factor authentication reset for mobile phone replacement",
+            "description": "Employee got new phone and lost Google Authenticator seeds for corporate Google account.",
+            "category": TicketCategory.ACCESS,
+            "priority": TicketPriority.HIGH,
+            "created_at": t35_created,
+            "due_at": t35_due,
+            "status": TicketStatus.RESOLVED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t35_resolved,
+            "closed_at": None,
+            "expected_state": "Resolved within SLA",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Verified identity via manager Zoom video call and issued temporary 2FA backup codes.",
+                    "is_internal": False,
+                    "created_at": t35_resolved,
+                },
+            ],
+        },
+        {
+            "num": 36,
+            "title": "Office printer toner replacement and paper jam error",
+            "description": "Floor 2 HP LaserJet Enterprise showing maintenance kit required and error 13.00.",
+            "category": TicketCategory.HARDWARE,
+            "priority": TicketPriority.LOW,
+            "created_at": t36_created,
+            "due_at": t36_due,
+            "status": TicketStatus.CLOSED,
+            "assign_to_agent": True,
+            "sla_paused_at": None,
+            "resolved_at": t36_resolved,
+            "closed_at": t36_closed,
+            "expected_state": "Closed",
+            "comments": [
+                {
+                    "author": "agent@example.com",
+                    "body": "Cleared accordion paper jam in fuser unit and installed fresh high-yield black toner cartridge.",
+                    "is_internal": False,
+                    "created_at": t36_resolved,
                 },
             ],
         },
