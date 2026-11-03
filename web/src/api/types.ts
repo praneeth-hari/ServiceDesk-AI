@@ -52,6 +52,7 @@ export interface Ticket {
   assignee_name: string | null;
   due_at: string | null;
   sla_paused_at: string | null;
+  resolved_at?: string | null;
   created_at: string;
   updated_at: string;
   is_overdue: boolean;
@@ -88,6 +89,7 @@ export interface Comment {
   id: number;
   ticket_id: number;
   author_id: number;
+  author_name?: string | null;
   body: string;
   is_internal: boolean;
   created_at: string;
@@ -102,6 +104,7 @@ export interface StatusHistory {
   id: number;
   ticket_id: number;
   changed_by_id: number | null;
+  actor_name?: string | null;
   from_status: TicketStatus | null;
   to_status: TicketStatus;
   created_at: string;

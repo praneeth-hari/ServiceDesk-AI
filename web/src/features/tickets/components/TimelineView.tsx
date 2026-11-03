@@ -9,7 +9,7 @@ import {
   formatDurationShort,
   computeBusinessMinutesRemaining,
 } from '../businessTime';
-import { classifyTicketSla, type SlaInfo } from '../slaState';
+import { classifyTicketSla, sortTicketsDefault, type SlaInfo } from '../slaState';
 import {
   DEFAULT_DAY_WIDTH,
   DEFAULT_WEEKEND_WIDTH,
@@ -43,7 +43,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tickets, isStaff }) 
   const HEADER_HEIGHT = 48;
   const ROW_HEIGHT = 54;
   const totalSvgWidth = LABEL_WIDTH + windowData.totalWidth;
-  const totalSvgHeight = HEADER_HEIGHT + Math.max(1, tickets.length) * ROW_HEIGHT + 16;
+  const sortedTickets = sortTicketsDefault(tickets);
+  const totalSvgHeight = HEADER_HEIGHT + Math.max(1, sortedTickets.length) * ROW_HEIGHT + 16;
 
   // Window shift helpers
   const handlePrev = () => {
@@ -254,7 +255,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tickets, isStaff }) 
           })}
 
           {/* Ticket Rows */}
-          {tickets.length === 0 ? (
+          {sortedTickets.length === 0 ? (
             <text
               x={LABEL_WIDTH + windowData.totalWidth / 2}
               y={HEADER_HEIGHT + 40}
@@ -265,7 +266,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tickets, isStaff }) 
               No tickets to display in this range
             </text>
           ) : (
-            tickets.map((ticket, index) => {
+            sortedTickets.map((ticket, index) => {
               const rowY = HEADER_HEIGHT + index * ROW_HEIGHT;
               const isEven = index % 2 === 0;
               const sla = classifyTicketSla(ticket, now);
@@ -273,7 +274,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tickets, isStaff }) 
               const createdTime = new Date(ticket.created_at).getTime();
               const dueTime = ticket.due_at ? new Date(ticket.due_at).getTime() : null;
               const isResolved = ticket.status === 'resolved' || ticket.status === 'closed';
-              const resolvedTime = isResolved ? new Date(ticket.updated_at).getTime() : null;
+              const resolvedTime = isResolved ? (ticket.resolved_at ? new Date(ticket.resolved_at).getTime() : new Date(ticket.updated_at).getTime()) : null;
               const isPaused = ticket.status === 'waiting_on_requester' || ticket.sla_paused_at !== null;
               const pausedTime = ticket.sla_paused_at ? new Date(ticket.sla_paused_at).getTime() : null;
 
@@ -508,7 +509,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tickets, isStaff }) 
                       fontSize="11"
                       fontStyle="italic"
                     >
-                      resolved {formatKolkataShortDate(ticket.updated_at)}
+                      resolved {formatKolkataShortDate(ticket.resolved_at || ticket.updated_at)}
                     </text>
                   )}
 

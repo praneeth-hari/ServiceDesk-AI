@@ -32,6 +32,7 @@ import {
   formatKolkataDetailTime,
   formatKolkataDueTime,
   getAllowedActions,
+  formatStatusLabel,
 } from './ticketDetailHelpers';
 
 export const TicketDetailPage: React.FC = () => {
@@ -427,7 +428,7 @@ export const TicketDetailPage: React.FC = () => {
                 timelineItems.map((item) => {
                   if (item.kind === 'history') {
                     const h = item.history;
-                    const actorName = resolveActorName(h.changed_by_id, ticket, user?.id);
+                    const actorName = resolveActorName(h.changed_by_id, ticket, user?.id, h.actor_name);
                     const isCreation = h.from_status === null;
 
                     return (
@@ -441,7 +442,7 @@ export const TicketDetailPage: React.FC = () => {
                             <span className="font-medium text-ink">Ticket created</span>
                           ) : (
                             <span className="font-medium text-ink">
-                              {h.from_status} &rarr; {h.to_status}
+                              {formatStatusLabel(h.from_status)} &rarr; {formatStatusLabel(h.to_status)}
                             </span>
                           )}
                           <span>by</span>
@@ -456,7 +457,7 @@ export const TicketDetailPage: React.FC = () => {
                   }
 
                   const c = item.comment;
-                  const authorName = resolveActorName(c.author_id, ticket, user?.id);
+                  const authorName = resolveActorName(c.author_id, ticket, user?.id, c.author_name);
 
                   if (c.is_internal) {
                     return (
@@ -788,37 +789,41 @@ export const TicketDetailPage: React.FC = () => {
           )}
 
           {/* 4. Similar Tickets Card (Staff Only) */}
-          {isStaff && similarTickets.length > 0 && (
+          {isStaff && (
             <div className="bg-paper border border-line rounded-lg p-5 flex flex-col gap-3 shadow-xs">
               <h2 className="text-xs font-mono uppercase tracking-wider text-muted font-semibold">
                 Similar tickets
               </h2>
-              <div className="flex flex-col divide-y divide-line">
-                {similarTickets.map((sim) => (
-                  <div key={sim.id} className="py-2.5 first:pt-0 last:pb-0 flex flex-col gap-1.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <Link
-                        to={`/tickets/${sim.id}`}
-                        className="text-xs font-medium text-ink hover:text-teal line-clamp-1 transition-colors"
-                      >
-                        #{sim.id} {sim.title}
-                      </Link>
-                      <StatusBadge status={sim.status} className="shrink-0 text-[10px]" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-full bg-paper3 rounded-full h-1 overflow-hidden flex-1">
-                        <div
-                          className="h-full bg-teal"
-                          style={{ width: `${Math.round(sim.similarity * 100)}%` }}
-                        />
+              {similarTickets.length > 0 ? (
+                <div className="flex flex-col divide-y divide-line">
+                  {similarTickets.map((sim) => (
+                    <div key={sim.id} className="py-2.5 first:pt-0 last:pb-0 flex flex-col gap-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <Link
+                          to={`/tickets/${sim.id}`}
+                          className="text-xs font-medium text-ink hover:text-teal line-clamp-1 transition-colors"
+                        >
+                          #{sim.id} {sim.title}
+                        </Link>
+                        <StatusBadge status={sim.status} className="shrink-0 text-[10px]" />
                       </div>
-                      <span className="text-[10px] font-mono text-muted shrink-0">
-                        {Math.round(sim.similarity * 100)}%
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-full bg-paper3 rounded-full h-1 overflow-hidden flex-1">
+                          <div
+                            className="h-full bg-teal"
+                            style={{ width: `${Math.round(sim.similarity * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-mono text-muted shrink-0">
+                          {Math.round(sim.similarity * 100)}%
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted">No similar tickets yet</p>
+              )}
             </div>
           )}
         </div>

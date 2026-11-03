@@ -42,3 +42,7 @@ class TicketStatusHistory(Base):
     # Relationships
     ticket: Mapped["Ticket"] = relationship("Ticket", back_populates="status_history")
     changed_by: Mapped[Optional["User"]] = relationship("User")
+
+    @property
+    def actor_name(self) -> Optional[str]:
+        return self.changed_by.full_name if self.changed_by else None
