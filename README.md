@@ -323,7 +323,7 @@ The dashboard will open automatically in your browser at `http://localhost:8501`
 
 ## Web UI (in progress)
 
-A modern React + TypeScript + Tailwind web application (`web/`) is currently in development and will replace the Streamlit dashboard in a later phase. Currently, it supports authentication, the app shell foundation with role-based routing, the Tickets screen (pure-SVG business-hours SLA Runway timeline and sortable table view), the New Ticket screen (real-time debounced AI triage suggestions and duplicate detection), and the Ticket Detail screen (merged activity timeline, staff internal notes, reply composer, SLA status and progress countdown, workflow transition actions with confirmation, staff assignment, and similar tickets discovery).
+A modern React + TypeScript + Tailwind web application (`web/`) is currently in development and will replace the Streamlit dashboard in a later phase. Currently, it supports authentication, the app shell foundation with role-based routing, the Tickets screen (pure-SVG business-hours SLA Runway timeline and sortable table view), the New Ticket screen (real-time debounced AI triage suggestions and duplicate detection), the Ticket Detail screen (merged activity timeline, staff internal notes, reply composer, SLA status and progress countdown, workflow transition actions with confirmation, staff assignment, and similar tickets discovery), and the Reports screen.
 
 To run the Web UI locally:
 
