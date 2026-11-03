@@ -27,21 +27,29 @@ export interface TimelineWindow {
 }
 
 /**
- * Returns a Date object where getUTC* methods correspond to Asia/Kolkata local wall-clock components.
+ * Normalizes an input (Date, string, number) to a Date parsed as UTC.
+ * Specifically treats naive ISO strings without timezone offsets (e.g. "YYYY-MM-DDTHH:MM:SS")
+ * as UTC so local browser timezones do not skew server UTC timestamps.
  */
-export function toKolkataWallClock(input: Date | string | number): Date {
-  let d: Date;
+export function parseToUtcDate(input: Date | string | number): Date {
   if (typeof input === 'string') {
     let str = input.trim();
     if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(str)) {
       str = str.replace(' ', 'T') + 'Z';
     }
-    d = new Date(str);
-  } else if (typeof input === 'object') {
-    d = input;
-  } else {
-    d = new Date(input);
+    return new Date(str);
   }
+  if (typeof input === 'object' && input instanceof Date) {
+    return input;
+  }
+  return new Date(input);
+}
+
+/**
+ * Returns a Date object where getUTC* methods correspond to Asia/Kolkata local wall-clock components.
+ */
+export function toKolkataWallClock(input: Date | string | number): Date {
+  const d = parseToUtcDate(input);
   const utcMs = d.getTime();
   return new Date(utcMs + WORK_TZ_OFFSET_MINUTES * 60 * 1000);
 }
@@ -74,8 +82,8 @@ export function computeBusinessMinutesBetween(
   startInput: Date | string | number,
   endInput: Date | string | number
 ): number {
-  const start = typeof startInput === 'object' ? startInput : new Date(startInput);
-  const end = typeof endInput === 'object' ? endInput : new Date(endInput);
+  const start = parseToUtcDate(startInput);
+  const end = parseToUtcDate(endInput);
 
   if (end.getTime() <= start.getTime()) {
     return 0;
@@ -137,8 +145,8 @@ export function computeBusinessMinutesRemaining(
   nowInput: Date | string | number = new Date()
 ): number {
   if (!dueAtInput) return 0;
-  const due = typeof dueAtInput === 'object' ? dueAtInput : new Date(dueAtInput);
-  const now = typeof nowInput === 'object' ? nowInput : new Date(nowInput);
+  const due = parseToUtcDate(dueAtInput);
+  const now = parseToUtcDate(nowInput);
 
   if (now.getTime() <= due.getTime()) {
     return computeBusinessMinutesBetween(now, due);
