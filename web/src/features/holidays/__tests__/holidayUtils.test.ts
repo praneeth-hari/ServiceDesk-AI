@@ -57,9 +57,11 @@ describe('holidayUtils', () => {
   });
 
   describe('formatDateDisplay', () => {
-    it('formats date cleanly into Month Day, Year', () => {
+    it('formats date cleanly into Month Day, Year without zero-padded day', () => {
       expect(formatDateDisplay('2026-01-26')).toBe('Jan 26, 2026');
       expect(formatDateDisplay('2026-08-15')).toBe('Aug 15, 2026');
+      expect(formatDateDisplay('2026-10-02')).toBe('Oct 2, 2026');
+      expect(formatDateDisplay('2026-01-05')).toBe('Jan 5, 2026');
       expect(formatDateDisplay('2026-12-31')).toBe('Dec 31, 2026');
     });
   });
@@ -103,4 +105,3 @@ describe('holidayUtils', () => {
     });
   });
 });
-

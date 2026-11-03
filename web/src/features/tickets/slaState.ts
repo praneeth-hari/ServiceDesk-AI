@@ -31,13 +31,16 @@ export function classifyTicketSla(ticket: Ticket, nowInput: Date | string | numb
 
   const createdTime = new Date(ticket.created_at).getTime();
   const dueTime = ticket.due_at ? new Date(ticket.due_at).getTime() : null;
-  const updatedTime = new Date(ticket.updated_at).getTime();
+  const resolvedOrUpdatedTime = ticket.resolved_at
+    ? new Date(ticket.resolved_at).getTime()
+    : new Date(ticket.updated_at).getTime();
 
   // If resolved or closed
   if (isResolvedOrClosed) {
-    // Backend doesn't have resolved_at; updated_at represents status transition to resolved/closed.
-    // Check if updated_at was past due_at
-    const wasOverdue = dueTime !== null && (updatedTime > dueTime || (ticket.is_overdue && !ticket.due_at));
+    // Prefer resolved_at over updated_at when determining whether a ticket was resolved within SLA
+    const wasOverdue =
+      dueTime !== null &&
+      (resolvedOrUpdatedTime > dueTime || (ticket.is_overdue && !ticket.due_at));
     if (wasOverdue) {
       return {
         category: 'resolvedLate',
@@ -150,3 +153,56 @@ export function classifyTicketSla(ticket: Ticket, nowInput: Date | string | numb
   };
 }
 
+/**
+ * Default sort order for tickets:
+ * 1. Active tickets first, by severity: breached (0), at risk (1), paused (2), on track (3).
+ *    Within each severity group: most overdue or soonest due first (due_at ascending).
+ * 2. Resolved and closed tickets last (rank 4), newest resolved first (descending by resolved_at || updated_at).
+ */
+export function sortTicketsDefault(
+  tickets: Ticket[],
+  nowInput: Date | string | number = new Date()
+): Ticket[] {
+  const getSeverityRank = (ticket: Ticket): number => {
+    const isResolvedOrClosed = ticket.status === 'resolved' || ticket.status === 'closed';
+    if (isResolvedOrClosed) return 4;
+    const sla = classifyTicketSla(ticket, nowInput);
+    switch (sla.category) {
+      case 'breached':
+        return 0;
+      case 'atRisk':
+        return 1;
+      case 'paused':
+        return 2;
+      case 'onTrack':
+      default:
+        return 3;
+    }
+  };
+
+  return [...tickets].sort((a, b) => {
+    const rankA = getSeverityRank(a);
+    const rankB = getSeverityRank(b);
+
+    if (rankA !== rankB) {
+      return rankA - rankB;
+    }
+
+    // Both are resolved or closed
+    if (rankA === 4) {
+      const timeA = new Date(a.resolved_at || a.updated_at).getTime();
+      const timeB = new Date(b.resolved_at || b.updated_at).getTime();
+      return timeB - timeA;
+    }
+
+    // Both are active within the same severity group:
+    // most overdue or soonest due first (due_at ascending)
+    const dueA = a.due_at ? new Date(a.due_at).getTime() : Infinity;
+    const dueB = b.due_at ? new Date(b.due_at).getTime() : Infinity;
+    if (dueA !== dueB) {
+      return dueA - dueB;
+    }
+
+    return a.id - b.id;
+  });
+}

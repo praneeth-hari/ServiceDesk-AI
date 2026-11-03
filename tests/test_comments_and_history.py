@@ -333,3 +333,91 @@ def test_other_requester_gets_404_on_comments_and_history(
     )
     assert get_history_res.status_code == 404
     assert get_history_res.json()["error"]["message"] == "Ticket not found"
+
+
+def test_author_name_and_actor_name_fields(
+    client: TestClient,
+    requester_user: User,
+    agent_user: User,
+    admin_user: User,
+    requester_auth_headers: dict[str, str],
+    agent_auth_headers: dict[str, str],
+    admin_auth_headers: dict[str, str],
+):
+    """Test author_name in comments and actor_name in history without leaking email or password."""
+    # 1. Create ticket by requester
+    ticket_id = client.post(
+        "/api/v1/tickets",
+        json={"title": "Names Test Ticket", "description": "Verify author/actor names"},
+        headers=requester_auth_headers,
+    ).json()["id"]
+
+    # 2. Add public comment by requester
+    c1_res = client.post(
+        f"/api/v1/tickets/{ticket_id}/comments",
+        headers=requester_auth_headers,
+        json={"body": "Requester comment"},
+    )
+    assert c1_res.status_code == 201
+    assert c1_res.json()["author_name"] == requester_user.full_name
+    assert "email" not in c1_res.json()
+
+    # 3. Add public comment and internal note by agent
+    c2_res = client.post(
+        f"/api/v1/tickets/{ticket_id}/comments",
+        headers=agent_auth_headers,
+        json={"body": "Agent public reply", "is_internal": False},
+    )
+    assert c2_res.status_code == 201
+    assert c2_res.json()["author_name"] == agent_user.full_name
+    assert "email" not in c2_res.json()
+
+    c3_res = client.post(
+        f"/api/v1/tickets/{ticket_id}/comments",
+        headers=agent_auth_headers,
+        json={"body": "Agent internal note", "is_internal": True},
+    )
+    assert c3_res.status_code == 201
+    assert c3_res.json()["author_name"] == agent_user.full_name
+
+    # 4. Status transitions by agent and admin
+    client.patch(
+        f"/api/v1/tickets/{ticket_id}/status",
+        headers=agent_auth_headers,
+        json={"status": "in_progress"},
+    )
+    client.patch(
+        f"/api/v1/tickets/{ticket_id}/status",
+        headers=agent_auth_headers,
+        json={"status": "resolved"},
+    )
+    client.patch(
+        f"/api/v1/tickets/{ticket_id}/status",
+        headers=admin_auth_headers,
+        json={"status": "closed"},
+    )
+
+    # 5. Check requester view of comments: only public, with author_name, no email
+    req_comments = client.get(f"/api/v1/tickets/{ticket_id}/comments", headers=requester_auth_headers).json()
+    assert len(req_comments) == 2
+    for c in req_comments:
+        assert c["author_name"] in (requester_user.full_name, agent_user.full_name)
+        assert "email" not in c
+
+    # 6. Check staff view of comments: includes internal, with author_name
+    agent_comments = client.get(f"/api/v1/tickets/{ticket_id}/comments", headers=agent_auth_headers).json()
+    assert len(agent_comments) == 3
+    for c in agent_comments:
+        assert c["author_name"] in (requester_user.full_name, agent_user.full_name)
+        assert "email" not in c
+
+    # 7. Check history: actor_name populated for requester, agent, and admin
+    history_items = client.get(f"/api/v1/tickets/{ticket_id}/history", headers=requester_auth_headers).json()
+    # 4 entries: None->open (requester), open->in_progress (agent), in_progress->resolved (agent), resolved->closed (admin)
+    assert len(history_items) == 4
+    assert history_items[0]["actor_name"] == requester_user.full_name
+    assert history_items[1]["actor_name"] == agent_user.full_name
+    assert history_items[2]["actor_name"] == agent_user.full_name
+    assert history_items[3]["actor_name"] == admin_user.full_name
+    for h in history_items:
+        assert "email" not in h
