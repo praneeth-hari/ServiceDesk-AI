@@ -1,5 +1,5 @@
 """
-Unit tests for the ServiceDesk500 dataset pipeline and dataset loader.
+Unit tests for the ServiceDesk600 dataset pipeline and dataset loader.
 
 Tests use isolated temporary files (tmp_path) and do not depend on the real dataset files.
 """
@@ -239,14 +239,14 @@ def test_load_split_all_and_validation(tmp_path: Path):
     assert len(test_examples) == 1
     assert test_examples[0].id == "TE-001"
 
-    # Fallback to train + test when servicedesk500.jsonl not present
+    # Fallback to train + test when servicedesk600.jsonl not present
     all_examples = load_split("all", data_dir=tmp_path)
     assert len(all_examples) == 2
     assert {e.id for e in all_examples} == {"TR-001", "TE-001"}
 
-    # When servicedesk500.jsonl exists
+    # When servicedesk600.jsonl exists
     t_all = _make_ticket("ALL-001", title="All title")
-    (tmp_path / "servicedesk500.jsonl").write_text(json.dumps(t_all) + "\n", encoding="utf-8")
+    (tmp_path / "servicedesk600.jsonl").write_text(json.dumps(t_all) + "\n", encoding="utf-8")
     assert len(load_split("all", data_dir=tmp_path)) == 1
 
     # Invalid split name
@@ -272,7 +272,7 @@ def test_run_pipeline_end_to_end(tmp_path: Path):
     results = run_pipeline(data_dir=tmp_path, seed=42)
     assert results["total_valid"] == 10
     assert results["total_rejected"] == 0
-    assert (tmp_path / "servicedesk500.jsonl").is_file()
+    assert (tmp_path / "servicedesk600.jsonl").is_file()
     assert (tmp_path / "train.jsonl").is_file()
     assert (tmp_path / "test.jsonl").is_file()
     assert (tmp_path / "rejected.jsonl").is_file()

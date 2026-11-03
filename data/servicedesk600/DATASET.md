@@ -1,8 +1,8 @@
-# ServiceDesk500 Dataset Datasheet
+# ServiceDesk600 Dataset Datasheet
 
 ## 1. Dataset Overview
 
-**ServiceDesk500** is a benchmark dataset of 600 realistic IT service desk support tickets designed for evaluating and benchmarking automated IT ticket triage, categorization, priority suggestion, and duplicate detection systems.
+**ServiceDesk600** is a benchmark dataset of 600 realistic IT service desk support tickets designed for evaluating and benchmarking automated IT ticket triage, categorization, priority suggestion, and duplicate detection systems.
 
 The dataset was synthetically generated using **Claude Opus 5.5** in 12 structured batches of 50 tickets each, spanning realistic workplace IT problem domains, varied writing styles (e.g., panicked, terse, conversational, executive, non-native English, technical), and realistic severity levels. Approximately 26% of tickets are designated as "hard" edge cases featuring multiple potential categories, conflicting priority cues, or subtle technical symptoms. A ~10% stratified random sample (60 tickets) was designated for human review and validation.
 
@@ -10,7 +10,7 @@ The dataset was synthetically generated using **Claude Opus 5.5** in 12 structur
 
 ## 2. Dataset Schema
 
-Each ticket in `servicedesk500.jsonl`, `train.jsonl`, and `test.jsonl` is serialized as a JSON object with the following fields:
+Each ticket in `servicedesk600.jsonl`, `train.jsonl`, and `test.jsonl` is serialized as a JSON object with the following fields:
 
 | Field | Type | Description |
 | :--- | :--- | :--- |

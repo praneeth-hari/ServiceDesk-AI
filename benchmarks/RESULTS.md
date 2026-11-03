@@ -1,10 +1,10 @@
 # Ticket Triage Benchmark Evaluation Report
 
-Evaluation of automated category and priority triage methods on the **ServiceDesk500** benchmark dataset (`data/servicedesk500`, split `test.jsonl`, N=120).
+Evaluation of automated category and priority triage methods on the **ServiceDesk600** benchmark dataset (`data/servicedesk600`, split `test.jsonl`, N=120).
 
 ### Dataset Provenance & Cryptographic Hashes
-- **`data/servicedesk500/train.jsonl` SHA-256**: `657ebf3745306c92e8b4dc077e4eb5382ebee442645656d333d6b579d9423482`
-- **`data/servicedesk500/test.jsonl` SHA-256**: `9b3f5b7f779e54424be8271e2ac53624cc7f0098670dcc84d1869b84e72769ac`
+- **`data/servicedesk600/train.jsonl` SHA-256**: `657ebf3745306c92e8b4dc077e4eb5382ebee442645656d333d6b579d9423482`
+- **`data/servicedesk600/test.jsonl` SHA-256**: `9b3f5b7f779e54424be8271e2ac53624cc7f0098670dcc84d1869b84e72769ac`
 - **Curation Verification**: Confirmed benchmark dataset includes all 27 human review corrections from `review_corrections.csv`.
 
 ## 1. Headline Benchmark Results
@@ -152,7 +152,7 @@ python -m app.scripts.benchmark_triage --methods llm-zero-shot,llm-rag --model q
 
 ## 5. Honest Caveats & Limitations
 
-1. **Synthetic Data Origin**: ServiceDesk500 was generated synthetically via Claude Opus 5.5. While engineered for realistic noise, typos, and urgency distributions, synthetic tickets may exhibit vocabulary patterns that models navigate differently than real-world corporate support queues.
+1. **Synthetic Data Origin**: ServiceDesk600 was generated synthetically via Claude Opus 5.5. While engineered for realistic noise, typos, and urgency distributions, synthetic tickets may exhibit vocabulary patterns that models navigate differently than real-world corporate support queues.
 2. **Sample Size & Confidence Intervals**: The held-out test split comprises 120 tickets (20 per category, 30 hard edge cases). With N=120, binomial 95% Wilson intervals span approximately ±6-8 percentage points; overlapping intervals should be interpreted with statistical caution.
 3. **In-Prompt Definitions**: LLM prompts explicitly include canonical category and priority definitions, providing strong structured semantic guidance compared to purely inductive few-shot kNN.
 4. **Single-Run Determinism**: All LLM queries were executed at `temperature=0` with `seed=42`. While locally deterministic, small differences may occur across hardware architectures or quantization variants.
