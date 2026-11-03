@@ -30,7 +30,18 @@ export interface TimelineWindow {
  * Returns a Date object where getUTC* methods correspond to Asia/Kolkata local wall-clock components.
  */
 export function toKolkataWallClock(input: Date | string | number): Date {
-  const d = typeof input === 'object' ? input : new Date(input);
+  let d: Date;
+  if (typeof input === 'string') {
+    let str = input.trim();
+    if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(str)) {
+      str = str.replace(' ', 'T') + 'Z';
+    }
+    d = new Date(str);
+  } else if (typeof input === 'object') {
+    d = input;
+  } else {
+    d = new Date(input);
+  }
   const utcMs = d.getTime();
   return new Date(utcMs + WORK_TZ_OFFSET_MINUTES * 60 * 1000);
 }

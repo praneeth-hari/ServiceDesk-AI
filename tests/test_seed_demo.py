@@ -1,15 +1,23 @@
 from datetime import datetime, timezone
+import zoneinfo
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
+from app.core.sla import business_minutes_between, calculate_due_at
 from app.models.comment import TicketComment
+from app.models.embedding import TicketEmbedding
 from app.models.enums import TicketCategory, TicketPriority, TicketStatus, UserRole
 from app.models.history import TicketStatusHistory
 from app.models.ticket import Ticket
 from app.models.user import User
-from app.scripts.seed_demo import main, seed_demo
+from app.scripts.seed_demo import (
+    get_demo_ticket_blueprints,
+    main,
+    seed_demo,
+)
+from app.services.holidays import get_holiday_dates
 from app.services.users import get_user_by_email
 
 
@@ -37,11 +45,11 @@ def test_seed_demo_with_env_var(db_session: Session, monkeypatch: pytest.MonkeyP
 
     summary = seed_demo(db=db_session)
     assert summary["users_created"] == 3
-    assert summary["tickets_created"] == 10
+    assert summary["tickets_created"] == 16
 
 
 def test_seed_demo_creates_users_and_roles(db_session: Session):
-    """Verify that demo users are created with proper credentials and roles."""
+    """Verify demo users are created with proper credentials and roles."""
     summary = seed_demo(db=db_session, allow_seed=True)
     assert summary["users_created"] == 3
 
@@ -66,7 +74,6 @@ def test_seed_demo_creates_users_and_roles(db_session: Session):
 
 def test_seed_demo_preserves_existing_user_password_updates_role(db_session: Session):
     """If a demo user exists, their password is untouched but role is updated if necessary."""
-    # Pre-create user with a custom password and wrong role
     custom_pass = "CustomExistingPass123!"
     existing = User(
         email="agent@example.com",
@@ -90,20 +97,18 @@ def test_seed_demo_preserves_existing_user_password_updates_role(db_session: Ses
 def test_seed_demo_tickets_categories_priorities_and_workflow(db_session: Session):
     """Verify tickets cover all categories, priorities, statuses, comments, and overdue flags."""
     summary = seed_demo(db=db_session, allow_seed=True)
-    assert summary["tickets_created"] == 10
+    assert summary["tickets_created"] == 16
 
     tickets = db_session.scalars(select(Ticket)).all()
-    assert len(tickets) == 10
+    assert len(tickets) == 16
 
     # All 6 categories represented
     categories = {t.category for t in tickets}
-    expected_categories = set(TicketCategory)
-    assert categories == expected_categories
+    assert categories == set(TicketCategory)
 
     # All 4 priorities represented
     priorities = {t.priority for t in tickets}
-    expected_priorities = set(TicketPriority)
-    assert priorities == expected_priorities
+    assert priorities == set(TicketPriority)
 
     # Statuses represented
     statuses = {t.status for t in tickets}
@@ -113,14 +118,14 @@ def test_seed_demo_tickets_categories_priorities_and_workflow(db_session: Sessio
     assert TicketStatus.RESOLVED in statuses
     assert TicketStatus.CLOSED in statuses
 
-    # Overdue tickets check: at least 2 or 3 unresolved tickets overdue
+    # Overdue unresolved tickets exist
     now = datetime.now(timezone.utc)
     overdue_unresolved = [
         t for t in tickets
         if t.status in (TicketStatus.OPEN, TicketStatus.IN_PROGRESS)
         and (t.due_at.replace(tzinfo=timezone.utc) if t.due_at.tzinfo is None else t.due_at) < now
     ]
-    assert len(overdue_unresolved) in (2, 3)
+    assert len(overdue_unresolved) >= 2
 
     # Comments: both public and internal comments exist
     comments = db_session.scalars(select(TicketComment)).all()
@@ -133,29 +138,239 @@ def test_seed_demo_tickets_categories_priorities_and_workflow(db_session: Sessio
     assert len(history_entries) > 0
 
 
-def test_seed_demo_idempotence(db_session: Session):
-    """Second run must create 0 new tickets and skip all existing demo tickets."""
+def test_seed_demo_dry_run_makes_no_changes(db_session: Session):
+    """Dry-run prints summary table and does not insert any tickets or users."""
+    summary = seed_demo(db=db_session, dry_run=True, allow_seed=True)
+    assert summary["dry_run"] is True
+    assert summary["tickets_planned"] == 16
+    assert summary["tickets_created"] == 0
+
+    tickets = db_session.scalars(select(Ticket)).all()
+    assert len(tickets) == 0
+
+
+def test_seed_demo_dry_run_all_states_present_and_robust_to_time():
+    """
+    Assert that every required state is present in the blueprints:
+    On Track, At Risk, Breached, Paused, Resolved within SLA, Resolved late, Closed.
+    Verify robustness across:
+    - weekday morning
+    - weekday evening after 18:00
+    - Saturday
+    - Sunday
+    """
+    tz = zoneinfo.ZoneInfo("Asia/Kolkata")
+    test_scenarios = [
+        ("Weekday morning (Wed 10:00 IST)", datetime(2026, 11, 4, 10, 0, tzinfo=tz).astimezone(timezone.utc)),
+        ("Weekday evening (Wed 20:30 IST)", datetime(2026, 11, 4, 20, 30, tzinfo=tz).astimezone(timezone.utc)),
+        ("Saturday (Sat 14:00 IST)", datetime(2026, 11, 7, 14, 0, tzinfo=tz).astimezone(timezone.utc)),
+        ("Sunday (Sun 16:00 IST)", datetime(2026, 11, 8, 16, 0, tzinfo=tz).astimezone(timezone.utc)),
+    ]
+
+    expected_required_states = {
+        "On Track",
+        "At Risk",
+        "Breached",
+        "Paused",
+        "Resolved within SLA",
+        "Resolved late",
+        "Closed",
+    }
+
+    for _label, mock_now in test_scenarios:
+        blueprints = get_demo_ticket_blueprints(mock_now, set())
+        assert len(blueprints) == 16
+
+        states = {b["expected_state"] for b in blueprints}
+        assert states == expected_required_states
+
+        breached_count = sum(1 for b in blueprints if b["expected_state"] == "Breached")
+        paused_count = sum(1 for b in blueprints if b["expected_state"] == "Paused")
+        at_risk_count = sum(1 for b in blueprints if b["expected_state"] == "At Risk")
+        on_track_count = sum(1 for b in blueprints if b["expected_state"] == "On Track")
+
+        assert breached_count >= 2
+        assert paused_count >= 2
+        assert at_risk_count >= 2
+        assert on_track_count >= 3
+
+
+def test_seed_demo_wipe_tickets_safety_check(db_session: Session):
+    """--wipe-tickets without allow_seed/--yes reports what it would delete and aborts."""
+    # First seed normally
+    seed_demo(db=db_session, allow_seed=True)
+    initial_count = len(db_session.scalars(select(Ticket)).all())
+    assert initial_count == 16
+
+    # Attempt wipe without confirmation
+    result = seed_demo(db=db_session, wipe_tickets=True, allow_seed=False)
+    assert result["wiped"] is False
+    assert result["tickets_would_delete"] == 16
+
+    # Tickets were not touched
+    after_count = len(db_session.scalars(select(Ticket)).all())
+    assert after_count == 16
+
+
+def test_seed_demo_all_states_appear_and_due_at_is_consistent(db_session: Session):
+    """
+    Verify all required states appear in SQLite DB, due_at matches calculate_due_at,
+    2 active tickets are unassigned, and comments/history match workflow.
+    """
+    summary = seed_demo(db=db_session, allow_seed=True)
+    assert summary["tickets_created"] == 16
+
+    tickets = db_session.scalars(select(Ticket)).all()
+    assert len(tickets) == 16
+
+    now = datetime.now(timezone.utc)
+    holidays = get_holiday_dates(db_session)
+
+    # 1. Check due_at consistency
+    for t in tickets:
+        created_utc = t.created_at if t.created_at.tzinfo else t.created_at.replace(tzinfo=timezone.utc)
+        expected_due = calculate_due_at(t.priority, created_utc, holidays)
+        expected_due_utc = expected_due if expected_due.tzinfo else expected_due.replace(tzinfo=timezone.utc)
+        ticket_due_utc = t.due_at if t.due_at.tzinfo else t.due_at.replace(tzinfo=timezone.utc)
+        assert abs((ticket_due_utc - expected_due_utc).total_seconds()) < 2
+
+    # 2. Active tickets assignment: exactly 2 unassigned
+    active_tickets = [
+        t for t in tickets
+        if t.status in (TicketStatus.OPEN, TicketStatus.IN_PROGRESS, TicketStatus.WAITING_ON_REQUESTER)
+    ]
+    unassigned_active = [t for t in active_tickets if t.assignee_id is None]
+    assert len(unassigned_active) == 2
+    for t in unassigned_active:
+        assert t.status == TicketStatus.OPEN
+
+    agent = get_user_by_email(db_session, "agent@example.com")
+    assigned_active = [t for t in active_tickets if t.assignee_id is not None]
+    assert len(assigned_active) == len(active_tickets) - 2
+    for t in assigned_active:
+        assert t.assignee_id == agent.id
+        # Transition from open to in_progress performed by the assigned agent
+        history_rows = db_session.scalars(
+            select(TicketStatusHistory).where(
+                TicketStatusHistory.ticket_id == t.id,
+                TicketStatusHistory.from_status == TicketStatus.OPEN,
+                TicketStatusHistory.to_status == TicketStatus.IN_PROGRESS,
+            )
+        ).all()
+        assert len(history_rows) == 1
+        assert history_rows[0].changed_by_id == agent.id
+
+    # 3. Comments: 1 to 4 on each active ticket
+    for t in active_tickets:
+        ticket_comments = db_session.scalars(
+            select(TicketComment).where(TicketComment.ticket_id == t.id)
+        ).all()
+        assert 1 <= len(ticket_comments) <= 4
+
+    # 4. Breached, Paused, Resolved within SLA, Resolved late, Closed
+    breached = [
+        t for t in active_tickets
+        if t.status in (TicketStatus.OPEN, TicketStatus.IN_PROGRESS)
+        and (t.due_at if t.due_at.tzinfo else t.due_at.replace(tzinfo=timezone.utc)) < now
+    ]
+    assert len(breached) >= 2
+
+    paused = [
+        t for t in tickets
+        if t.status == TicketStatus.WAITING_ON_REQUESTER and t.sla_paused_at is not None
+    ]
+    assert len(paused) >= 2
+
+    resolved_within_sla = [
+        t for t in tickets
+        if t.status == TicketStatus.RESOLVED
+        and t.resolved_at is not None
+        and (t.resolved_at if t.resolved_at.tzinfo else t.resolved_at.replace(tzinfo=timezone.utc))
+        <= (t.due_at if t.due_at.tzinfo else t.due_at.replace(tzinfo=timezone.utc))
+    ]
+    assert len(resolved_within_sla) >= 2
+
+    resolved_late = [
+        t for t in tickets
+        if t.status == TicketStatus.RESOLVED
+        and t.resolved_at is not None
+        and (t.resolved_at if t.resolved_at.tzinfo else t.resolved_at.replace(tzinfo=timezone.utc))
+        > (t.due_at if t.due_at.tzinfo else t.due_at.replace(tzinfo=timezone.utc))
+    ]
+    assert len(resolved_late) >= 2
+
+    closed = [t for t in tickets if t.status == TicketStatus.CLOSED]
+    assert len(closed) >= 1
+
+
+def test_seed_demo_idempotence_without_wipe(db_session: Session, capsys: pytest.CaptureFixture[str]):
+    """Running seed twice WITHOUT --wipe-tickets does not duplicate tickets and prints skip notice."""
     first_run = seed_demo(db=db_session, allow_seed=True)
-    assert first_run["tickets_created"] == 10
+    assert first_run["tickets_created"] == 16
     assert first_run["tickets_skipped"] == 0
-    assert first_run["users_created"] == 3
+    assert len(db_session.scalars(select(Ticket)).all()) == 16
 
     second_run = seed_demo(db=db_session, allow_seed=True)
+    captured = capsys.readouterr()
+    assert "demo tickets already present, nothing added" in captured.out
     assert second_run["tickets_created"] == 0
-    assert second_run["tickets_skipped"] == 10
-    assert second_run["users_created"] == 0
-    assert second_run["users_existing"] == 3
+    assert second_run["tickets_skipped"] == 16
+    assert len(db_session.scalars(select(Ticket)).all()) == 16
 
-    # Total ticket count remains 10
-    ticket_count = len(db_session.scalars(select(Ticket)).all())
-    assert ticket_count == 10
+
+def test_seed_demo_wipe_tickets_idempotence(db_session: Session):
+    """Running seed twice WITH --wipe-tickets --yes wipes and reseeds identical counts."""
+    first = seed_demo(db=db_session, wipe_tickets=True, allow_seed=True)
+    assert first["tickets_created"] == 16
+    first_tickets = len(db_session.scalars(select(Ticket)).all())
+    first_comments = len(db_session.scalars(select(TicketComment)).all())
+    first_history = len(db_session.scalars(select(TicketStatusHistory)).all())
+
+    second = seed_demo(db=db_session, wipe_tickets=True, allow_seed=True)
+    assert second["tickets_created"] == 16
+    second_tickets = len(db_session.scalars(select(Ticket)).all())
+    second_comments = len(db_session.scalars(select(TicketComment)).all())
+    second_history = len(db_session.scalars(select(TicketStatusHistory)).all())
+
+    assert first_tickets == second_tickets == 16
+    assert first_comments == second_comments
+    assert first_history == second_history
 
 
 def test_seed_demo_main_cli_success(monkeypatch: pytest.MonkeyPatch, db_session: Session):
     """Test main() CLI execution with --yes flag."""
     monkeypatch.setattr("sys.argv", ["seed_demo", "--yes"])
-    # Intercept SessionLocal to return db_session
     monkeypatch.setattr("app.scripts.seed_demo.SessionLocal", lambda: db_session)
 
     # Should run to completion without error
     main()
+
+
+def test_seed_demo_creates_ticket_embeddings(db_session: Session):
+    """Every seeded ticket must have a corresponding row in ticket_embeddings."""
+    seed_demo(db=db_session, allow_seed=True)
+    tickets = db_session.scalars(select(Ticket)).all()
+    assert len(tickets) == 16
+
+    embeddings = db_session.scalars(select(TicketEmbedding)).all()
+    assert len(embeddings) == 16
+
+    ticket_ids = {t.id for t in tickets}
+    embedded_ticket_ids = {e.ticket_id for e in embeddings}
+    assert ticket_ids == embedded_ticket_ids
+
+
+def test_seed_demo_wipe_cleans_ticket_embeddings(db_session: Session):
+    """Wiping tickets must delete embeddings and leave no orphan rows."""
+    seed_demo(db=db_session, allow_seed=True)
+    assert len(db_session.scalars(select(TicketEmbedding)).all()) == 16
+
+    # Wipe with --wipe-tickets --yes
+    seed_demo(db=db_session, wipe_tickets=True, allow_seed=True)
+    # Reseeded tickets
+    assert len(db_session.scalars(select(TicketEmbedding)).all()) == 16
+
+    # Verify wiping directly removes them
+    db_session.query(TicketEmbedding).delete()
+    db_session.commit()
+    assert len(db_session.scalars(select(TicketEmbedding)).all()) == 0

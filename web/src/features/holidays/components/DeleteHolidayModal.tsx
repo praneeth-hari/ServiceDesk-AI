@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { Holiday } from '../../../api/holidays';
+import { formatDateDisplay } from '../holidayUtils';
 
 export interface DeleteHolidayModalProps {
   isOpen: boolean;
@@ -101,10 +102,10 @@ export const DeleteHolidayModal: React.FC<DeleteHolidayModalProps> = ({
               id="delete-dialog-title"
               className="text-base font-semibold text-ink font-serif"
             >
-              Delete {holiday.name} ({holiday.holiday_date})?
+              Delete {holiday.name} ({formatDateDisplay(holiday.holiday_date)})?
             </h3>
             <p className="text-xs sm:text-sm text-muted mt-1.5 leading-relaxed">
-              Are you sure you want to delete this public holiday? Applies to tickets created or re-timed after this change; existing due dates are not recalculated. This action cannot be undone.
+              Tickets created or re-timed after this change use the updated holiday calendar. Existing due dates are not recalculated. This cannot be undone.
             </p>
           </div>
         </div>

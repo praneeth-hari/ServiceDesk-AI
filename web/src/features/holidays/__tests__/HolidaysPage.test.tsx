@@ -360,19 +360,19 @@ describe('HolidaysPage & Navigation', () => {
 
     // Modal dialog is open
     expect(
-      screen.getByText('Delete Gandhi Jayanti (2026-10-02)?')
+      screen.getByText('Delete Gandhi Jayanti (Oct 2, 2026)?')
     ).toBeInTheDocument();
 
     // 1. Escape key closes modal
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(
-      screen.queryByText('Delete Gandhi Jayanti (2026-10-02)?')
+      screen.queryByText('Delete Gandhi Jayanti (Oct 2, 2026)?')
     ).not.toBeInTheDocument();
 
     // 2. Open again and confirm deletion
     fireEvent.click(screen.getAllByRole('button', { name: 'Delete Gandhi Jayanti' })[0]);
     expect(
-      screen.getByText('Delete Gandhi Jayanti (2026-10-02)?')
+      screen.getByText('Delete Gandhi Jayanti (Oct 2, 2026)?')
     ).toBeInTheDocument();
 
     const confirmDeleteBtn = screen.getByRole('button', { name: 'Delete' });
