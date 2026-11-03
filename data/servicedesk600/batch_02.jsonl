@@ -1,0 +1,450 @@
+{
+    "id": "NET-051",
+    "title": "network on 3rd floor going crazy",
+    "description": "about 15 mins after someone tidied up the cables in meeting room 3C the whole 3rd floor network started dropping every few seconds, wired and wifi both. the lights on the switch in the corridor cupboard are all flashing like mad. theres about 80 of us up here and nothing stays connected long enough to do anything",
+    "category": "network",
+    "priority": "urgent",
+    "difficulty": "easy",
+    "label_note": "A floor-wide outage right after cable changes points to a switching loop, which is network, and it is urgent because about 80 users are affected."
+}
+{
+    "id": "NET-052",
+    "title": "DNS name for the new dashboards server",
+    "description": "The analytics team has set up a new internal server at 10.12.8.40 for the sales dashboards. Could we get dashboards.corp.local pointed at it so people don't have to use the IP? Go-live is planned for the 20th.",
+    "category": "network",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "Creating an internal DNS record is a planned network request, so it is low."
+}
+{
+    "id": "NET-053",
+    "title": "ip conflict popup",
+    "description": "keep getting this: 'Windows has detected an IP address conflict. Another system on this network is using your computer's IP address.' then the network drops for a few secs and comes back. 4-5 times a day, desk G-31",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "A recurring IP address conflict is a network addressing issue, and it is medium because the connection recovers by itself."
+}
+{
+    "id": "NET-054",
+    "title": "Wi-Fi dropping in theatre 2",
+    "description": "The tablets we use for anaesthetic charting lose Wi-Fi as soon as we're inside theatre 2 and reconnect when you step into the corridor. Theatres 1 and 3 are fine. The anaesthetic record only runs on the tablets and we have a full list in theatre 2 this afternoon.",
+    "category": "network",
+    "priority": "high",
+    "difficulty": "easy",
+    "label_note": "No Wi-Fi coverage in one operating theatre is network, and it is high because a clinical team can't do required charting there and has no workaround."
+}
+{
+    "id": "NET-055",
+    "title": "port scanning from 10.20.14.77",
+    "description": "soc. host 10.20.14.77 (contractor vlan) scanning the server subnet since 02:10, approx 40k connection attempts in firewall logs, tcp 22/445/3389. no asset match in cmdb. need the switch port shut or the host quarantined",
+    "category": "network",
+    "priority": "urgent",
+    "difficulty": "easy",
+    "label_note": "Active scanning by an unknown host is a security incident that needs network containment at the switch or firewall, so it is network and urgent."
+}
+{
+    "id": "NET-056",
+    "title": "wifi dies whenever someone heats lunch",
+    "description": "This will sound silly but I've tested it a few times now. I sit right next to the pantry on the 4th floor and every time the microwave is running my Wi-Fi drops or slows to nothing, then it's fine as soon as it stops. Mostly around lunchtime, but I've been cut off from two calls this week.",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Wireless interference in one spot is a Wi-Fi coverage issue, so it is network, and it is medium because it is intermittent and predictable."
+}
+{
+    "id": "NET-057",
+    "title": "container image pulls failing in office",
+    "description": "cant pull images since monday, getting: Error response from daemon: Get https://registry.example-hub.test/v2/: x509: certificate signed by unknown authority. works fine from home, havent changed anything in the tool. my whole build is stuck while im in the office",
+    "category": "network",
+    "priority": "high",
+    "difficulty": "hard",
+    "label_note": "The certificate error only on the office network points to the proxy's SSL inspection, so it is network, and it is high because the developer is blocked on site; it could be confused with software because the error comes from the container tool."
+}
+{
+    "id": "NET-058",
+    "title": "network for cold store temperature sensors",
+    "description": "Facilities are installing 12 wireless temperature sensors in the cold store next month. The vendor says they need their own network segment with no internet access except to their cloud endpoint. Can we plan that in?",
+    "category": "network",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "Planning a new segmented network for IoT devices is a future request, so it is network and low."
+}
+{
+    "id": "NET-059",
+    "title": "Pune branch offline",
+    "description": "Pune branch has had no internet and no connection to head office since 8:15. The ISP router in the comms cupboard is showing a red LOS light. 35 people here and we have customer appointments all day that we can't look up.",
+    "category": "network",
+    "priority": "urgent",
+    "difficulty": "easy",
+    "label_note": "A full branch outage on the ISP link is network, and it is urgent because a whole site and its customer appointments are affected."
+}
+{
+    "id": "NET-060",
+    "title": "beeping noise in corridor cupboard",
+    "description": "theres a loud beeping coming from the cupboard by the lifts on level 2, the one with all the blue cables. been going since about 7 this morning. everythings working as far as i can tell but i dont know if its a warning about something",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "hard",
+    "label_note": "An alarm from the comms cupboard most likely comes from network kit or its UPS, so it is routed to network; the user can't tell what it is, it could be confused with hardware or other, and priority is debatable since nothing has failed yet."
+}
+{
+    "id": "NET-061",
+    "title": "video consults keep freezing at Lakeside clinic",
+    "description": "Three doctors at Lakeside clinic are doing remote video consultations today and the video freezes or drops every few minutes for all of them. Patients are being rebooked. A speed test shows about 4 Mbps upload, which seems very low.",
+    "category": "network",
+    "priority": "high",
+    "difficulty": "easy",
+    "label_note": "Insufficient upload bandwidth at a site is network, and it is high because a small clinical team can't run patient consultations."
+}
+{
+    "id": "NET-062",
+    "title": "branch internet crawls during matches",
+    "description": "every time theres a big cricket match on the whole branch internet goes super slow, i think people are streaming it on their pcs. the billing system takes ages to save anything. today is the final so its going to be bad again from 2pm",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Bandwidth saturation on the branch link is network, and it is medium because service is degraded but still working."
+}
+{
+    "id": "NET-063",
+    "title": "new laptop connected but nothing works",
+    "description": "Started on Monday. My laptop connects to the office Wi-Fi and to the cable but just shows 'No internet, secured' and I can't open anything, internal or external. My manager's laptop works fine at my desk. IT gave me this laptop yesterday, it's brand new.",
+    "category": "network",
+    "priority": "high",
+    "difficulty": "hard",
+    "label_note": "The new device is most likely not admitted by network access control (802.1X), so it is network, and it is high because the user is blocked; it could be confused with access because it is part of new-joiner setup."
+}
+{
+    "id": "NET-064",
+    "title": "Wi-Fi for the partner summit on the 14th",
+    "description": "We're hosting a partner summit in the main auditorium on the 14th of next month, about 150 attendees plus a live stream. Can someone check the Wi-Fi will cope and set up a dedicated guest network for the day?",
+    "category": "network",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "Capacity planning for a future event is a network request, so it is low."
+}
+{
+    "id": "NET-065",
+    "title": "lots of people on level 4 can't get online",
+    "description": "Around 25 people on level 4, scattered across accounts and procurement, can't get onto anything, internal or internet, while the person at the next desk is fine. I checked two of the broken ones and their address starts with 192.168.0, ours normally start with 10. Nobody has changed anything that I know of.",
+    "category": "network",
+    "priority": "urgent",
+    "difficulty": "hard",
+    "label_note": "Wrong address ranges on some machines suggest a rogue DHCP server, which is network; the cause isn't obvious from the report, and priority is debatable between high and urgent because only part of the floor is down."
+}
+{
+    "id": "NET-066",
+    "title": "websites opening in the wrong country",
+    "description": "Since last week sites in the Tokyo office open their Indian version with prices in rupees instead of the Japanese pages, and a couple of Japanese government sites block us completely. Everyone in the Tokyo office sees the same. Everything else works.",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Tokyo traffic leaving through the wrong regional internet egress or proxy is network, and it is medium because most work is unaffected."
+}
+{
+    "id": "NET-067",
+    "title": "internet droping every hour sinagpore",
+    "description": "singapore office - internet drops for about 5 min almost exactly on the hour every hour since yesterday, 10:00 11:00 12:00 etc. sales team keep getting cut off client calls half way through. the router reboots or something?",
+    "category": "network",
+    "priority": "high",
+    "difficulty": "easy",
+    "label_note": "Repeated office-wide connectivity drops are network, and it is high because a team's client calls are disrupted throughout the day."
+}
+{
+    "id": "NET-068",
+    "title": "wifi + keyboard",
+    "description": "two things. my wifi keeps disconecting every half hour or so and i have to reconnect, and also the E and R keys on my laptop stick sometimes. the wifi one is the bigger pain because it kills my remote desktop session each time",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "hard",
+    "label_note": "This ticket has two problems, and it is labelled by the primary one, the Wi-Fi drops (network); the sticking keys are a secondary hardware issue, and it is medium because reconnecting works."
+}
+{
+    "id": "NET-069",
+    "title": "Wi-Fi survey for Bengaluru floor",
+    "description": "We're taking the 2nd floor of the Bengaluru building from January. Before the fit-out finishes, could the network team do a Wi-Fi survey and plan the access points and floor boxes? Desk layout drawings attached.",
+    "category": "network",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "Planning network coverage for a future office is a network request, so it is low."
+}
+{
+    "id": "NET-070",
+    "title": "website down for customers - gateway timeout",
+    "description": "Our public website is either very slow or showing a 'gateway timeout' page for everyone, and customers are messaging us on social media about it. The hosting partner says there is a huge spike of traffic from abroad hitting our firewall.",
+    "category": "network",
+    "priority": "urgent",
+    "difficulty": "easy",
+    "label_note": "A traffic flood overwhelming the firewall is a network attack, and it is urgent because it is a customer-facing outage."
+}
+{
+    "id": "NET-071",
+    "title": "bank portal won't let us in from the office",
+    "description": "This morning the bank's corporate portal started refusing us with 'Access from unrecognised network location'. The same login works from my home. The bank's support says our office IP isn't on their allowed list, but we haven't changed anything. Today's payment batch has to be released by 1pm.",
+    "category": "network",
+    "priority": "high",
+    "difficulty": "hard",
+    "label_note": "The office's public IP has likely changed, which is network, and it is high because of a payment deadline; it looks like a login rejection, so it could be confused with access."
+}
+{
+    "id": "NET-072",
+    "title": "CRC errors CHN-DIST-02 Gi1/0/48",
+    "description": "monitoring alert: input errors and CRC count on CHN-DIST-02 Gi1/0/48 (uplink to floor 5 access switch) climbing since 03:00, ~1200/hr. no user reports yet. suspect SFP or patch lead",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Errors on a switch uplink are network, and it is medium because the link is degrading with no user impact yet."
+}
+{
+    "id": "NET-073",
+    "title": "site office Wi-Fi barely reaches",
+    "description": "The temporary site office, the portacabins next to the new warehouse build, has one Wi-Fi point and it only reaches the first cabin. The engineers in the other two cabins walk over to upload their inspection photos. Is there anything we can add?",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Limited Wi-Fi coverage at a site is network, and it is medium because users have a workaround."
+}
+{
+    "id": "NET-074",
+    "title": "no internet",
+    "description": "cant get on internet at desk 5",
+    "category": "network",
+    "priority": "high",
+    "difficulty": "hard",
+    "label_note": "The only clue points to network, and it is labelled high on the assumption the user is fully blocked; the ticket is vague with no device or location detail, so medium is equally defensible."
+}
+{
+    "id": "NET-075",
+    "title": "URGENT - all desk phones dead",
+    "description": "Every desk phone in the Chennai office has been stuck on 'Registering...' since about 10:30, so nobody can make or take calls, including the customer helpline. Mobiles are fine. Did the phones get an update overnight? Some of them rebooted by themselves.",
+    "category": "network",
+    "priority": "urgent",
+    "difficulty": "hard",
+    "label_note": "Office-wide registration failure points to the voice network or call server connectivity rather than the handsets, so it is network and urgent; it could be confused with hardware (phones) or software (the user's update guess)."
+}
+{
+    "id": "NET-076",
+    "title": "more bandwidth for Tokyo",
+    "description": "Our Tokyo internet contract renews in Q1. Headcount has gone from 40 to 65 this year and video calls are getting heavier. Could the network team review usage and tell us whether we should upgrade the line?",
+    "category": "network",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "Reviewing link capacity before a contract renewal is a planning request, so it is network and low."
+}
+{
+    "id": "NET-077",
+    "title": "home office router showing red light",
+    "description": "I have one of the company home routers, the small grey box that connects straight to the office network. Since this morning its status light is red instead of green and my laptop on the cable says no internet. I've switched to my own Wi-Fi with the normal VPN, which works but is slower.",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "A failed company home router link is remote connectivity, so it is network, and it is medium because the VPN over home Wi-Fi is a workaround."
+}
+{
+    "id": "NET-078",
+    "title": "video calls won't connect from the office",
+    "description": "No video calls connect from the Chennai office today. Joining a meeting just spins and then fails, even audio-only. Web browsing is fine, and the same meeting works on my phone's data. The whole sales team has client calls lined up all day.",
+    "category": "network",
+    "priority": "high",
+    "difficulty": "easy",
+    "label_note": "Call traffic blocked on the office network points to a firewall change, so it is network, and it is high because a team's client calls are blocked."
+}
+{
+    "id": "NET-079",
+    "title": "room 5A screens say no network",
+    "description": "The booking panel outside 5A and the conference system inside both show 'No network'. We had a client presentation in there this morning and had to move rooms. The other rooms on the floor look fine.",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "hard",
+    "label_note": "Two devices in one room losing network together points to that room's switch port or cabling, so it is network, and it is medium because other rooms work; it could be confused with other (meeting-room AV)."
+}
+{
+    "id": "NET-080",
+    "title": "6 people, 2 network points",
+    "description": "The new shared bench in the design area seats six people but only has two floor ports. Could we get a small switch or more ports there? They're managing on Wi-Fi for now but want wired for big file transfers.",
+    "category": "network",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "Adding wired ports is a request with a working alternative, so it is network and low."
+}
+{
+    "id": "NET-081",
+    "title": "wifi slow",
+    "description": "wifi v slow on 6th floor today",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Slow Wi-Fi on one floor is degraded network service, so it is medium."
+}
+{
+    "id": "NET-082",
+    "title": "Mysore office very slow since yesterday",
+    "description": "Road works outside the Mysore office cut our fibre yesterday. The backup 4G router kicked in so we're technically online, but everything is crawling with 12 of us on it. The ISP says the repair could take 3 days.",
+    "category": "network",
+    "priority": "high",
+    "difficulty": "hard",
+    "label_note": "Running on a backup WAN link is network; priority is debatable because the office is online but badly degraded, and it is labelled high because a whole team will be crippled for days."
+}
+{
+    "id": "NET-083",
+    "title": "new HR portal link doesn't work in Singapore",
+    "description": "HR sent round the link to the new leave portal, leave.corp.local. It opens fine for colleagues in Chennai, but in the Singapore office we get 'server not found'. Typing the IP address that someone shared does work.",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "A site-specific internal name resolution failure is a DNS issue, so it is network, and it is medium because the IP address is a workaround."
+}
+{
+    "id": "NET-084",
+    "title": "Riverside clinic completely offline after storm",
+    "description": "Riverside clinic has had no network at all since the storm last night. Front desk can't check patients in or see appointments, and the lab can't send results. We're on paper. The router in the back room has only its power light on.",
+    "category": "network",
+    "priority": "urgent",
+    "difficulty": "easy",
+    "label_note": "A full site outage at a clinic is network, and it is urgent because clinical systems for a whole site are down."
+}
+{
+    "id": "NET-085",
+    "title": "wifi on 7th east",
+    "description": "so we finally moved up from the 3rd floor last week, which is great because we have windows now and the coffee machine is closer, although the new chairs are not as comfy. anyway the reason im writing is the wifi on the east side of 7 keeps disconnecting maybe every 20 mins, a few of us on that side get it. west side seem fine. plugging in a cable works for now",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Wi-Fi drops in one zone are network, and it is medium because wired is a workaround."
+}
+{
+    "id": "NET-086",
+    "title": "first day - no network and no timesheet login",
+    "description": "Hi, it's my first day in the Pune office. The network cable at my desk doesn't seem to do anything, the laptop says 'network cable unplugged', and the Wi-Fi asks for a password I don't have. Also I haven't received my login for the timesheet system yet, my manager said to raise that here too.",
+    "category": "network",
+    "priority": "high",
+    "difficulty": "hard",
+    "label_note": "This ticket has two problems, and the primary one is no network connectivity at all, which blocks everything, so it is network and high; the missing timesheet login is a separate access issue."
+}
+{
+    "id": "NET-087",
+    "title": "guest wifi page still has old logo",
+    "description": "When visitors connect to guest Wi-Fi, the welcome and terms page still shows the old logo and the old company name in the footer. The brand team asked if it can be updated.",
+    "category": "network",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "Updating the guest Wi-Fi splash page is a cosmetic network change, so it is low."
+}
+{
+    "id": "NET-088",
+    "title": "unidentifed network on hot desks",
+    "description": "the hot desks on level 3 by the windows keep showing 'Unidentifed network' when you plug in the cable in the morning, only fixes after a restart. happens to most people who sit ther, been like this for weeks. annoying more then anything",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "A recurring wired connection failure at a set of desks is network, and it is medium because a restart fixes it."
+}
+{
+    "id": "NET-089",
+    "title": "court filing uploads keep failing",
+    "description": "Legal team. Uploading anything bigger than about 10 MB to the court e-filing portal fails with 'ERR_CONNECTION_RESET', while small files go through fine. We tried three different PCs in the office and two browsers. The filing deadline is 5pm today.",
+    "category": "network",
+    "priority": "high",
+    "difficulty": "easy",
+    "label_note": "Size-dependent connection resets across several PCs point to the firewall or IPS, so it is network, and it is high because a legal deadline is at risk."
+}
+{
+    "id": "NET-090",
+    "title": "some pages half load on vpn",
+    "description": "when im on vpn some websites only half load, images missing and some pages just hang, others are fine. off vpn everything works. been like this since last week maybe",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Partial page loads only through the VPN point to a tunnel or MTU problem, so it is network, and it is medium because there is a workaround."
+}
+{
+    "id": "NET-091",
+    "title": "visitors say guest Wi-Fi is slow",
+    "description": "We have two vendor engineers on site this week and they say the guest Wi-Fi is too slow to download their software updates. They've been using their own hotspots. Is there a speed limit on guest?",
+    "category": "network",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "Guest Wi-Fi throughput is a network question with no staff impact, so it is low."
+}
+{
+    "id": "NET-092",
+    "title": "training room wifi can't cope",
+    "description": "We're running induction for 25 new joiners in Training Room 2 in Chennai this week. Once everyone's laptop is on the Wi-Fi it slows right down and the trainer's video demos keep buffering. We've been sharing the cable points but there are only four.",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Wi-Fi capacity in one room is network, and it is medium because service is degraded but usable."
+}
+{
+    "id": "NET-093",
+    "title": "guest wifi not working - launch starts in 40 min",
+    "description": "About 120 customers are arriving at the Chennai experience centre for the product launch and the guest Wi-Fi isn't accepting connections, it just times out when joining. The interactive demo needs attendees on their phones. Staff Wi-Fi is fine.",
+    "category": "network",
+    "priority": "urgent",
+    "difficulty": "hard",
+    "label_note": "A guest Wi-Fi failure is network; priority is debatable because guest Wi-Fi isn't a business system, but it is labelled urgent rather than high because a customer-facing event is about to start."
+}
+{
+    "id": "NET-094",
+    "title": "virus?? every site goes to a login page",
+    "description": "i think my laptop has a virus. every website i open goes to some page asking me to accept terms and enter my room number. im at the hotel for the offsite. my vpn wont connect either",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "hard",
+    "label_note": "The hotel captive portal hasn't been accepted, which blocks the VPN, so it is network, and it is medium because accepting the terms fixes it; the user's virus guess could lead to it being misrouted as other or a security incident."
+}
+{
+    "id": "NET-095",
+    "title": "label patch panel comms rm 3",
+    "description": "comms room 3 patch panel ports 1-48 unlabelled after the rewire, need mapping to floor boxes. next maintenance window is fine",
+    "category": "network",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "Patch panel documentation is internal network housekeeping, so it is low."
+}
+{
+    "id": "NET-096",
+    "title": "handover tablets lose Wi-Fi at the ambulance bay",
+    "description": "The tablets we use for ambulance handovers lose Wi-Fi the moment we step out to the bay, so we have to walk back inside to load the patient record. It adds a couple of minutes to every handover.",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Missing Wi-Fi coverage outdoors is network, and it is medium because staff have a workaround."
+}
+{
+    "id": "NET-097",
+    "title": "moved to floor 9 today - no network at all",
+    "description": "Our team of 14 moved to the new space on floor 9 this morning as planned. None of the floor ports are live and there's no Wi-Fi signal up here. We're sitting in the canteen on phone hotspots.",
+    "category": "network",
+    "priority": "high",
+    "difficulty": "easy",
+    "label_note": "Unprovisioned ports and Wi-Fi on a new floor are network, and it is high because a team is blocked from its workspace."
+}
+{
+    "id": "NET-098",
+    "title": "expenses site sometimes blocked",
+    "description": "About half the time the expenses system opens normally and the other half I get the company 'This site is blocked' page instead, using the same link both times. A refresh or two usually gets me in.",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Inconsistent web filter decisions are a proxy or firewall issue, so it is network, and it is medium because refreshing works."
+}
+{
+    "id": "NET-099",
+    "title": "wifi in car park for security",
+    "description": "security team asked if wifi can reach the basement car park, the guards patrol tablets cant sync down there till they come back up. its been fine like this, would just be nicer",
+    "category": "network",
+    "priority": "low",
+    "difficulty": "easy",
+    "label_note": "Extending Wi-Fi coverage with no current impact is a network request, so it is low."
+}
+{
+    "id": "NET-100",
+    "title": "partner api unreachable from office only",
+    "description": "cant reach the partner sandbox from the office network. tracert: 1 <1 ms 10.4.0.1 | 2 2 ms 10.4.255.1 | 3 * * * Request timed out. | 4 * * * Request timed out. from home it goes straight through. need it for integration testing this sprint, using home connection in the evenings meanwhile",
+    "category": "network",
+    "priority": "medium",
+    "difficulty": "easy",
+    "label_note": "Traffic dying past the office edge to one external host points to firewall or routing, so it is network, and it is medium because a workaround exists."
+}

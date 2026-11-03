@@ -36,6 +36,7 @@ Role-based IT helpdesk ticketing application with business-hours SLA tracking, r
 - [Ticket Workflow](#ticket-workflow)
 - [Database Schema](#database-schema)
 - [AI Triage & Duplicate Detection](#ai-triage--duplicate-detection)
+- [AI Triage Evaluation](#ai-triage-evaluation)
 - [API Overview](#api-overview)
 - [Quick Start](#quick-start)
 - [Run with Docker](#run-with-docker)
@@ -207,8 +208,46 @@ Automated category and priority suggestions and duplicate detection over ticket 
 Recommendations are strictly advisory and never mutate tickets automatically; agents and users retain full control.
 Requesters only see evidence items and duplicate candidates from their own tickets, maintaining strict privacy isolation.
 The service exposes `POST /api/v1/triage/suggest` (advisory triage and duplicates) and `GET /api/v1/tickets/{id}/similar` (staff only).
-On the benchmark dataset (`data/triage_eval.csv`, synthetic tickets), category accuracy reaches 58.33% vs 16.67% random chance.
+On the earlier small evaluation set (`data/triage_eval.csv`, 24 test tickets), category accuracy reached 58.33% vs 16.67% random chance (see [AI triage evaluation](#ai-triage-evaluation) below for the current benchmark on ServiceDesk-600).
 Full details: [docs/AI_TRIAGE.md](docs/AI_TRIAGE.md).
+
+---
+
+## AI triage evaluation
+
+How well can the system suggest a ticket's category and priority? I built a labelled dataset and a reproducible benchmark to measure it, instead of guessing.
+
+**Dataset (ServiceDesk-600).** 600 synthetic IT service desk tickets (100 per category, about 26% deliberately hard or ambiguous) written with Claude Opus 5.5, then validated, de-duplicated and split 480 train / 120 test with whole near-duplicate groups kept on one side. Labels were audited: a 60-ticket sample was reviewed by a second model and a human, 7 priority labels were corrected, and a pattern found in that audit (simple questions labelled `medium` instead of `low`) led to 20 more corrections. See [data/servicedesk600/DATASET.md](data/servicedesk600/DATASET.md).
+
+**Results on the 120 held-out test tickets** (95% Wilson interval in brackets):
+
+| Method | Category accuracy | Priority accuracy | Priority within one level | Time per ticket |
+| :--- | :--- | :--- | :--- | :--- |
+| Llama 3.1 8B + 5 retrieved examples | **87.5%** [80.4, 92.3] | **69.2%** | 98.3% | 2.4 s |
+| Qwen 2.5 3B + 5 retrieved examples | 83.3% [75.6, 88.9] | 60.0% | 95.8% | 0.44 s |
+| Qwen 2.5 3B zero-shot | 80.8% [72.9, 86.9] | 55.8% | 95.8% | 0.36 s |
+| Llama 3.1 8B zero-shot | 79.2% [71.0, 85.5] | 68.3% | 99.2% | 2.1 s |
+| MiniLM embeddings + kNN | 76.7% [68.3, 83.3] | 47.5% | 85.0% | 1 ms |
+| bge-small embeddings + kNN | 69.2% [60.4, 76.7] | 45.0% | 88.3% | 1 ms |
+| hashing-v2 + kNN (the triage the app ships today) | 62.5% [53.6, 70.7] | 44.2% | 81.7% | 1 ms |
+| Majority class | 16.7% | 33.3% | 80.8% | - |
+
+**What the results show**
+- Llama 3.1 8B with retrieved examples is significantly better at category than both the shipped lexical baseline (paired McNemar exact test, p < 0.001) and MiniLM embeddings (p = 0.011).
+- Retrieving similar labelled tickets helps the LLM: category accuracy rises from 79.2% to 87.5% for Llama 3.1 8B.
+- LLMs are far better than nearest-neighbour methods at priority (about 68-69% against 44-48%), which fits the idea that priority depends on impact, not on wording.
+- The 3B model is within about 4 points of the 8B model on category at roughly one sixth of the latency, but with 120 test tickets the intervals overlap, so this is not a statistically established difference.
+- Category errors of the best method concentrate on software/hardware and other/network boundaries; `email` had no errors. Priority errors are balanced (20 over-predicted, 17 under-predicted), and nearly all are off by one level.
+
+**Limits.** The data is synthetic and from a single generator model; the test set is small (about +/-6-8 points); the LLM prompts include the written category and priority definitions; each result is a single deterministic run (temperature 0, seed 42); and some labels are genuinely ambiguous (for example, a ticket about typing a password into a phishing page is labelled `access`, though the definitions also put phishing under `email`). The test labels were not changed after seeing model results. The LLM methods run locally through Ollama and are benchmark-only: the app currently ships the lightweight hashing triage. Full tables, confusion matrices, failure examples and dataset hashes are in [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
+
+**Reproduce**
+
+    pip install -r requirements-bench.txt
+    python -m app.scripts.build_dataset
+    python -m app.scripts.benchmark_triage --methods hashing-knn,minilm-knn,bge-small-knn
+    python -m app.scripts.benchmark_triage --methods llm-zero-shot,llm-rag --model llama3.1:8b
+    python -m app.scripts.benchmark_triage --methods llm-zero-shot,llm-rag --model qwen2.5:3b
 
 ---
 
@@ -283,6 +322,12 @@ pip install -r requirements.txt -r requirements-dev.txt
 >
 > ```powershell
 > pip install -r requirements-ai.txt
+> ```
+>
+> **Benchmarks**: Reproducing the AI triage benchmarks uses `requirements-bench.txt` (optional, local only, not in the Docker image or CI):
+>
+> ```powershell
+> pip install -r requirements-bench.txt
 > ```
 
 ### 4. Configure environment variables
@@ -470,7 +515,7 @@ GitHub Actions CI runs the full test suite with coverage enforcement, executes M
 
 ## Known Limitations
 
-- **Lexical vs. Semantic AI Triage**: The default `hashing-v2` backend uses sublinear-scaled word n-grams (with stop words removed) and character 3-5 n-grams (dim=4096). On our benchmark dataset, category accuracy reaches 58.33% with 100% suggestion coverage (at threshold 0.12). sbert is supported as an optional pluggable embedder (`requirements-ai.txt`) but requires additional dependencies.
+- **Lexical vs. Semantic AI Triage**: The default `hashing-v2` backend uses sublinear-scaled word n-grams (with stop words removed) and character 3-5 n-grams (dim=4096). On the earlier small evaluation set, category accuracy reached 58.33% with 100% suggestion coverage at threshold 0.12 (see [AI triage evaluation](#ai-triage-evaluation) for the current benchmark on ServiceDesk-600 where it scores 62.5% vs 87.5% for LLM-RAG). sbert is supported as an optional pluggable embedder (`requirements-ai.txt`) but requires additional dependencies.
 - **Offset Pagination**: Pagination uses standard SQL `LIMIT` / `OFFSET`, which is straightforward for moderate datasets but less performant on massive tables than keyset pagination.
 - **User Roster Access**: Only admins can list users; agents must input target agent IDs manually when assigning tickets.
 - **No Email Notifications**: Ticket lifecycle events and comments are tracked in database history rather than sending outbound email alerts.
@@ -502,6 +547,7 @@ GitHub Actions CI runs the full test suite with coverage enforcement, executes M
 ├── pytest.ini            # Pytest configuration and coverage settings
 ├── requirements.txt      # Production runtime dependencies
 ├── requirements-ai.txt   # Optional semantic embedding dependencies (sentence-transformers)
+├── requirements-bench.txt # Optional benchmark dependencies (sentence-transformers, local only)
 ├── requirements-dev.txt  # Development and testing dependencies
 └── README.md             # Project documentation
 ```

@@ -82,6 +82,8 @@ python -m app.scripts.eval_triage --tune
 ```
 
 > [!NOTE]
+> The metrics and parameter sweeps below reflect measurements on the earlier small evaluation set (`data/triage_eval.csv`, N=24 held-out test tickets). For the current comprehensive 600-ticket benchmark (ServiceDesk-600) comparing lexical kNN, dense sentence transformers, and LLM zero-shot / RAG, see [AI triage evaluation in README.md](../README.md#ai-triage-evaluation) and [benchmarks/RESULTS.md](../benchmarks/RESULTS.md).
+>
 > The evaluation dataset `data/triage_eval.csv` is strictly synthetic benchmark demo data. The test split is never used for parameter tuning.
 
 ### 5-Fold Cross-Validation on Train Split Only (N=96)
@@ -102,7 +104,7 @@ Threshold tuning for `AI_MIN_SIMILARITY` was conducted via 5-fold stratified cro
 
 **Why `0.12` was selected**: On the training folds, `0.12` achieves 100% suggestion coverage while maximizing overall category accuracy at 60.6%. Higher thresholds like `0.20` drop coverage sharply (down to 52.0% coverage and 33.3% overall accuracy), rejecting viable suggestions as "no suggestion".
 
-### Final Evaluation on Test Split (N=24)
+### Final Evaluation on Test Split (N=24, Earlier Small Evaluation Set)
 
 | Metric | Before (`hashing`, sim=0.20) | After (`hashing-v2`, sim=0.12) | Random Chance | Majority Class |
 | :--- | :--- | :--- | :--- | :--- |
