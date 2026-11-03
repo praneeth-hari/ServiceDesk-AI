@@ -46,10 +46,12 @@ def test_serve_ui_when_dist_exists(tmp_path: Path):
         assert resp.status_code == 200
         assert resp.text == "fake-icon-content"
 
-        # 5. API routes are never intercepted
+        # 5. API routes are never intercepted by the SPA fallback
+        # (health checks the DB so may return 503 in CI; we only care it returns JSON, not index.html)
         resp = client.get("/api/v1/health")
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "ok"
+        assert resp.status_code in (200, 503)
+        assert resp.headers["content-type"].startswith("application/json")
+        assert "ServiceDesk" not in resp.text  # index.html was NOT returned
 
         # 6. Unknown API routes return standard JSON 404, never index.html
         resp = client.get("/api/v1/nonexistent-route")
@@ -57,7 +59,7 @@ def test_serve_ui_when_dist_exists(tmp_path: Path):
         assert resp.headers["content-type"].startswith("application/json")
         assert resp.json() == {"error": {"message": "Not Found"}}
 
-        # 7. Swagger docs & openapi.json are preserved
+        # 7. Swagger docs & openapi.json are preserved (no DB required)
         resp = client.get("/docs")
         assert resp.status_code == 200
         assert "swagger" in resp.text.lower() or "html" in resp.headers.get("content-type", "").lower()
@@ -86,10 +88,15 @@ def test_serve_ui_when_dist_does_not_exist(tmp_path: Path):
         assert resp.status_code == 404
         assert resp.json() == {"error": {"message": "Not Found"}}
 
-        # API health works normally
+        # API health works normally (may return 503 in CI if DB is unavailable; we only care it returns JSON)
         resp = client.get("/api/v1/health")
+        assert resp.status_code in (200, 503)
+        assert resp.headers["content-type"].startswith("application/json")
+
+        # /openapi.json is served regardless of DB state
+        resp = client.get("/openapi.json")
         assert resp.status_code == 200
-        assert resp.json()["status"] == "ok"
+        assert "openapi" in resp.json()
 
         # Client route returns 404 JSON
         resp = client.get("/tickets/1")
