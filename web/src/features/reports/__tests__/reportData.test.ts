@@ -5,6 +5,7 @@ import {
   mergeAgents,
   statusPriorityMatrix,
   categoryHeat,
+  filterOverlappingTicks,
 } from '../reportData';
 import type {
   TicketsByStatusItem,
@@ -278,5 +279,40 @@ describe('reportData pure functions', () => {
       expect(heat[1].medium).toBe(12.4);
     });
   });
-});
 
+  describe('filterOverlappingTicks()', () => {
+    it('always preserves first and last ticks while skipping overlapping neighbors', () => {
+      const ticks = [
+        { x: 40, label: '10-05' },
+        { x: 158, label: '10-12' },
+        { x: 276, label: '10-19' },
+        { x: 394, label: '10-26' },
+        { x: 513, label: '11-02' },
+        { x: 530, label: '11-03' },
+      ];
+
+      const result = filterOverlappingTicks(ticks, 36);
+      expect(result.map((t) => t.label)).toEqual([
+        '10-05',
+        '10-12',
+        '10-19',
+        '10-26',
+        '11-03',
+      ]);
+    });
+
+    it('returns all ticks if no collision exists', () => {
+      const ticks = [
+        { x: 40, label: 'A' },
+        { x: 150, label: 'B' },
+        { x: 260, label: 'C' },
+      ];
+      expect(filterOverlappingTicks(ticks, 36)).toEqual(ticks);
+    });
+
+    it('handles short lists gracefully', () => {
+      expect(filterOverlappingTicks([{ x: 10 }])).toEqual([{ x: 10 }]);
+      expect(filterOverlappingTicks([{ x: 10 }, { x: 15 }])).toEqual([{ x: 10 }, { x: 15 }]);
+    });
+  });
+});

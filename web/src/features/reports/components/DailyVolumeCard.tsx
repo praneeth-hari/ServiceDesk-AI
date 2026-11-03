@@ -1,7 +1,7 @@
 import React, { useState, useId } from 'react';
 import { ReportCard } from './ReportCard';
 import type { DailyVolumeItem } from '../../../api/reports';
-import { fillDailySeries } from '../reportData';
+import { fillDailySeries, filterOverlappingTicks } from '../reportData';
 
 export interface DailyVolumeCardProps {
   items: DailyVolumeItem[] | null;
@@ -37,11 +37,11 @@ export const DailyVolumeCard: React.FC<DailyVolumeCardProps> = ({
 
   const isEmpty = series.length === 0 || series.every((s) => s.ticket_count === 0);
 
-  // SVG Geometry
+  // SVG Geometry with generous right padding (60px) so the "Latest" label never collides with lines or labels
   const width = 560;
   const height = 200;
   const padLeft = 40;
-  const padRight = 30;
+  const padRight = 60;
   const padTop = 30;
   const padBottom = 35;
   const plotWidth = width - padLeft - padRight;
@@ -50,7 +50,7 @@ export const DailyVolumeCard: React.FC<DailyVolumeCardProps> = ({
   const maxCount = Math.max(...series.map((s) => s.ticket_count), 0);
   const niceMax = maxCount === 0 ? 5 : Math.ceil(maxCount / 5) * 5 || maxCount;
 
-  // Find peak index and latest index
+  // Find peak index
   let peakIdx = 0;
   for (let i = 0; i < series.length; i++) {
     if (series[i].ticket_count > series[peakIdx].ticket_count) {
@@ -90,10 +90,12 @@ export const DailyVolumeCard: React.FC<DailyVolumeCardProps> = ({
     { value: niceMax, y: padTop },
   ];
 
-  // X ticks every week (7 days)
-  const xTicks = points.filter((_, idx) => {
+  // X ticks every week (7 days) + last day
+  const rawXTicks = points.filter((_, idx) => {
     return idx % 7 === 0 || idx === lastIdx;
   });
+
+  const xTicks = filterOverlappingTicks(rawXTicks, 40);
 
   const dayOptions = [7, 30, 90];
 
@@ -255,7 +257,7 @@ export const DailyVolumeCard: React.FC<DailyVolumeCardProps> = ({
               </g>
             )}
 
-            {/* Latest End Dot & Label */}
+            {/* Latest End Dot & Label placed safely to the right of the dot, never colliding with the line */}
             {points[lastIdx] && (
               <g>
                 <circle
@@ -264,16 +266,14 @@ export const DailyVolumeCard: React.FC<DailyVolumeCardProps> = ({
                   r="4"
                   fill="#0F766E"
                 />
-                {lastIdx !== peakIdx && (
-                  <text
-                    x={points[lastIdx].x}
-                    y={Math.max(12, points[lastIdx].y - 8)}
-                    textAnchor="end"
-                    className="text-[10px] font-semibold fill-ink font-sans"
-                  >
-                    Latest: {points[lastIdx].ticket_count}
-                  </text>
-                )}
+                <text
+                  x={points[lastIdx].x + 8}
+                  y={points[lastIdx].y + 3}
+                  textAnchor="start"
+                  className="text-[10px] font-semibold fill-ink font-sans"
+                >
+                  Latest: {points[lastIdx].ticket_count}
+                </text>
               </g>
             )}
 
@@ -327,4 +327,3 @@ export const DailyVolumeCard: React.FC<DailyVolumeCardProps> = ({
     </ReportCard>
   );
 };
-

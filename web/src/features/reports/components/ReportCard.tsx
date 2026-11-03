@@ -1,4 +1,5 @@
 import React from 'react';
+import { getFriendlyErrorMessage } from '../../../utils/errors';
 
 export interface ReportCardProps {
   title: string;
@@ -69,7 +70,7 @@ export const ReportCard: React.FC<ReportCardProps> = ({
         ) : error ? (
           <div className="py-8 px-4 text-center rounded bg-paper2/50 border border-line flex flex-col items-center justify-center">
             <p className="text-xs sm:text-sm text-muted mb-3 font-medium">
-              Failed to load report data
+              {getFriendlyErrorMessage(error, 'A server problem occurred. Please try again.')}
             </p>
             {onRetry && (
               <button
