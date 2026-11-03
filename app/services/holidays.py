@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.holiday import Holiday
 from app.models.user import User
-from app.schemas.holiday import HolidayCreate
+from app.schemas.holiday import HolidayCreate, HolidayUpdate
 
 
 def get_holiday_by_date(db: Session, holiday_date: date) -> Optional[Holiday]:
@@ -78,3 +78,41 @@ def delete_holiday(db: Session, holiday_id: int, current_user: User) -> None:
 
     db.delete(holiday)
     db.commit()
+
+
+def update_holiday(
+    db: Session,
+    holiday_id: int,
+    holiday_in: HolidayUpdate,
+    current_user: User,
+) -> Holiday:
+    """
+    Update an existing public holiday by ID (Admin only).
+    Fails with 404 Not Found if missing.
+    Fails with 409 Conflict if new date belongs to a different holiday.
+    Changing a holiday to its own date is allowed.
+    """
+    holiday = get_holiday_by_id(db, holiday_id)
+    if not holiday:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Holiday not found",
+        )
+
+    if holiday_in.holiday_date is not None:
+        if holiday_in.holiday_date != holiday.holiday_date:
+            existing = get_holiday_by_date(db, holiday_in.holiday_date)
+            if existing and existing.id != holiday.id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"A holiday on {holiday_in.holiday_date} already exists",
+                )
+        holiday.holiday_date = holiday_in.holiday_date
+
+    if holiday_in.name is not None:
+        holiday.name = holiday_in.name
+
+    db.add(holiday)
+    db.commit()
+    db.refresh(holiday)
+    return holiday

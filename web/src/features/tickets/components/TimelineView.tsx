@@ -220,8 +220,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tickets, isStaff }) 
                     y={28}
                     textAnchor="middle"
                     fill="#6B7280"
-                    fontSize="10"
+                    fontSize="8"
                     fontWeight="600"
+                    className="select-none tracking-tighter"
                   >
                     Sat Sun
                   </text>

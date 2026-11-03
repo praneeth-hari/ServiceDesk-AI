@@ -8,7 +8,7 @@ import { TicketsPage } from './features/tickets/TicketsPage';
 import { NewTicketPage } from './features/tickets/NewTicketPage';
 import { TicketDetailPage } from './features/tickets/TicketDetailPage';
 import { ReportsPage } from './features/reports/ReportsPage';
-import { HolidaysPage } from './pages/PlaceholderPage';
+import { HolidaysPage } from './features/holidays/HolidaysPage';
 
 export function App() {
   return (
