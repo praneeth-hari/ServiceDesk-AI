@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -364,6 +364,36 @@ def test_report_daily_volume(
     # Verify 100 days ago is NOT present
     old_date_str = (now - timedelta(days=100)).strftime("%Y-%m-%d")
     assert old_date_str not in counts
+
+
+def test_daily_volume_accepts_date_objects(
+    client: TestClient,
+    agent_auth_headers: dict[str, str],
+    monkeypatch,
+):
+    """
+    Regression test for MySQL date handling:
+    MySQL's DATE(created_at) returns a datetime.date object rather than a string.
+    Verify that DailyVolumeItem and the endpoint accept datetime.date and serialize to YYYY-MM-DD.
+    """
+    import app.api.routes.reports
+    from app.schemas.report import DailyVolumeItem
+
+    # 1. Schema-level validation directly with a datetime.date instance
+    item = DailyVolumeItem(date=date(2026, 11, 2), ticket_count=7)
+    assert item.date == date(2026, 11, 2)
+    assert item.model_dump(mode="json") == {"date": "2026-11-02", "ticket_count": 7}
+
+    # 2. Endpoint-level validation when service returns date objects (simulating MySQL query results)
+    monkeypatch.setattr(
+        app.api.routes.reports,
+        "get_daily_volume",
+        lambda db, days: [{"date": date(2026, 11, 2), "ticket_count": 7}],
+    )
+
+    res = client.get("/api/v1/reports/daily-volume?days=30", headers=agent_auth_headers)
+    assert res.status_code == 200
+    assert res.json() == [{"date": "2026-11-02", "ticket_count": 7}]
 
 
 def test_reports_unauthenticated_returns_401(client: TestClient):
