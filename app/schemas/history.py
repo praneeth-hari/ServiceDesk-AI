@@ -10,6 +10,7 @@ class StatusHistoryRead(BaseModel):
     id: int
     ticket_id: int
     changed_by_id: Optional[int]
+    actor_name: Optional[str] = None
     from_status: Optional[TicketStatus]
     to_status: TicketStatus
     created_at: datetime

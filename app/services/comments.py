@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Sequence
 from fastapi import HTTPException, status
 import sqlalchemy as sa
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.comment import TicketComment
 from app.models.enums import TicketStatus, UserRole
@@ -57,6 +57,8 @@ def create_comment(
     db.add(comment)
     db.commit()
     db.refresh(comment)
+    # Ensure author is loaded for author_name
+    comment.author = current_user
     return comment
 
 
@@ -73,7 +75,11 @@ def list_comments(
     """
     ticket = get_ticket_by_id(db, ticket_id=ticket_id, current_user=current_user)
 
-    stmt = sa.select(TicketComment).where(TicketComment.ticket_id == ticket.id)
+    stmt = (
+        sa.select(TicketComment)
+        .options(joinedload(TicketComment.author))
+        .where(TicketComment.ticket_id == ticket.id)
+    )
 
     if current_user.role == UserRole.REQUESTER:
         stmt = stmt.where(TicketComment.is_internal == False)

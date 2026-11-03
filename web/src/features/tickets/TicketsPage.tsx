@@ -7,7 +7,7 @@ import type { Ticket, TicketStatus, TicketPriority } from '../../api/types';
 import { FilterBar, type FilterState } from './components/FilterBar';
 import { TimelineView } from './components/TimelineView';
 import { TableView } from './components/TableView';
-import { classifyTicketSla } from './slaState';
+import { classifyTicketSla, sortTicketsDefault } from './slaState';
 
 export const TicketsPage: React.FC = () => {
   const { user } = useAuth();
@@ -24,6 +24,7 @@ export const TicketsPage: React.FC = () => {
   const pageParam = parseInt(searchParams.get('page') || '1', 10);
   const sortByParam = searchParams.get('sort_by') || 'due_at';
   const sortOrderParam = (searchParams.get('order') as 'asc' | 'desc') || 'asc';
+  const hasExplicitSort = searchParams.has('sort_by');
 
   // State
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -124,6 +125,8 @@ export const TicketsPage: React.FC = () => {
             items = [...items].sort((a, b) =>
               sortOrderParam === 'asc' ? a.id - b.id : b.id - a.id
             );
+          } else if (!hasExplicitSort) {
+            items = sortTicketsDefault(items);
           }
           setTickets(items);
           setTotal(res.total);
@@ -143,7 +146,7 @@ export const TicketsPage: React.FC = () => {
     return () => {
       ignore = true;
     };
-  }, [pageParam, pageSize, statusParam, priorityParam, assigneeIdParam, qParam, sortByParam, sortOrderParam, reloadKey]);
+  }, [pageParam, pageSize, statusParam, priorityParam, assigneeIdParam, qParam, sortByParam, sortOrderParam, hasExplicitSort, reloadKey]);
 
   // Compute summary metrics from current loaded tickets
   const summary = useMemo(() => {

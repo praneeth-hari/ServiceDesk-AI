@@ -597,3 +597,66 @@ def test_ticket_category_update_permissions(
     assert res6.status_code == 404
 
 
+
+
+def test_resolved_at_lifecycle(
+    client: TestClient,
+    requester_auth_headers: dict[str, str],
+    agent_auth_headers: dict[str, str],
+    admin_auth_headers: dict[str, str],
+):
+    """Test resolved_at is set on resolved, cleared on reopen to in_progress, and kept on closed."""
+    # 1. Create ticket (open -> resolved_at is None)
+    create_res = client.post(
+        "/api/v1/tickets",
+        json={"title": "Lifecycle Ticket", "description": "Testing resolved_at"},
+        headers=requester_auth_headers,
+    )
+    assert create_res.status_code == 201
+    ticket_id = create_res.json()["id"]
+    assert create_res.json()["resolved_at"] is None
+
+    # Move to in_progress
+    client.patch(
+        f"/api/v1/tickets/{ticket_id}/status",
+        json={"status": "in_progress"},
+        headers=agent_auth_headers,
+    )
+
+    # 2. Move to resolved -> resolved_at is set
+    res_resolved = client.patch(
+        f"/api/v1/tickets/{ticket_id}/status",
+        json={"status": "resolved"},
+        headers=agent_auth_headers,
+    )
+    assert res_resolved.status_code == 200
+    resolved_at_1 = res_resolved.json()["resolved_at"]
+    assert resolved_at_1 is not None
+
+    # 3. Reopen to in_progress -> resolved_at is cleared to None
+    res_reopen = client.patch(
+        f"/api/v1/tickets/{ticket_id}/status",
+        json={"status": "in_progress"},
+        headers=agent_auth_headers,
+    )
+    assert res_reopen.status_code == 200
+    assert res_reopen.json()["resolved_at"] is None
+
+    # 4. Resolve again -> resolved_at is set again
+    res_resolved2 = client.patch(
+        f"/api/v1/tickets/{ticket_id}/status",
+        json={"status": "resolved"},
+        headers=agent_auth_headers,
+    )
+    assert res_resolved2.status_code == 200
+    resolved_at_2 = res_resolved2.json()["resolved_at"]
+    assert resolved_at_2 is not None
+
+    # 5. Close -> resolved_at is kept unchanged
+    res_closed = client.patch(
+        f"/api/v1/tickets/{ticket_id}/status",
+        json={"status": "closed"},
+        headers=admin_auth_headers,
+    )
+    assert res_closed.status_code == 200
+    assert res_closed.json()["resolved_at"] == resolved_at_2

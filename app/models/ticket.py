@@ -55,6 +55,10 @@ class Ticket(Base):
         sa.DateTime(timezone=True),
         nullable=True,
     )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True),
         server_default=func.now(),
@@ -106,4 +110,3 @@ class Ticket(Base):
     def assignee_name(self) -> Optional[str]:
         """Return the full name of the assigned agent, or None if unassigned."""
         return self.assignee.full_name if self.assignee else None
-

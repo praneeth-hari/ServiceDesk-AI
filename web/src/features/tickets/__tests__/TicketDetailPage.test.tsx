@@ -490,4 +490,91 @@ describe('TicketDetailPage', () => {
     });
     renderOnTrack.unmount();
   });
+
+  it('renders author_name and actor_name directly and falls back to role/id when missing', async () => {
+    vi.mocked(ticketsApi.getTicket).mockResolvedValue({
+      ...baseTicket,
+      requester_name: 'Alice Requester',
+    });
+    vi.mocked(ticketsApi.listComments).mockResolvedValue([
+      {
+        id: 1,
+        ticket_id: 1,
+        author_id: 99,
+        author_name: 'Dr. Evelyn Reed',
+        body: 'Custom author comment',
+        is_internal: false,
+        created_at: '2026-11-01T10:00:00Z',
+      },
+      {
+        id: 2,
+        ticket_id: 1,
+        author_id: 88,
+        author_name: null,
+        body: 'Fallback comment from staff',
+        is_internal: false,
+        created_at: '2026-11-01T10:30:00Z',
+      },
+    ]);
+    vi.mocked(ticketsApi.getHistory).mockResolvedValue([
+      {
+        id: 100,
+        ticket_id: 1,
+        changed_by_id: 77,
+        actor_name: 'Marcus Vance',
+        from_status: null,
+        to_status: 'open',
+        created_at: '2026-11-01T09:00:00Z',
+      },
+      {
+        id: 101,
+        ticket_id: 1,
+        changed_by_id: 88,
+        actor_name: null,
+        from_status: 'open',
+        to_status: 'in_progress',
+        created_at: '2026-11-01T09:30:00Z',
+      },
+    ]);
+
+    renderTicketDetail(1);
+
+    // Direct author name renders
+    expect(await screen.findByText('Dr. Evelyn Reed')).toBeInTheDocument();
+    // Direct actor name renders
+    expect(await screen.findByText('Marcus Vance')).toBeInTheDocument();
+    // Fallback to 'Staff member' when name is null
+    expect(await screen.findAllByText('Staff member')).not.toHaveLength(0);
+  });
+it('shows "No similar tickets yet" when similarTickets list is empty for staff', async () => {
+    vi.mocked(ticketsApi.getSimilarTickets).mockResolvedValue([]);
+
+    renderTicketDetail(1);
+    await waitFor(() => {
+      expect(screen.getByText('VPN connection issue')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Similar tickets')).toBeInTheDocument();
+    expect(screen.getByText('No similar tickets yet')).toBeInTheDocument();
+  });
+
+  it('renders readable status transition labels in activity feed (e.g. Open → In progress)', async () => {
+    vi.mocked(ticketsApi.getHistory).mockResolvedValue([
+      {
+        id: 201,
+        ticket_id: 1,
+        changed_by_id: 20,
+        from_status: 'open',
+        to_status: 'in_progress',
+        created_at: '2026-11-01T10:00:00Z',
+      },
+    ]);
+
+    renderTicketDetail(1);
+    await waitFor(() => {
+      expect(screen.getByText('VPN connection issue')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Open → In progress/i)).toBeInTheDocument();
+  });
 });
