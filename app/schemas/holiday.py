@@ -1,3 +1,4 @@
+from app.schemas.common import UTCDateTime
 from datetime import date, datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,6 +20,6 @@ class HolidayRead(BaseModel):
     id: int
     holiday_date: date
     name: str
-    created_at: datetime
+    created_at: UTCDateTime
 
     model_config = ConfigDict(from_attributes=True)

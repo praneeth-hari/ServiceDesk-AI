@@ -1,3 +1,4 @@
+from app.schemas.common import UTCDateTime
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
@@ -17,6 +18,6 @@ class CommentRead(BaseModel):
     author_name: Optional[str] = None
     body: str
     is_internal: bool
-    created_at: datetime
+    created_at: UTCDateTime
 
     model_config = ConfigDict(from_attributes=True)
