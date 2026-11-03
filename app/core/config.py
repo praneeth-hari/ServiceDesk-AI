@@ -11,7 +11,14 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     API_V1_STR: str = "/api/v1"
 
+    # Environment mode: development or production
+    APP_ENV: str = "development"
+
     DATABASE_URL: str = "mysql+pymysql://helpdesk:helpdesk_password@localhost:3306/helpdesk_db"
+
+    # Database TLS / SSL verification settings (for managed MySQL hosts)
+    DATABASE_SSL_CA: str | None = None
+    DATABASE_SSL_CA_PEM: str | None = None
 
     # JWT Authentication settings (placeholder by default; override in production via .env)
     SECRET_KEY: str = "change-me"
@@ -111,6 +118,50 @@ class Settings(BaseSettings):
         if self.AI_MAX_CANDIDATES < 1:
             raise ValueError(f"AI_MAX_CANDIDATES must be at least 1, got {self.AI_MAX_CANDIDATES}")
 
+        return self
+
+    @model_validator(mode="after")
+    def handle_database_ssl(self) -> "Settings":
+        """
+        If DATABASE_SSL_CA_PEM is provided without a DATABASE_SSL_CA path,
+        write the certificate text to a secure temporary file and use that path.
+        """
+        if self.DATABASE_SSL_CA_PEM and not self.DATABASE_SSL_CA:
+            import tempfile
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                delete=False,
+                suffix=".pem",
+                encoding="utf-8"
+            ) as f:
+                f.write(self.DATABASE_SSL_CA_PEM)
+                self.DATABASE_SSL_CA = f.name
+        return self
+
+    @model_validator(mode="after")
+    def validate_production_secret(self) -> "Settings":
+        """
+        In production, refuse placeholder or short (<32 chars) SECRET_KEY.
+        In development, allowed (warning logged at app startup).
+        """
+        is_prod = self.APP_ENV.strip().lower() == "production"
+        is_placeholder = (
+            self.SECRET_KEY in ("change-me", "change_this_to_a_super_secret_key_at_least_32_chars_long")
+            or "change-me" in self.SECRET_KEY.lower()
+        )
+        is_short = len(self.SECRET_KEY) < 32
+
+        if is_prod:
+            if is_placeholder:
+                raise ValueError(
+                    "SECRET_KEY cannot be a placeholder in production. "
+                    "Please configure a secure random SECRET_KEY of at least 32 characters."
+                )
+            if is_short:
+                raise ValueError(
+                    f"SECRET_KEY is too short for production (must be at least 32 characters, got {len(self.SECRET_KEY)}). "
+                    "Please configure a secure random SECRET_KEY of at least 32 characters."
+                )
         return self
 
 
