@@ -76,6 +76,20 @@ def test_serve_ui_when_dist_exists(tmp_path: Path):
         resp = client.get("/assets/../../app/main.py")
         assert resp.status_code in (404, 400)
 
+        # 9. HEAD requests accept root and SPA routes, but never intercept API routes
+        resp_head_root = client.head("/")
+        assert resp_head_root.status_code == 200
+        assert resp_head_root.headers.get("content-type", "").startswith("text/html")
+
+        resp_head_ticket = client.head("/tickets/1")
+        assert resp_head_ticket.status_code == 200
+        assert resp_head_ticket.headers.get("content-type", "").startswith("text/html")
+
+        resp_head_nonexistent_api = client.head("/api/v1/nonexistent")
+        assert resp_head_nonexistent_api.status_code == 404
+        assert not resp_head_nonexistent_api.headers.get("content-type", "").startswith("text/html")
+        assert resp_head_nonexistent_api.headers.get("content-type", "").startswith("application/json")
+
 
 def test_serve_ui_when_dist_does_not_exist(tmp_path: Path):
     """When WEB_DIST_DIR does not exist, app functions as an API-only service."""

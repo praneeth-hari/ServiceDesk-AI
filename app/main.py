@@ -20,13 +20,32 @@ logger = logging.getLogger("helpdesk_api")
 async def lifespan(app: FastAPI):
     """
     Application lifespan handler.
-    Checks whether SECRET_KEY is using a default placeholder and logs a warning.
+    Checks whether SECRET_KEY is valid for production or logs a warning in development.
     """
-    if settings.SECRET_KEY in ("change-me", "change_this_to_a_super_secret_key_at_least_32_chars_long") or "change-me" in settings.SECRET_KEY.lower():
-        logger.warning(
-            "SECURITY WARNING: SECRET_KEY is set to a placeholder. "
-            "Please generate and set a strong, random SECRET_KEY in your .env file for production."
-        )
+    is_prod = getattr(settings, "APP_ENV", "development").strip().lower() == "production"
+    is_placeholder = (
+        settings.SECRET_KEY in ("change-me", "change_this_to_a_super_secret_key_at_least_32_chars_long")
+        or "change-me" in settings.SECRET_KEY.lower()
+    )
+    is_short = len(settings.SECRET_KEY) < 32
+
+    if is_prod:
+        if is_placeholder:
+            raise ValueError(
+                "SECRET_KEY cannot be a placeholder in production. "
+                "Please configure a secure random SECRET_KEY of at least 32 characters."
+            )
+        if is_short:
+            raise ValueError(
+                f"SECRET_KEY is too short for production (must be at least 32 characters, got {len(settings.SECRET_KEY)}). "
+                "Please configure a secure random SECRET_KEY of at least 32 characters."
+            )
+    else:
+        if is_placeholder:
+            logger.warning(
+                "SECURITY WARNING: SECRET_KEY is set to a placeholder. "
+                "Please generate and set a strong, random SECRET_KEY in your .env file for production."
+            )
     yield
 
 
@@ -78,7 +97,7 @@ def mount_frontend(app: FastAPI, dist_dir_override: str | None = None) -> None:
         app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
 
     # 2. Serve index.html at "/" with no-cache
-    @app.get("/", include_in_schema=False)
+    @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
     async def serve_root() -> FileResponse:
         return FileResponse(
             str(index_file),
@@ -87,7 +106,7 @@ def mount_frontend(app: FastAPI, dist_dir_override: str | None = None) -> None:
         )
 
     # 3. SPA catch-all for client-side routing & top-level static assets (e.g. favicon.ico, vite.svg)
-    @app.get("/{full_path:path}", include_in_schema=False)
+    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     async def serve_spa_or_static(full_path: str) -> FileResponse:
         norm_path = full_path.lstrip("/")
 
