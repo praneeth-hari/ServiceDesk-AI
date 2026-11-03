@@ -1,5 +1,5 @@
 """
-Dataset loader module for ServiceDesk500.
+Dataset loader module for ServiceDesk600.
 
 Provides programmatic access to the validated dataset splits ('train', 'test', 'all').
 """
@@ -10,12 +10,12 @@ from typing import Literal
 import json
 
 
-DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "servicedesk500"
+DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "servicedesk600"
 
 
 @dataclass(frozen=True)
 class TicketExample:
-    """Represents a validated ticket example from the ServiceDesk500 dataset."""
+    """Represents a validated ticket example from the ServiceDesk600 dataset."""
 
     id: str
     text: str  # title + "\n" + description (strictly excludes label_note and labels)
@@ -34,7 +34,7 @@ def load_split(
 
     Args:
         name: Name of the split to load ('train', 'test', or 'all').
-        data_dir: Directory containing the dataset files. Defaults to data/servicedesk500.
+        data_dir: Directory containing the dataset files. Defaults to data/servicedesk600.
 
     Returns:
         List of TicketExample objects. Each object contains id, text (title + "\n" + description),
@@ -54,9 +54,9 @@ def load_split(
     elif split_name == "test":
         filepath = base_dir / "test.jsonl"
     else:  # "all"
-        filepath = base_dir / "servicedesk500.jsonl"
+        filepath = base_dir / "servicedesk600.jsonl"
         if not filepath.exists():
-            # Fallback to train + test if servicedesk500.jsonl is absent
+            # Fallback to train + test if servicedesk600.jsonl is absent
             return load_split("train", data_dir=base_dir) + load_split("test", data_dir=base_dir)
 
     if not filepath.is_file():

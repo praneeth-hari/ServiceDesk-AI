@@ -1,5 +1,5 @@
 """
-Build and validate the ServiceDesk500 dataset.
+Build and validate the ServiceDesk600 dataset.
 
 Loads 12 batch files, validates fields, detects near-duplicates with HashingEmbedder,
 applies human review corrections (if present), creates group-aware stratified train/test
@@ -26,7 +26,7 @@ VALID_PRIORITIES = {"low", "medium", "high", "urgent"}
 VALID_DIFFICULTIES = {"easy", "hard"}
 REQUIRED_FIELDS = ("id", "title", "description", "category", "priority", "difficulty", "label_note")
 
-DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "servicedesk500"
+DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "servicedesk600"
 
 
 class DisjointSet:
@@ -426,7 +426,7 @@ def build_markdown_report(
     test_diffs = count_by(test_tickets, "difficulty")
 
     lines: list[str] = []
-    lines.append("# ServiceDesk500 Validation Report")
+    lines.append("# ServiceDesk600 Validation Report")
     lines.append("")
     lines.append(f"**Execution command:** `python -m app.scripts.build_dataset`")
     lines.append("")
@@ -557,7 +557,7 @@ def run_pipeline(
     corrections_applied = apply_corrections_if_present(tickets, corrections_file)
 
     # 5. Write merged file
-    merged_file = data_dir / "servicedesk500.jsonl"
+    merged_file = data_dir / "servicedesk600.jsonl"
     with open(merged_file, "w", encoding="utf-8") as f:
         for t in tickets:
             f.write(json.dumps(t, ensure_ascii=False) + "\n")
@@ -615,7 +615,7 @@ def run_pipeline(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build and validate ServiceDesk500 dataset.")
+    parser = argparse.ArgumentParser(description="Build and validate ServiceDesk600 dataset.")
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR, help="Path to data directory")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for splitting and sampling")
     parser.add_argument("--sim-threshold", type=float, default=0.85, help="Cosine similarity duplicate threshold")
