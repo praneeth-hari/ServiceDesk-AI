@@ -1,3 +1,4 @@
+from app.schemas.common import UTCDateTime
 from datetime import datetime, timezone
 from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field, computed_field
@@ -43,11 +44,11 @@ class TicketRead(BaseModel):
     assignee_id: Optional[int]
     requester_name: Optional[str] = None
     assignee_name: Optional[str] = None
-    due_at: Optional[datetime] = None
-    sla_paused_at: Optional[datetime] = None
-    resolved_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
+    due_at: Optional[UTCDateTime] = None
+    sla_paused_at: Optional[UTCDateTime] = None
+    resolved_at: Optional[UTCDateTime] = None
+    created_at: UTCDateTime
+    updated_at: UTCDateTime
 
     model_config = ConfigDict(from_attributes=True)
 

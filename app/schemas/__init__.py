@@ -1,3 +1,4 @@
+from app.schemas.common import UTCDateTime
 from app.schemas.comment import CommentCreate, CommentRead
 from app.schemas.history import StatusHistoryRead
 from app.schemas.report import (
@@ -54,6 +55,7 @@ __all__ = [
     "SimilarTicket",
     "TriageSuggestRequest",
     "TriageSuggestResponse",
+    "UTCDateTime",
 ]
 
 
