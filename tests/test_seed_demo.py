@@ -45,7 +45,7 @@ def test_seed_demo_with_env_var(db_session: Session, monkeypatch: pytest.MonkeyP
 
     summary = seed_demo(db=db_session)
     assert summary["users_created"] == 3
-    assert summary["tickets_created"] == 16
+    assert summary["tickets_created"] == 36
 
 
 def test_seed_demo_creates_users_and_roles(db_session: Session):
@@ -97,10 +97,10 @@ def test_seed_demo_preserves_existing_user_password_updates_role(db_session: Ses
 def test_seed_demo_tickets_categories_priorities_and_workflow(db_session: Session):
     """Verify tickets cover all categories, priorities, statuses, comments, and overdue flags."""
     summary = seed_demo(db=db_session, allow_seed=True)
-    assert summary["tickets_created"] == 16
+    assert summary["tickets_created"] == 36
 
     tickets = db_session.scalars(select(Ticket)).all()
-    assert len(tickets) == 16
+    assert len(tickets) == 36
 
     # All 6 categories represented
     categories = {t.category for t in tickets}
@@ -142,7 +142,7 @@ def test_seed_demo_dry_run_makes_no_changes(db_session: Session):
     """Dry-run prints summary table and does not insert any tickets or users."""
     summary = seed_demo(db=db_session, dry_run=True, allow_seed=True)
     assert summary["dry_run"] is True
-    assert summary["tickets_planned"] == 16
+    assert summary["tickets_planned"] == 36
     assert summary["tickets_created"] == 0
 
     tickets = db_session.scalars(select(Ticket)).all()
@@ -179,7 +179,7 @@ def test_seed_demo_dry_run_all_states_present_and_robust_to_time():
 
     for _label, mock_now in test_scenarios:
         blueprints = get_demo_ticket_blueprints(mock_now, set())
-        assert len(blueprints) == 16
+        assert len(blueprints) == 36
 
         states = {b["expected_state"] for b in blueprints}
         assert states == expected_required_states
@@ -200,16 +200,16 @@ def test_seed_demo_wipe_tickets_safety_check(db_session: Session):
     # First seed normally
     seed_demo(db=db_session, allow_seed=True)
     initial_count = len(db_session.scalars(select(Ticket)).all())
-    assert initial_count == 16
+    assert initial_count == 36
 
     # Attempt wipe without confirmation
     result = seed_demo(db=db_session, wipe_tickets=True, allow_seed=False)
     assert result["wiped"] is False
-    assert result["tickets_would_delete"] == 16
+    assert result["tickets_would_delete"] == 36
 
     # Tickets were not touched
     after_count = len(db_session.scalars(select(Ticket)).all())
-    assert after_count == 16
+    assert after_count == 36
 
 
 def test_seed_demo_all_states_appear_and_due_at_is_consistent(db_session: Session):
@@ -218,10 +218,10 @@ def test_seed_demo_all_states_appear_and_due_at_is_consistent(db_session: Sessio
     2 active tickets are unassigned, and comments/history match workflow.
     """
     summary = seed_demo(db=db_session, allow_seed=True)
-    assert summary["tickets_created"] == 16
+    assert summary["tickets_created"] == 36
 
     tickets = db_session.scalars(select(Ticket)).all()
-    assert len(tickets) == 16
+    assert len(tickets) == 36
 
     now = datetime.now(timezone.utc)
     holidays = get_holiday_dates(db_session)
@@ -306,33 +306,33 @@ def test_seed_demo_all_states_appear_and_due_at_is_consistent(db_session: Sessio
 def test_seed_demo_idempotence_without_wipe(db_session: Session, capsys: pytest.CaptureFixture[str]):
     """Running seed twice WITHOUT --wipe-tickets does not duplicate tickets and prints skip notice."""
     first_run = seed_demo(db=db_session, allow_seed=True)
-    assert first_run["tickets_created"] == 16
+    assert first_run["tickets_created"] == 36
     assert first_run["tickets_skipped"] == 0
-    assert len(db_session.scalars(select(Ticket)).all()) == 16
+    assert len(db_session.scalars(select(Ticket)).all()) == 36
 
     second_run = seed_demo(db=db_session, allow_seed=True)
     captured = capsys.readouterr()
     assert "demo tickets already present, nothing added" in captured.out
     assert second_run["tickets_created"] == 0
-    assert second_run["tickets_skipped"] == 16
-    assert len(db_session.scalars(select(Ticket)).all()) == 16
+    assert second_run["tickets_skipped"] == 36
+    assert len(db_session.scalars(select(Ticket)).all()) == 36
 
 
 def test_seed_demo_wipe_tickets_idempotence(db_session: Session):
     """Running seed twice WITH --wipe-tickets --yes wipes and reseeds identical counts."""
     first = seed_demo(db=db_session, wipe_tickets=True, allow_seed=True)
-    assert first["tickets_created"] == 16
+    assert first["tickets_created"] == 36
     first_tickets = len(db_session.scalars(select(Ticket)).all())
     first_comments = len(db_session.scalars(select(TicketComment)).all())
     first_history = len(db_session.scalars(select(TicketStatusHistory)).all())
 
     second = seed_demo(db=db_session, wipe_tickets=True, allow_seed=True)
-    assert second["tickets_created"] == 16
+    assert second["tickets_created"] == 36
     second_tickets = len(db_session.scalars(select(Ticket)).all())
     second_comments = len(db_session.scalars(select(TicketComment)).all())
     second_history = len(db_session.scalars(select(TicketStatusHistory)).all())
 
-    assert first_tickets == second_tickets == 16
+    assert first_tickets == second_tickets == 36
     assert first_comments == second_comments
     assert first_history == second_history
 
@@ -350,10 +350,10 @@ def test_seed_demo_creates_ticket_embeddings(db_session: Session):
     """Every seeded ticket must have a corresponding row in ticket_embeddings."""
     seed_demo(db=db_session, allow_seed=True)
     tickets = db_session.scalars(select(Ticket)).all()
-    assert len(tickets) == 16
+    assert len(tickets) == 36
 
     embeddings = db_session.scalars(select(TicketEmbedding)).all()
-    assert len(embeddings) == 16
+    assert len(embeddings) == 36
 
     ticket_ids = {t.id for t in tickets}
     embedded_ticket_ids = {e.ticket_id for e in embeddings}
@@ -363,12 +363,12 @@ def test_seed_demo_creates_ticket_embeddings(db_session: Session):
 def test_seed_demo_wipe_cleans_ticket_embeddings(db_session: Session):
     """Wiping tickets must delete embeddings and leave no orphan rows."""
     seed_demo(db=db_session, allow_seed=True)
-    assert len(db_session.scalars(select(TicketEmbedding)).all()) == 16
+    assert len(db_session.scalars(select(TicketEmbedding)).all()) == 36
 
     # Wipe with --wipe-tickets --yes
     seed_demo(db=db_session, wipe_tickets=True, allow_seed=True)
     # Reseeded tickets
-    assert len(db_session.scalars(select(TicketEmbedding)).all()) == 16
+    assert len(db_session.scalars(select(TicketEmbedding)).all()) == 36
 
     # Verify wiping directly removes them
     db_session.query(TicketEmbedding).delete()
