@@ -1,3 +1,4 @@
+import { parseToUtcDate } from './businessTime';
 import type { Ticket } from '../../api/types';
 import { computeBusinessMinutesBetween } from './businessTime';
 
@@ -26,14 +27,14 @@ export interface SlaInfo {
  * - onTrack: active and < 75% of business hours elapsed
  */
 export function classifyTicketSla(ticket: Ticket, nowInput: Date | string | number = new Date()): SlaInfo {
-  const now = typeof nowInput === 'object' ? nowInput : new Date(nowInput);
+  const now = typeof nowInput === 'object' && nowInput instanceof Date ? nowInput : parseToUtcDate(nowInput);
   const isResolvedOrClosed = ticket.status === 'resolved' || ticket.status === 'closed';
 
-  const createdTime = new Date(ticket.created_at).getTime();
-  const dueTime = ticket.due_at ? new Date(ticket.due_at).getTime() : null;
+  const createdTime = parseToUtcDate(ticket.created_at).getTime();
+  const dueTime = ticket.due_at ? parseToUtcDate(ticket.due_at).getTime() : null;
   const resolvedOrUpdatedTime = ticket.resolved_at
-    ? new Date(ticket.resolved_at).getTime()
-    : new Date(ticket.updated_at).getTime();
+    ? parseToUtcDate(ticket.resolved_at).getTime()
+    : parseToUtcDate(ticket.updated_at).getTime();
 
   // If resolved or closed
   if (isResolvedOrClosed) {
@@ -190,15 +191,15 @@ export function sortTicketsDefault(
 
     // Both are resolved or closed
     if (rankA === 4) {
-      const timeA = new Date(a.resolved_at || a.updated_at).getTime();
-      const timeB = new Date(b.resolved_at || b.updated_at).getTime();
+      const timeA = parseToUtcDate(a.resolved_at || a.updated_at).getTime();
+      const timeB = parseToUtcDate(b.resolved_at || b.updated_at).getTime();
       return timeB - timeA;
     }
 
     // Both are active within the same severity group:
     // most overdue or soonest due first (due_at ascending)
-    const dueA = a.due_at ? new Date(a.due_at).getTime() : Infinity;
-    const dueB = b.due_at ? new Date(b.due_at).getTime() : Infinity;
+    const dueA = a.due_at ? parseToUtcDate(a.due_at).getTime() : Infinity;
+    const dueB = b.due_at ? parseToUtcDate(b.due_at).getTime() : Infinity;
     if (dueA !== dueB) {
       return dueA - dueB;
     }

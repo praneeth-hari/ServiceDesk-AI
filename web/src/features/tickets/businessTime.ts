@@ -34,13 +34,18 @@ export interface TimelineWindow {
 export function parseToUtcDate(input: Date | string | number): Date {
   if (typeof input === 'string') {
     let str = input.trim();
-    if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(str)) {
+    if (
+      /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(str) &&
+      !str.endsWith('Z') &&
+      !str.endsWith('z') &&
+      !/[+-]\d{2}(:?\d{2})?$/.test(str)
+    ) {
       str = str.replace(' ', 'T') + 'Z';
     }
     return new Date(str);
   }
   if (typeof input === 'object' && input instanceof Date) {
-    return input;
+    return new Date(input.getTime());
   }
   return new Date(input);
 }
@@ -390,7 +395,7 @@ export function mapTimeToPosition(
   if (!timeInput) {
     return { x: 0, isClippedLeft: false, isClippedRight: false };
   }
-  const d = typeof timeInput === 'object' ? timeInput : new Date(timeInput);
+  const d = typeof timeInput === 'object' && timeInput instanceof Date ? timeInput : parseToUtcDate(timeInput);
   const timeMs = d.getTime();
 
   if (timeMs < window.startUtcMs) {

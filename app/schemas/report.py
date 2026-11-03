@@ -1,3 +1,4 @@
+from app.schemas.common import UTCDateTime
 from datetime import date, datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
@@ -20,7 +21,7 @@ class OverdueTicketItem(BaseModel):
     title: str
     status: TicketStatus
     priority: TicketPriority
-    due_at: datetime
+    due_at: UTCDateTime
     requester_id: int
     requester_name: str
     assignee_id: Optional[int] = None
