@@ -1,3 +1,4 @@
+import { parseToUtcDate } from '../../../features/tickets/businessTime';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ReportCard } from './ReportCard';
@@ -28,7 +29,7 @@ export const OverdueCard: React.FC<OverdueCardProps> = ({
   const sorted = React.useMemo(() => {
     if (!items) return [];
     const copy = [...items];
-    copy.sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
+    copy.sort((a, b) => parseToUtcDate(a.due_at).getTime() - parseToUtcDate(b.due_at).getTime());
     return copy;
   }, [items]);
 
@@ -70,7 +71,7 @@ export const OverdueCard: React.FC<OverdueCardProps> = ({
 
               let formattedDue = ticket.due_at;
               try {
-                const d = new Date(ticket.due_at);
+                const d = parseToUtcDate(ticket.due_at);
                 if (!isNaN(d.getTime())) {
                   formattedDue = d.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
                 }
