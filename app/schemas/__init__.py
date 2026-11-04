@@ -23,6 +23,13 @@ from app.schemas.ticket import (
 )
 from app.schemas.token import Token
 from app.schemas.triage import SimilarTicket, TriageSuggestRequest, TriageSuggestResponse
+from app.schemas.assist import (
+    AIAssistFact,
+    AIAssistReplyResponse,
+    AIAssistRequest,
+    AIAssistStatusResponse,
+    AIAssistSummaryResponse,
+)
 from app.schemas.user import UserCreate, UserLogin, UserRead, UserRoleUpdate
 
 __all__ = [
@@ -55,6 +62,11 @@ __all__ = [
     "SimilarTicket",
     "TriageSuggestRequest",
     "TriageSuggestResponse",
+    "AIAssistStatusResponse",
+    "AIAssistRequest",
+    "AIAssistFact",
+    "AIAssistSummaryResponse",
+    "AIAssistReplyResponse",
     "UTCDateTime",
 ]
 

@@ -4,10 +4,23 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { TicketDetailPage } from '../TicketDetailPage';
 import * as ticketsApi from '../../../api/tickets';
 import * as authHook from '../../../context/useAuth';
+import * as clientApi from '../../../api/client';
 import type { Ticket, Comment, StatusHistory, SimilarTicket, User } from '../../../api/types';
 
 vi.mock('../../../api/tickets');
 vi.mock('../../../context/useAuth');
+vi.mock('../../../api/client', async () => {
+  const actual = await vi.importActual<typeof import('../../../api/client')>('../../../api/client');
+  return {
+    ...actual,
+    getAIAssistStatus: vi.fn().mockResolvedValue({
+      enabled: true,
+      mode: 'ollama',
+      model: 'llama3.1:8b',
+    }),
+    requestAIAssist: vi.fn(),
+  };
+});
 
 const mockRequesterUser: User = {
   id: 10,
@@ -577,4 +590,136 @@ it('shows "No similar tickets yet" when similarTickets list is empty for staff',
 
     expect(screen.getByText(/Open → In progress/i)).toBeInTheDocument();
   });
+  it('inserts AI draft reply into composer textarea, appends on second click, caps at 2000 chars, leaves internal note untouched', async () => {
+    vi.mocked(clientApi.getAIAssistStatus).mockResolvedValue({
+      enabled: true,
+      mode: 'ollama',
+      model: 'llama3.1:8b',
+    });
+    vi.mocked(clientApi.requestAIAssist).mockResolvedValue({
+      task: 'reply',
+      reply: 'Please restart your laptop.',
+      model: 'llama3.1:8b',
+      latency_ms: 1200,
+    });
+
+    renderTicketDetail(1);
+    await waitFor(() => {
+      expect(screen.getByText('VPN connection issue')).toBeInTheDocument();
+    });
+
+    // Check internal note checkbox is initially unchecked
+    const internalCheckbox = screen.getByLabelText(/Internal note/i) as HTMLInputElement;
+    expect(internalCheckbox.checked).toBe(false);
+
+    // Check reply textarea is initially empty
+    const textarea = screen.getByPlaceholderText('Type your message...') as HTMLTextAreaElement;
+    expect(textarea.value).toBe('');
+
+    // Trigger Draft reply
+    const draftBtn = await screen.findByRole('button', { name: /Draft reply/i });
+    fireEvent.click(draftBtn);
+
+    // Click Insert into reply
+    const insertBtn = await screen.findByRole('button', { name: /Insert into reply/i });
+    fireEvent.click(insertBtn);
+
+    // Draft inserted
+    expect(textarea.value).toBe('Please restart your laptop.');
+    expect(internalCheckbox.checked).toBe(false);
+
+    // Click Insert into reply again -> appends with \n\n
+    fireEvent.click(insertBtn);
+    expect(textarea.value).toBe('Please restart your laptop.\n\nPlease restart your laptop.');
+    expect(internalCheckbox.checked).toBe(false);
+
+    // Verify capping at 2000 chars
+    vi.mocked(clientApi.requestAIAssist).mockResolvedValue({
+      task: 'reply',
+      reply: 'X'.repeat(2500),
+      model: 'llama3.1:8b',
+      latency_ms: 1000,
+    });
+    fireEvent.click(draftBtn);
+    await waitFor(() => {
+      expect(screen.getByText('Draft Reply')).toBeInTheDocument();
+    });
+    const insertBtn2 = await screen.findByRole('button', { name: /Insert into reply/i });
+    fireEvent.click(insertBtn2);
+    expect(textarea.value.length).toBe(2000);
+    expect(internalCheckbox.checked).toBe(false);
+    // Comments should not have been automatically submitted
+    expect(ticketsApi.addComment).not.toHaveBeenCalled();
+  });
+  it('appends after a blank line into a box that already has text, keeping original text', async () => {
+    vi.mocked(clientApi.getAIAssistStatus).mockResolvedValue({
+      enabled: true,
+      mode: 'ollama',
+      model: 'llama3.1:8b',
+    });
+    vi.mocked(clientApi.requestAIAssist).mockResolvedValue({
+      task: 'reply',
+      reply: 'New draft suggestion.',
+      model: 'llama3.1:8b',
+      latency_ms: 1100,
+    });
+
+    renderTicketDetail(1);
+    await waitFor(() => {
+      expect(screen.getByText('VPN connection issue')).toBeInTheDocument();
+    });
+
+    const textarea = screen.getByPlaceholderText('Type your message...') as HTMLTextAreaElement;
+    // User already typed some notes
+    fireEvent.change(textarea, { target: { value: 'Initial handwritten greeting.' } });
+    expect(textarea.value).toBe('Initial handwritten greeting.');
+
+    // Generate draft reply and insert
+    const draftBtn = await screen.findByRole('button', { name: /Draft reply/i });
+    fireEvent.click(draftBtn);
+
+    const insertBtn = await screen.findByRole('button', { name: /Insert into reply/i });
+    fireEvent.click(insertBtn);
+
+    // Appended after blank line with original text kept
+    expect(textarea.value).toBe('Initial handwritten greeting.\n\nNew draft suggestion.');
+    expect(ticketsApi.addComment).not.toHaveBeenCalled();
+  });
+
+  it('leaves the internal-note checkbox state unchanged when already checked', async () => {
+    vi.mocked(clientApi.getAIAssistStatus).mockResolvedValue({
+      enabled: true,
+      mode: 'ollama',
+      model: 'llama3.1:8b',
+    });
+    vi.mocked(clientApi.requestAIAssist).mockResolvedValue({
+      task: 'reply',
+      reply: 'Follow-up draft.',
+      model: 'llama3.1:8b',
+      latency_ms: 800,
+    });
+
+    renderTicketDetail(1);
+    await waitFor(() => {
+      expect(screen.getByText('VPN connection issue')).toBeInTheDocument();
+    });
+
+    // Check internal note checkbox
+    const internalCheckbox = screen.getByLabelText(/Internal note/i) as HTMLInputElement;
+    fireEvent.click(internalCheckbox);
+    expect(internalCheckbox.checked).toBe(true);
+
+    // Trigger and insert
+    const draftBtn = await screen.findByRole('button', { name: /Draft reply/i });
+    fireEvent.click(draftBtn);
+
+    const insertBtn = await screen.findByRole('button', { name: /Insert into reply/i });
+    fireEvent.click(insertBtn);
+
+    // Checkbox remains checked
+    expect(internalCheckbox.checked).toBe(true);
+    expect(ticketsApi.addComment).not.toHaveBeenCalled();
+  });
 });
+
+
