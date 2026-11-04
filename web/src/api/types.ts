@@ -161,6 +161,8 @@ export interface AgentReview {
   reviewed_n: number;
   category_agreement_pct: number | null;
   priority_agreement_pct: number | null;
+  confirmed_n?: number;
+  corrected_n?: number;
 }
 
 export interface WeeklyAIQualityItem {
@@ -176,6 +178,29 @@ export interface CategoryCorrectionItem {
   count: number;
 }
 
+export interface TriageFeedbackRead {
+  id: number;
+  ticket_id: number;
+  method: string;
+  embedder: string | null;
+  suggested_category: string;
+  suggested_priority: string;
+  requester_category: string;
+  requester_priority: string;
+  final_category: string | null;
+  final_priority: string | null;
+  final_set_by: number | null;
+  final_set_at: string | null;
+  created_at: string;
+}
+
+export interface ByMethodItem {
+  method: string;
+  n: number;
+  reviewed_n: number;
+  category_agreement_pct: number | null;
+}
+
 export interface AIQualityReportResponse {
   total_suggestions: number;
   counts_by_method: Record<string, number>;
@@ -183,4 +208,5 @@ export interface AIQualityReportResponse {
   agent_review: AgentReview;
   weekly: WeeklyAIQualityItem[];
   top_corrections: CategoryCorrectionItem[];
+  by_method: ByMethodItem[];
 }

@@ -24,6 +24,7 @@ from app.services.comments import create_comment, list_comments
 from app.services.tickets import (
     assign_ticket,
     confirm_triage_feedback,
+    get_triage_feedback_for_ticket,
     create_ticket,
     get_ticket_by_id,
     get_ticket_status_history,
@@ -264,6 +265,24 @@ def get_similar_tickets(
         limit=limit,
     )
     return [SimilarTicket(**r) for r in results]
+
+
+@router.get(
+    "/{ticket_id}/triage-feedback",
+    response_model=TriageFeedbackRead,
+    status_code=status.HTTP_200_OK,
+    summary="Get AI triage feedback for a ticket",
+)
+def get_ticket_triage_feedback(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TriageFeedbackRead:
+    """
+    Get AI triage feedback for a ticket.
+    Agent and admin only (403 for requesters, 404 if ticket or feedback not found).
+    """
+    return get_triage_feedback_for_ticket(db, ticket_id=ticket_id, current_user=current_user)
 
 
 @router.post(

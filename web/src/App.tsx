@@ -8,6 +8,7 @@ import { TicketsPage } from './features/tickets/TicketsPage';
 import { NewTicketPage } from './features/tickets/NewTicketPage';
 import { TicketDetailPage } from './features/tickets/TicketDetailPage';
 import { ReportsPage } from './features/reports/ReportsPage';
+import { AIQualityPage } from './features/ai-quality/AIQualityPage';
 import { HolidaysPage } from './features/holidays/HolidaysPage';
 
 export function App() {
@@ -25,6 +26,7 @@ export function App() {
 
               <Route element={<RoleRoute staffOnly />}>
                 <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/ai-quality" element={<AIQualityPage />} />
               </Route>
 
               <Route element={<RoleRoute adminOnly />}>
