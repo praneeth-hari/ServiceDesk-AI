@@ -224,14 +224,102 @@ describe('AITriageStrip', () => {
     expect(screen.getByText('Marked as reviewed')).toBeInTheDocument();
   });
 
-  it('hides Apply button when ticket already matches suggestion in both category and priority', async () => {
-    const matchingTicket: Ticket = {
+  it('agent with only a priority difference: hides Apply button and shows helper text', async () => {
+    vi.mocked(authHook.useAuth).mockReturnValue({
+      user: mockAgentUser,
+      role: 'agent',
+      token: 'fake-token',
+      isLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+    });
+
+    const ticketWithSameCatDiffPrio: Ticket = {
+      ...baseTicket,
+      category: 'network', // matches feedback.suggested_category
+      priority: 'low',     // differs from feedback.suggested_priority ('high')
+    };
+
+    render(<AITriageStrip ticket={ticketWithSameCatDiffPrio} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('AI Triage')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('button', { name: 'Apply AI suggestion' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark reviewed as is' })).toBeInTheDocument();
+    expect(screen.getByText('Priority changes need an admin')).toBeInTheDocument();
+  });
+
+  it('agent with a category difference: shows Apply button', async () => {
+    vi.mocked(authHook.useAuth).mockReturnValue({
+      user: mockAgentUser,
+      role: 'agent',
+      token: 'fake-token',
+      isLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+    });
+
+    const ticketWithDiffCatSamePrio: Ticket = {
+      ...baseTicket,
+      category: 'other', // differs from feedback.suggested_category ('network')
+      priority: 'high',  // matches feedback.suggested_priority ('high')
+    };
+
+    render(<AITriageStrip ticket={ticketWithDiffCatSamePrio} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Apply AI suggestion' })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('button', { name: 'Mark reviewed as is' })).toBeInTheDocument();
+    expect(screen.queryByText('Priority changes need an admin')).not.toBeInTheDocument();
+  });
+
+  it('admin with a priority difference: shows Apply button', async () => {
+    vi.mocked(authHook.useAuth).mockReturnValue({
+      user: mockAdminUser,
+      role: 'admin',
+      token: 'fake-token',
+      isLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+    });
+
+    const ticketWithSameCatDiffPrio: Ticket = {
+      ...baseTicket,
+      category: 'network', // matches feedback.suggested_category
+      priority: 'low',     // differs from feedback.suggested_priority ('high')
+    };
+
+    render(<AITriageStrip ticket={ticketWithSameCatDiffPrio} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Apply AI suggestion' })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('button', { name: 'Mark reviewed as is' })).toBeInTheDocument();
+    expect(screen.queryByText('Priority changes need an admin')).not.toBeInTheDocument();
+  });
+
+  it('full match: hides Apply button for admin and agent', async () => {
+    vi.mocked(authHook.useAuth).mockReturnValue({
+      user: mockAdminUser,
+      role: 'admin',
+      token: 'fake-token',
+      isLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+    });
+
+    const fullMatchTicket: Ticket = {
       ...baseTicket,
       category: 'network',
       priority: 'high',
     };
 
-    render(<AITriageStrip ticket={matchingTicket} />);
+    render(<AITriageStrip ticket={fullMatchTicket} />);
 
     await waitFor(() => {
       expect(screen.getByText('AI Triage')).toBeInTheDocument();
@@ -240,6 +328,7 @@ describe('AITriageStrip', () => {
     expect(screen.queryByRole('button', { name: 'Apply AI suggestion' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mark reviewed as is' })).toBeInTheDocument();
   });
+
 
   it('loading state: buttons disabled while in-flight', async () => {
     let resolveConfirm: (val: TriageFeedbackRead) => void;
