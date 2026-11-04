@@ -14,6 +14,7 @@ Evaluation of automated category and priority triage methods on the **ServiceDes
 | *Baseline: Majority Class* | 16.7% [11.1%, 24.3%] | 0.0476 | 33.3% [25.5%, 42.2%] | 80.8% | 16.7% | <0.1 ms | <0.1s | 0.0% |
 | *Baseline: Random Guess (seed=42)* | 10.8% [6.4%, 17.7%] (expected: 16.7% [1/6]) | 0.1082 | 30.0% [22.5%, 38.7%] (expected: 25.0% [1/4]) | 65.0% | 10.0% | <0.1 ms | <0.1s | 0.0% |
 | **`llm-rag`** | **87.5%** [80.4%, 92.3%] | 0.8711 | 69.2% [60.4%, 76.7%] | 98.3% | 76.7% | 2376.7 ms | 267.1s | 0.0% |
+| **`llm-rag-hashing`** | **85.8%** [78.5%, 91.0%] | 0.8584 | 64.2% [55.3%, 72.2%] | 96.7% | 70.0% | 2736.3 ms | 328.7s | 0.0% |
 | **`llm-rag-qwen3b`** | **83.3%** [75.6%, 88.9%] | 0.8232 | 60.0% [51.1%, 68.3%] | 95.8% | 70.0% | 441.8 ms | 70.2s | 0.0% |
 | **`llm-zero-shot-qwen3b`** | **80.8%** [72.9%, 86.9%] | 0.8046 | 55.8% [46.9%, 64.4%] | 95.8% | 73.3% | 360.4 ms | 43.3s | 0.0% |
 | **`llm-zero-shot`** | **79.2%** [71.0%, 85.5%] | 0.7848 | 68.3% [59.6%, 76.0%] | 99.2% | 70.0% | 2111.3 ms | 222.4s | 0.0% |
@@ -124,9 +125,13 @@ Paired two-sided McNemar exact test evaluating whether `llm-rag` (`llama3.1:8b`)
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `llm-rag` vs `hashing-knn` | 34 | 4 | 38 | **0.000001** | **Yes (p < 0.05)** |
 | `llm-rag` vs `minilm-knn` | 18 | 5 | 23 | **0.010622** | **Yes (p < 0.05)** |
+| `llm-rag-hashing` vs `hashing-knn` | 32 | 4 | 36 | **0.000002** | **Yes (p < 0.05)** |
+| `llm-rag` vs `llm-rag-hashing` | 7 | 5 | 12 | **0.774414** | **No** |
 
-- **`llm-rag` vs `hashing-knn`**: $p = 6.04 \times 10^{-7}$ ($b=34, c=4$), showing decisive statistical superiority ($p < 0.001$).
-- **`llm-rag` vs `minilm-knn`**: $p = 0.010622$ ($b=18, c=5$), confirming that retrieved in-context examples provide a statistically significant improvement over dense embedding kNN alone at $\alpha = 0.05$.
+- **`llm-rag` vs `hashing-knn`**: $p = 6.04 \times 10^{-7}$ ($b=34$ where `llm-rag` is correct and `hashing-knn` is wrong, $c=4$ where `hashing-knn` is correct and `llm-rag` is wrong), showing decisive statistical superiority ($p < 0.001$).
+- **`llm-rag` vs `minilm-knn`**: $p = 0.010622$ ($b=18$ where `llm-rag` is correct and `minilm-knn` is wrong, $c=5$ where `minilm-knn` is correct and `llm-rag` is wrong), confirming that retrieved in-context examples provide a statistically significant improvement over dense embedding kNN alone at $\alpha = 0.05$.
+- **`llm-rag-hashing` vs `hashing-knn`**: $p = 2.12 \times 10^{-6}$ ($b=32$ where `llm-rag-hashing` is correct and `hashing-knn` is wrong, $c=4$ where `hashing-knn` is correct and `llm-rag-hashing` is wrong), confirming that the app's shipped retrieval with Llama 3.1 significantly outperforms kNN alone ($p < 0.001$).
+- **`llm-rag` vs `llm-rag-hashing`**: $p = 0.774414$ ($b=7$ where `llm-rag` is correct and `llm-rag-hashing` is wrong, $c=5$ where `llm-rag-hashing` is correct and `llm-rag` is wrong): no difference was detected (12 discordant pairs; the test cannot show equivalence).
 
 ---
 

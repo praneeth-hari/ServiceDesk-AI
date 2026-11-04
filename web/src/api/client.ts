@@ -1,4 +1,4 @@
-import { ApiErrorResponse } from './types';
+import { ApiErrorResponse, TriageFeedbackRead, AIQualityReportResponse, AIAssistStatusResponse, AIAssistResponse } from './types';
 
 export class ApiError extends Error {
   status: number;
@@ -83,4 +83,33 @@ export async function apiFetch<T>(
   }
 
   return response.json() as Promise<T>;
+}
+
+export async function getTicketTriageFeedback(ticketId: number): Promise<TriageFeedbackRead> {
+  return apiFetch<TriageFeedbackRead>(`/tickets/${ticketId}/triage-feedback`);
+}
+
+export async function confirmTriageFeedback(ticketId: number): Promise<TriageFeedbackRead> {
+  return apiFetch<TriageFeedbackRead>(`/tickets/${ticketId}/triage-feedback/confirm`, {
+    method: 'POST',
+  });
+}
+
+export async function getAIQualityReport(days?: number): Promise<AIQualityReportResponse> {
+  const query = days !== undefined ? `?days=${days}` : '';
+  return apiFetch<AIQualityReportResponse>(`/reports/ai-quality${query}`);
+}
+
+export async function getAIAssistStatus(): Promise<AIAssistStatusResponse> {
+  return apiFetch<AIAssistStatusResponse>('/ai-assist/status');
+}
+
+export async function requestAIAssist(
+  ticketId: number,
+  task: 'summary' | 'reply'
+): Promise<AIAssistResponse> {
+  return apiFetch<AIAssistResponse>(`/tickets/${ticketId}/ai-assist`, {
+    method: 'POST',
+    body: JSON.stringify({ task }),
+  });
 }
