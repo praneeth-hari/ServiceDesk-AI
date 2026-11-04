@@ -373,6 +373,7 @@ def test_mysql_ai_quality_report(mysql_session: Session):
     """
     from app.models.triage_feedback import TriageFeedback
     from app.services.reports import get_ai_quality_report
+    from app.services.tickets import confirm_triage_feedback
 
     now = datetime.now(timezone.utc)
 
@@ -422,8 +423,22 @@ def test_mysql_ai_quality_report(mysql_session: Session):
     assert report["total_suggestions"] >= 1
     assert "llm-rag" in report["counts_by_method"]
     assert report["requester_acceptance"]["n"] >= 1
+    assert report["agent_review"]["reviewed_n"] >= 1
+    assert report["agent_review"]["confirmed_n"] >= 1
+    assert report["agent_review"]["corrected_n"] >= 0
 
-    # 4. Verify CASCADE delete
+    # 4. Verify confirm_triage_feedback service on MySQL
+    confirmed_fb = confirm_triage_feedback(
+        mysql_session,
+        ticket_id=ticket.id,
+        current_user=user,
+        current_time=now,
+    )
+    assert confirmed_fb.final_category == "network"
+    assert confirmed_fb.final_priority == "medium"
+    assert confirmed_fb.final_set_by == user.id
+
+    # 5. Verify CASCADE delete
     mysql_session.delete(ticket)
     mysql_session.flush()
     fb_after = mysql_session.scalars(

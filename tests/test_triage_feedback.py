@@ -342,6 +342,8 @@ def test_ai_quality_empty_db_returns_nulls_not_errors(
         "reviewed_n": 0,
         "category_agreement_pct": None,
         "priority_agreement_pct": None,
+        "confirmed_n": 0,
+        "corrected_n": 0,
     }
     assert data["weekly"] == []
     assert data["top_corrections"] == []
@@ -496,6 +498,8 @@ def test_ai_quality_metrics_hand_verified(db_session: Session, agent_user: User)
     assert report["agent_review"]["reviewed_n"] == 3
     assert report["agent_review"]["category_agreement_pct"] == 66.7
     assert report["agent_review"]["priority_agreement_pct"] == 100.0
+    assert report["agent_review"]["confirmed_n"] == 2
+    assert report["agent_review"]["corrected_n"] == 1
 
     # Top corrections
     assert len(report["top_corrections"]) == 1
@@ -518,4 +522,253 @@ def test_ai_quality_metrics_hand_verified(db_session: Session, agent_user: User)
     assert w2["n"] == 2
     assert w2["requester_category_acceptance_pct"] == 100.0
     assert w2["agent_category_agreement_pct"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# 7. Explicit Confirmation Endpoint Tests
+# ---------------------------------------------------------------------------
+def test_confirm_feedback_agent_success(
+    client: TestClient,
+    agent_auth_headers: dict[str, str],
+    agent_user: User,
+    db_session: Session,
+    requester_user: User,
+):
+    """Verify an agent can confirm triage feedback without modifying the ticket."""
+    ticket_in = TicketCreate(
+        title="VPN dropping every 10 minutes",
+        description="GlobalProtect client disconnects repeatedly",
+        category=TicketCategory.NETWORK,
+        priority=TicketPriority.MEDIUM,
+        triage_suggestion=TriageSuggestionCreate(
+            suggested_category=TicketCategory.NETWORK,
+            suggested_priority=TicketPriority.MEDIUM,
+            method="llm-rag",
+            embedder="hashing-v2",
+        ),
+    )
+    ticket = create_ticket(db_session, ticket_in=ticket_in, current_user=requester_user)
+
+    resp = client.post(
+        f"/api/v1/tickets/{ticket.id}/triage-feedback/confirm",
+        headers=agent_auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ticket_id"] == ticket.id
+    assert data["final_category"] == "network"
+    assert data["final_priority"] == "medium"
+    assert data["final_set_by"] == agent_user.id
+    assert data["final_set_at"] is not None
+
+    # Check ticket itself is untouched
+    db_session.refresh(ticket)
+    assert ticket.category == TicketCategory.NETWORK
+    assert ticket.priority == TicketPriority.MEDIUM
+
+
+def test_confirm_feedback_admin_success_and_idempotent(
+    client: TestClient,
+    admin_auth_headers: dict[str, str],
+    admin_user: User,
+    db_session: Session,
+    requester_user: User,
+):
+    """Verify admin can confirm feedback and re-calling is idempotent (re-stamps)."""
+    ticket_in = TicketCreate(
+        title="New laptop setup needed",
+        description="Onboarding engineering intern next Monday",
+        category=TicketCategory.HARDWARE,
+        priority=TicketPriority.LOW,
+        triage_suggestion=TriageSuggestionCreate(
+            suggested_category=TicketCategory.HARDWARE,
+            suggested_priority=TicketPriority.LOW,
+            method="knn",
+        ),
+    )
+    ticket = create_ticket(db_session, ticket_in=ticket_in, current_user=requester_user)
+
+    resp1 = client.post(
+        f"/api/v1/tickets/{ticket.id}/triage-feedback/confirm",
+        headers=admin_auth_headers,
+    )
+    assert resp1.status_code == 200
+    data1 = resp1.json()
+    assert data1["final_category"] == "hardware"
+    assert data1["final_priority"] == "low"
+    assert data1["final_set_by"] == admin_user.id
+
+    # Call again: re-stamps successfully
+    resp2 = client.post(
+        f"/api/v1/tickets/{ticket.id}/triage-feedback/confirm",
+        headers=admin_auth_headers,
+    )
+    assert resp2.status_code == 200
+    data2 = resp2.json()
+    assert data2["final_category"] == "hardware"
+    assert data2["final_priority"] == "low"
+    assert data2["final_set_by"] == admin_user.id
+
+
+def test_confirm_feedback_requester_forbidden(
+    client: TestClient,
+    requester_auth_headers: dict[str, str],
+    db_session: Session,
+    requester_user: User,
+):
+    """Verify requester gets 403 Forbidden when calling confirm."""
+    ticket_in = TicketCreate(
+        title="Zoom audio echo",
+        description="Echo in meeting room A",
+        category=TicketCategory.SOFTWARE,
+        priority=TicketPriority.MEDIUM,
+        triage_suggestion=TriageSuggestionCreate(
+            suggested_category=TicketCategory.SOFTWARE,
+            suggested_priority=TicketPriority.MEDIUM,
+            method="knn",
+        ),
+    )
+    ticket = create_ticket(db_session, ticket_in=ticket_in, current_user=requester_user)
+
+    resp = client.post(
+        f"/api/v1/tickets/{ticket.id}/triage-feedback/confirm",
+        headers=requester_auth_headers,
+    )
+    assert resp.status_code == 403
+
+
+def test_confirm_feedback_missing_ticket(
+    client: TestClient,
+    agent_auth_headers: dict[str, str],
+):
+    """Verify 404 when ticket does not exist."""
+    resp = client.post(
+        "/api/v1/tickets/999999/triage-feedback/confirm",
+        headers=agent_auth_headers,
+    )
+    assert resp.status_code == 404
+
+
+def test_confirm_feedback_ticket_without_feedback(
+    client: TestClient,
+    agent_auth_headers: dict[str, str],
+    db_session: Session,
+    requester_user: User,
+):
+    """Verify 404 when ticket exists but has no triage_feedback row."""
+    ticket_in = TicketCreate(
+        title="Keycard badge replacement",
+        description="Lost badge in transit",
+        category=TicketCategory.ACCESS,
+        priority=TicketPriority.LOW,
+    )
+    ticket = create_ticket(db_session, ticket_in=ticket_in, current_user=requester_user)
+
+    resp = client.post(
+        f"/api/v1/tickets/{ticket.id}/triage-feedback/confirm",
+        headers=agent_auth_headers,
+    )
+    assert resp.status_code == 404
+
+
+def test_ai_quality_report_confirmed_and_corrected_counts(
+    db_session: Session,
+    agent_user: User,
+):
+    """
+    Test that confirmed_n and corrected_n accurately distinguish full agreement
+    from partial or complete correction in the report.
+    """
+    now = datetime(2026, 11, 4, 12, 0, 0, tzinfo=timezone.utc)
+
+    # 1. Confirmed: category and priority both match
+    fb_confirmed = TriageFeedback(
+        ticket_id=2001,
+        method="knn",
+        suggested_category="software",
+        suggested_priority="high",
+        requester_category="software",
+        requester_priority="high",
+        final_category="software",
+        final_priority="high",
+        final_set_by=agent_user.id,
+        final_set_at=now,
+        created_at=now,
+    )
+
+    # 2. Corrected: category differs, priority matches
+    fb_corrected_cat = TriageFeedback(
+        ticket_id=2002,
+        method="knn",
+        suggested_category="hardware",
+        suggested_priority="medium",
+        requester_category="hardware",
+        requester_priority="medium",
+        final_category="network",
+        final_priority="medium",
+        final_set_by=agent_user.id,
+        final_set_at=now,
+        created_at=now,
+    )
+
+    # 3. Corrected: category matches, priority differs
+    fb_corrected_prio = TriageFeedback(
+        ticket_id=2003,
+        method="llm-rag",
+        suggested_category="access",
+        suggested_priority="low",
+        requester_category="access",
+        requester_priority="low",
+        final_category="access",
+        final_priority="urgent",
+        final_set_by=agent_user.id,
+        final_set_at=now,
+        created_at=now,
+    )
+
+    # 4. Corrected: both differ
+    fb_corrected_both = TriageFeedback(
+        ticket_id=2004,
+        method="llm-rag",
+        suggested_category="email",
+        suggested_priority="medium",
+        requester_category="email",
+        requester_priority="medium",
+        final_category="security",
+        final_priority="urgent",
+        final_set_by=agent_user.id,
+        final_set_at=now,
+        created_at=now,
+    )
+
+    # 5. Unreviewed
+    fb_unreviewed = TriageFeedback(
+        ticket_id=2005,
+        method="knn",
+        suggested_category="other",
+        suggested_priority="low",
+        requester_category="other",
+        requester_priority="low",
+        created_at=now,
+    )
+
+    db_session.add_all([
+        fb_confirmed,
+        fb_corrected_cat,
+        fb_corrected_prio,
+        fb_corrected_both,
+        fb_unreviewed,
+    ])
+    db_session.commit()
+
+    report = get_ai_quality_report(db_session, days=30, current_time=now)
+    assert report["total_suggestions"] == 5
+    review = report["agent_review"]
+    assert review["reviewed_n"] == 4
+    assert review["confirmed_n"] == 1
+    assert review["corrected_n"] == 3
+    # 2 out of 4 agree on category (fb_confirmed, fb_corrected_prio)
+    assert review["category_agreement_pct"] == 50.0
+    # 2 out of 4 agree on priority (fb_confirmed, fb_corrected_cat)
+    assert review["priority_agreement_pct"] == 50.0
 

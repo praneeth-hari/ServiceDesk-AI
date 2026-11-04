@@ -14,6 +14,25 @@ class TriageSuggestionCreate(BaseModel):
     embedder: Optional[str] = None
 
 
+class TriageFeedbackRead(BaseModel):
+    """Schema for returning triage feedback."""
+    id: int
+    ticket_id: int
+    method: str
+    embedder: Optional[str] = None
+    suggested_category: str
+    suggested_priority: str
+    requester_category: str
+    requester_priority: str
+    final_category: Optional[str] = None
+    final_priority: Optional[str] = None
+    final_set_by: Optional[int] = None
+    final_set_at: Optional[UTCDateTime] = None
+    created_at: UTCDateTime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class TicketCreate(BaseModel):
     """Schema for creating a new ticket."""
     title: str = Field(..., min_length=1, max_length=255)

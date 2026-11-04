@@ -509,3 +509,49 @@ def get_ticket_status_history(
         .order_by(TicketStatusHistory.created_at.asc(), TicketStatusHistory.id.asc())
     )
     return db.scalars(stmt).all()
+
+
+def confirm_triage_feedback(
+    db: Session,
+    ticket_id: int,
+    current_user: User,
+    current_time: Optional[datetime] = None,
+) -> TriageFeedback:
+    """
+    Explicitly confirm/review AI triage feedback for a ticket.
+    Roles: agent and admin only (requester gets 403).
+    404 if the ticket does not exist or has no triage_feedback row.
+    Stamps final_category / final_priority with the ticket's current values,
+    final_set_by = current user, final_set_at = now.
+    Does not modify the ticket itself. Calling it again re-stamps (idempotent).
+    """
+    if current_user.role not in (UserRole.AGENT, UserRole.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only agents and admins can confirm triage feedback",
+        )
+
+    ticket = db.get(Ticket, ticket_id)
+    if not ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found",
+        )
+
+    fb_stmt = sa.select(TriageFeedback).where(TriageFeedback.ticket_id == ticket_id)
+    feedback = db.scalars(fb_stmt).first()
+    if not feedback:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Triage feedback not found for this ticket",
+        )
+
+    now = current_time or datetime.now(timezone.utc)
+    feedback.final_category = ticket.category.value if hasattr(ticket.category, "value") else str(ticket.category)
+    feedback.final_priority = ticket.priority.value if hasattr(ticket.priority, "value") else str(ticket.priority)
+    feedback.final_set_by = current_user.id
+    feedback.final_set_at = now
+
+    db.commit()
+    db.refresh(feedback)
+    return feedback
