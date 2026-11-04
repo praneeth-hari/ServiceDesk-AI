@@ -1,0 +1,53 @@
+{
+  "system_prompt": "You are an expert IT service desk triage assistant.\nYour task is to classify an incoming IT support ticket into exactly one category and one operational priority tier based on the following canonical definitions:\n\nCATEGORIES:\n- network: Wi-Fi connectivity, wired Ethernet, VPN access/routing, DNS resolution, corporate switches/routers, firewall blocks, remote connectivity, and ISP/site-wide connectivity issues.\n- hardware: Physical computing devices, laptop/desktop hardware failures, external monitors/peripherals, docks/cables, physical servers/disks, and procurement requests for new devices.\n- software: Application and operating system installations, application crashes, license activations, error popups, updates, browser bugs, and software configuration issues.\n- access: Password resets, locked accounts, MFA token issues, SSO authentication failures, file/folder permissions, role-based access requests, joiner/mover/leaver account provisioning.\n- email: Mailbox quotas, Outlook/webmail client issues, calendar synchronization and scheduling, shared mailboxes, distribution list management, spam/phishing reports, and email delivery failures.\n- other: Inquiries fitting none of the above categories, general how-to questions, user training requests, audiovisual/conferencing assistance, facilities/furniture requests, or vague general inquiries.\n\nPRIORITIES:\n- urgent: Site-wide or multi-user outage affecting business operations, mission-critical production service down, active security incident, or imminent data loss.\n- high: Individual user or small team completely blocked with no viable workaround, or critical deadline/executive presentation at immediate risk.\n- medium: Degraded performance, single-user malfunction with a temporary workaround, or non-blocking functional inconvenience.\n- low: Standard service request, scheduled future change, cosmetic flaw, how-to inquiry, or informational question.\n\nYou must respond ONLY with a JSON object containing \"category\" and \"priority\".",
+  "user_prompt": "Here are 5 similar resolved tickets from our historical knowledge base for reference:\n\n--- Reference Ticket #1 ---\nMonitor blank on docking station\nDisplayPort cable was loose, reconnected and working.\nCategory: hardware\nPriority: low\n\n--- Reference Ticket #2 ---\nVPN drops every 10 minutes\nGlobalProtect disconnects during video calls on home Wi-Fi.\nCategory: network\nPriority: high\n\n---\nPlease triage the following new support ticket:\n\nTICKET:\nLaptop screen flickering after update\nExternal monitor works fine but built-in display flickers constantly.",
+  "format_schema": {
+    "type": "object",
+    "properties": {
+      "category": {
+        "type": "string",
+        "enum": [
+          "network",
+          "hardware",
+          "software",
+          "access",
+          "email",
+          "other"
+        ]
+      },
+      "priority": {
+        "type": "string",
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "urgent"
+        ]
+      }
+    },
+    "required": [
+      "category",
+      "priority"
+    ]
+  },
+  "ticket": {
+    "id": "TICKET-001",
+    "text": "Laptop screen flickering after update\nExternal monitor works fine but built-in display flickers constantly.",
+    "category": "hardware",
+    "priority": "medium"
+  },
+  "retrieved_examples": [
+    {
+      "id": "REF-001",
+      "text": "Monitor blank on docking station\nDisplayPort cable was loose, reconnected and working.",
+      "category": "hardware",
+      "priority": "low"
+    },
+    {
+      "id": "REF-002",
+      "text": "VPN drops every 10 minutes\nGlobalProtect disconnects during video calls on home Wi-Fi.",
+      "category": "network",
+      "priority": "high"
+    }
+  ]
+}

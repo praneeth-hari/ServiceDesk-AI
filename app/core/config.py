@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     AI_KNN_K: int = 5
     AI_MAX_CANDIDATES: int = 5000
 
+    # LLM-Assisted Triage Settings (optional, local via Ollama)
+    AI_TRIAGE_MODE: str = "knn"  # "knn" or "llm"
+    OLLAMA_BASE_URL: str = "http://127.0.0.1:11434"
+    AI_LLM_MODEL: str = "llama3.1:8b"
+    AI_LLM_TIMEOUT_SECONDS: float = 30.0
+    AI_LLM_EXAMPLES: int = 5
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -96,6 +103,20 @@ class Settings(BaseSettings):
         if self.AI_EMBEDDER not in ("hashing", "hashing-v2", "sbert"):
             raise ValueError(
                 f"AI_EMBEDDER must be 'hashing', 'hashing-v2', or 'sbert', got '{self.AI_EMBEDDER}'"
+            )
+
+        # 5. LLM Triage Settings validation
+        if self.AI_TRIAGE_MODE not in ("knn", "llm"):
+            raise ValueError(
+                f"Invalid AI_TRIAGE_MODE '{self.AI_TRIAGE_MODE}': must be 'knn' or 'llm'"
+            )
+        if self.AI_LLM_TIMEOUT_SECONDS <= 0:
+            raise ValueError(
+                f"AI_LLM_TIMEOUT_SECONDS must be positive, got {self.AI_LLM_TIMEOUT_SECONDS}"
+            )
+        if self.AI_LLM_EXAMPLES < 0:
+            raise ValueError(
+                f"AI_LLM_EXAMPLES must be non-negative, got {self.AI_LLM_EXAMPLES}"
             )
 
         if not (0.0 <= self.AI_MIN_SIMILARITY <= 1.0):

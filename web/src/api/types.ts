@@ -135,8 +135,10 @@ export interface TriageSuggestRequest {
 export interface TriageSuggestResponse {
   suggested_category: TicketCategory | null;
   suggested_priority: TicketPriority | null;
-  confidence: number;
+  confidence: number | null;
   evidence: SimilarTicket[];
   possible_duplicates: SimilarTicket[];
   embedder: string;
+  method?: string;
+  fallback_reason?: string | null;
 }

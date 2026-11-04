@@ -6,6 +6,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session, joinedload
 
 from app.ai.embedder import Embedder, get_embedder, get_text_to_embed
+from app.ai.llm_triage import triage_with_llm
 from app.core.config import settings
 from app.models.embedding import TicketEmbedding
 from app.models.enums import TicketCategory, TicketPriority, TicketStatus, UserRole
@@ -141,6 +142,8 @@ def _compute_cosine_similarities(
         vectors.append(vec)
         metadata.append(ticket)
 
+    if not vectors:
+        return []
     matrix = np.vstack(vectors).astype(np.float32)
     # Dot product of normalized vectors
     sims = np.dot(matrix, query_vector.astype(np.float32))
@@ -154,6 +157,7 @@ def _compute_cosine_similarities(
             {
                 "id": ticket.id,
                 "title": ticket.title,
+                "description": ticket.description,
                 "status": ticket.status,
                 "category": ticket.category,
                 "priority": ticket.priority,
@@ -236,6 +240,8 @@ def suggest(
             "evidence": [],
             "possible_duplicates": [],
             "embedder": active_embedder.name,
+            "method": "knn",
+            "fallback_reason": ("No text to embed" if settings.AI_TRIAGE_MODE == "llm" else None),
         }
     query_vec = vectors[0]
 
@@ -292,6 +298,38 @@ def suggest(
     else:
         duplicates = duplicate_candidates
 
+    # 3. LLM-Assisted Triage (when AI_TRIAGE_MODE == "llm")
+    method = "knn"
+    fallback_reason: Optional[str] = None
+
+    if settings.AI_TRIAGE_MODE == "llm":
+        try:
+            rag_examples = resolved_candidates[: settings.AI_LLM_EXAMPLES]
+            ticket_text = f"{title}\n{description}".strip()
+
+            llm_cat, llm_prio, latency_ms, error_reason = triage_with_llm(
+                ticket_text=ticket_text,
+                retrieved_examples=rag_examples,
+                model_name=settings.AI_LLM_MODEL,
+                base_url=settings.OLLAMA_BASE_URL,
+                timeout=settings.AI_LLM_TIMEOUT_SECONDS,
+            )
+
+            if error_reason is not None or llm_cat is None or llm_prio is None:
+                method = "knn"
+                fallback_reason = error_reason or "LLM triage failed"
+                logger.warning("LLM triage fallback to kNN: %s", fallback_reason)
+            else:
+                suggested_cat = TicketCategory(llm_cat)
+                suggested_prio = TicketPriority(llm_prio)
+                confidence = None
+                method = "llm-rag"
+                fallback_reason = None
+        except Exception as exc:
+            method = "knn"
+            fallback_reason = f"LLM error: {exc}"
+            logger.warning("Unexpected error during LLM triage, falling back to kNN: %s", exc, exc_info=True)
+
     return {
         "suggested_category": suggested_cat,
         "suggested_priority": suggested_prio,
@@ -299,4 +337,6 @@ def suggest(
         "evidence": evidence,
         "possible_duplicates": duplicates,
         "embedder": active_embedder.name,
+        "method": method,
+        "fallback_reason": fallback_reason,
     }
