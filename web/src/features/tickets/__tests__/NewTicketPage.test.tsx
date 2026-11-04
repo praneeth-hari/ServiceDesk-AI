@@ -460,7 +460,7 @@ describe('NewTicketPage', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/measured: 58% category accuracy vs 17% by chance/i)).toBeInTheDocument();
+    expect(screen.getByText(/measured: 62\.5% category accuracy vs 16\.7% majority-class baseline/i)).toBeInTheDocument();
 
     const toggleBtn = screen.getByRole('button', { name: /how accurate is this\?/i });
     expect(toggleBtn).toHaveAttribute('aria-expanded', 'false');
@@ -468,8 +468,8 @@ describe('NewTicketPage', () => {
     // Expand
     fireEvent.click(toggleBtn);
     expect(toggleBtn).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText(/evaluated on 24 held-out tickets/i)).toBeInTheDocument();
-    expect(screen.getByText(/58.33%/i)).toBeInTheDocument();
+    expect(screen.getByText(/evaluated on 120 held-out tickets/i)).toBeInTheDocument();
+    expect(screen.getByText(/category accuracy is 62\.5%/i)).toBeInTheDocument();
 
     // Collapse
     fireEvent.click(toggleBtn);

@@ -62,15 +62,16 @@ export const AITriageStrip: React.FC<AITriageStripProps> = ({ ticket, onTicketUp
     ? 'kNN'
     : feedback.method.toUpperCase();
 
-  // Check if current ticket already matches suggested values in BOTH category and priority
-  const matchesBoth =
-    ticket.category.toLowerCase() === feedback.suggested_category.toLowerCase() &&
-    ticket.priority.toLowerCase() === feedback.suggested_priority.toLowerCase();
-
-  // Priority difference helper text for agents
-  const prioDiffers =
+  // Check whether applying would change anything for the current user:
+  // Agents can only update category; admins can update category and priority.
+  const categoryDiffers =
+    ticket.category.toLowerCase() !== feedback.suggested_category.toLowerCase();
+  const priorityDiffers =
     ticket.priority.toLowerCase() !== feedback.suggested_priority.toLowerCase();
-  const showAdminPrioNotice = isAgent && prioDiffers;
+  const canApply = isAdmin ? (categoryDiffers || priorityDiffers) : categoryDiffers;
+
+  // Priority difference helper text for agents when priority differs
+  const showAdminPrioNotice = isAgent && priorityDiffers;
 
   // Review status
   const isReviewed = Boolean(feedback.final_set_at || feedback.final_category);
@@ -230,7 +231,7 @@ export const AITriageStrip: React.FC<AITriageStripProps> = ({ ticket, onTicketUp
             </span>
           )}
 
-          {!matchesBoth && (
+          {canApply && (
             <button
               type="button"
               onClick={handleApply}
