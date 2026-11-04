@@ -455,6 +455,28 @@ def get_ai_quality_report(
         for (s, f), cnt in sorted_corrections[:10]
     ]
 
+    # By method breakdown (one entry per method that has rows, computed on reviewed rows only)
+    by_method_groups: dict[str, list[TriageFeedback]] = defaultdict(list)
+    for r in rows:
+        by_method_groups[r.method].append(r)
+
+    by_method = []
+    for method in sorted(by_method_groups.keys()):
+        m_rows = by_method_groups[method]
+        m_n = len(m_rows)
+        m_reviewed = [r for r in m_rows if r.final_category is not None or r.final_set_at is not None]
+        m_rev_n = len(m_reviewed)
+        m_cat_match = sum(1 for r in m_reviewed if r.final_category == r.suggested_category)
+        m_agreement_pct = (
+            round(100.0 * m_cat_match / m_rev_n, 1) if m_rev_n > 0 else None
+        )
+        by_method.append({
+            "method": method,
+            "n": m_n,
+            "reviewed_n": m_rev_n,
+            "category_agreement_pct": m_agreement_pct,
+        })
+
     return {
         "total_suggestions": total_suggestions,
         "counts_by_method": counts_by_method,
@@ -462,4 +484,5 @@ def get_ai_quality_report(
         "agent_review": agent_review,
         "weekly": weekly,
         "top_corrections": top_corrections,
+        "by_method": by_method,
     }

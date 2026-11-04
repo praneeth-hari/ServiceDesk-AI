@@ -511,6 +511,40 @@ def get_ticket_status_history(
     return db.scalars(stmt).all()
 
 
+def get_triage_feedback_for_ticket(
+    db: Session,
+    ticket_id: int,
+    current_user: User,
+) -> TriageFeedback:
+    """
+    Get triage feedback for a ticket.
+    Roles: agent and admin only (requester gets 403).
+    404 if the ticket does not exist or has no triage_feedback row.
+    """
+    if current_user.role not in (UserRole.AGENT, UserRole.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only agents and admins can view triage feedback",
+        )
+
+    ticket = db.get(Ticket, ticket_id)
+    if not ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found",
+        )
+
+    fb_stmt = sa.select(TriageFeedback).where(TriageFeedback.ticket_id == ticket_id)
+    feedback = db.scalars(fb_stmt).first()
+    if not feedback:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Triage feedback not found for this ticket",
+        )
+
+    return feedback
+
+
 def confirm_triage_feedback(
     db: Session,
     ticket_id: int,

@@ -107,6 +107,8 @@ export async function getAgentWorkload(): Promise<AgentWorkloadItem[]> {
   return apiFetch<AgentWorkloadItem[]>('/reports/agent-workload');
 }
 
+export { getAIQualityReport } from './client';
+
 /** GET /api/v1/reports/tickets-by-category?breakdown_by_status=false */
 export async function getTicketsByCategory(
   breakdownByStatus: boolean = false

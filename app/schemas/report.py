@@ -135,6 +135,15 @@ class CategoryCorrectionItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ByMethodItem(BaseModel):
+    method: str
+    n: int
+    reviewed_n: int
+    category_agreement_pct: Optional[float] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AIQualityReportResponse(BaseModel):
     total_suggestions: int
     counts_by_method: dict[str, int]
@@ -142,5 +151,6 @@ class AIQualityReportResponse(BaseModel):
     agent_review: AgentReview
     weekly: list[WeeklyAIQualityItem]
     top_corrections: list[CategoryCorrectionItem]
+    by_method: list[ByMethodItem] = []
 
     model_config = ConfigDict(from_attributes=True)

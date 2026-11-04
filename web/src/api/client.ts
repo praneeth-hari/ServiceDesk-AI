@@ -1,4 +1,4 @@
-import { ApiErrorResponse } from './types';
+import { ApiErrorResponse, TriageFeedbackRead, AIQualityReportResponse } from './types';
 
 export class ApiError extends Error {
   status: number;
@@ -83,4 +83,19 @@ export async function apiFetch<T>(
   }
 
   return response.json() as Promise<T>;
+}
+
+export async function getTicketTriageFeedback(ticketId: number): Promise<TriageFeedbackRead> {
+  return apiFetch<TriageFeedbackRead>(`/tickets/${ticketId}/triage-feedback`);
+}
+
+export async function confirmTriageFeedback(ticketId: number): Promise<TriageFeedbackRead> {
+  return apiFetch<TriageFeedbackRead>(`/tickets/${ticketId}/triage-feedback/confirm`, {
+    method: 'POST',
+  });
+}
+
+export async function getAIQualityReport(days?: number): Promise<AIQualityReportResponse> {
+  const query = days !== undefined ? `?days=${days}` : '';
+  return apiFetch<AIQualityReportResponse>(`/reports/ai-quality${query}`);
 }

@@ -772,3 +772,241 @@ def test_ai_quality_report_confirmed_and_corrected_counts(
     # 2 out of 4 agree on priority (fb_confirmed, fb_corrected_cat)
     assert review["priority_agreement_pct"] == 50.0
 
+
+# ---------------------------------------------------------------------------
+# 6. GET /api/v1/tickets/{ticket_id}/triage-feedback
+# ---------------------------------------------------------------------------
+def test_get_triage_feedback_agent_200(
+    client: TestClient,
+    agent_auth_headers: dict[str, str],
+    db_session: Session,
+    requester_user: User,
+):
+    """Verify agent can retrieve triage feedback for a ticket."""
+    ticket_in = TicketCreate(
+        title="Cannot connect to corporate Wi-Fi",
+        description="SSID not visible from 5th floor laptops",
+        category=TicketCategory.NETWORK,
+        priority=TicketPriority.HIGH,
+        triage_suggestion=TriageSuggestionCreate(
+            suggested_category=TicketCategory.NETWORK,
+            suggested_priority=TicketPriority.MEDIUM,
+            method="llm-rag",
+            embedder="hashing-v2",
+        ),
+    )
+    ticket = create_ticket(db_session, ticket_in=ticket_in, current_user=requester_user)
+
+    resp = client.get(
+        f"/api/v1/tickets/{ticket.id}/triage-feedback",
+        headers=agent_auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ticket_id"] == ticket.id
+    assert data["method"] == "llm-rag"
+    assert data["suggested_category"] == "network"
+    assert data["suggested_priority"] == "medium"
+    assert data["requester_category"] == "network"
+    assert data["requester_priority"] == "high"
+
+
+def test_get_triage_feedback_admin_200(
+    client: TestClient,
+    admin_auth_headers: dict[str, str],
+    db_session: Session,
+    requester_user: User,
+):
+    """Verify admin can retrieve triage feedback for a ticket."""
+    ticket_in = TicketCreate(
+        title="Cannot connect to corporate Wi-Fi",
+        description="SSID not visible from 5th floor laptops",
+        category=TicketCategory.NETWORK,
+        priority=TicketPriority.HIGH,
+        triage_suggestion=TriageSuggestionCreate(
+            suggested_category=TicketCategory.NETWORK,
+            suggested_priority=TicketPriority.MEDIUM,
+            method="knn",
+        ),
+    )
+    ticket = create_ticket(db_session, ticket_in=ticket_in, current_user=requester_user)
+
+    resp = client.get(
+        f"/api/v1/tickets/{ticket.id}/triage-feedback",
+        headers=admin_auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ticket_id"] == ticket.id
+    assert data["method"] == "knn"
+
+
+def test_get_triage_feedback_requester_403(
+    client: TestClient,
+    requester_auth_headers: dict[str, str],
+    db_session: Session,
+    requester_user: User,
+):
+    """Verify requester gets 403 when requesting triage feedback."""
+    ticket_in = TicketCreate(
+        title="Cannot connect to corporate Wi-Fi",
+        description="SSID not visible from 5th floor laptops",
+        category=TicketCategory.NETWORK,
+        priority=TicketPriority.HIGH,
+        triage_suggestion=TriageSuggestionCreate(
+            suggested_category=TicketCategory.NETWORK,
+            suggested_priority=TicketPriority.MEDIUM,
+            method="knn",
+        ),
+    )
+    ticket = create_ticket(db_session, ticket_in=ticket_in, current_user=requester_user)
+
+    resp = client.get(
+        f"/api/v1/tickets/{ticket.id}/triage-feedback",
+        headers=requester_auth_headers,
+    )
+    assert resp.status_code == 403
+
+
+def test_get_triage_feedback_missing_ticket_404(
+    client: TestClient,
+    agent_auth_headers: dict[str, str],
+):
+    """Verify 404 when ticket does not exist."""
+    resp = client.get(
+        "/api/v1/tickets/999999/triage-feedback",
+        headers=agent_auth_headers,
+    )
+    assert resp.status_code == 404
+
+
+def test_get_triage_feedback_no_feedback_404(
+    client: TestClient,
+    agent_auth_headers: dict[str, str],
+    db_session: Session,
+    requester_user: User,
+):
+    """Verify 404 when ticket exists but has no triage feedback row."""
+    ticket_in = TicketCreate(
+        title="Printer paper jam",
+        description="Tray 2 jammed on 3rd floor copier",
+        category=TicketCategory.HARDWARE,
+        priority=TicketPriority.LOW,
+    )
+    ticket = create_ticket(db_session, ticket_in=ticket_in, current_user=requester_user)
+
+    resp = client.get(
+        f"/api/v1/tickets/{ticket.id}/triage-feedback",
+        headers=agent_auth_headers,
+    )
+    assert resp.status_code == 404
+
+
+def test_ai_quality_by_method_counts(
+    db_session: Session,
+    agent_user: User,
+    client: TestClient,
+    agent_auth_headers: dict[str, str],
+):
+    """
+    Seeds 3 knn and 2 llm-rag rows (some reviewed),
+    verifies by_method has correct n, reviewed_n, category_agreement_pct for each method.
+    """
+    now = datetime(2026, 11, 4, 12, 0, 0, tzinfo=timezone.utc)
+
+    # 3 knn rows:
+    # 1. reviewed, agrees on category
+    knn_1 = TriageFeedback(
+        ticket_id=3001,
+        method="knn",
+        suggested_category="software",
+        suggested_priority="high",
+        requester_category="software",
+        requester_priority="high",
+        final_category="software",
+        final_priority="high",
+        final_set_by=agent_user.id,
+        final_set_at=now,
+        created_at=now,
+    )
+    # 2. reviewed, differs on category
+    knn_2 = TriageFeedback(
+        ticket_id=3002,
+        method="knn",
+        suggested_category="hardware",
+        suggested_priority="medium",
+        requester_category="hardware",
+        requester_priority="medium",
+        final_category="network",
+        final_priority="medium",
+        final_set_by=agent_user.id,
+        final_set_at=now,
+        created_at=now,
+    )
+    # 3. unreviewed
+    knn_3 = TriageFeedback(
+        ticket_id=3003,
+        method="knn",
+        suggested_category="other",
+        suggested_priority="low",
+        requester_category="other",
+        requester_priority="low",
+        created_at=now,
+    )
+
+    # 2 llm-rag rows:
+    # 4. reviewed, agrees on category
+    llm_1 = TriageFeedback(
+        ticket_id=3004,
+        method="llm-rag",
+        suggested_category="access",
+        suggested_priority="low",
+        requester_category="access",
+        requester_priority="low",
+        final_category="access",
+        final_priority="low",
+        final_set_by=agent_user.id,
+        final_set_at=now,
+        created_at=now,
+    )
+    # 5. unreviewed
+    llm_2 = TriageFeedback(
+        ticket_id=3005,
+        method="llm-rag",
+        suggested_category="email",
+        suggested_priority="medium",
+        requester_category="email",
+        requester_priority="medium",
+        created_at=now,
+    )
+
+    db_session.add_all([knn_1, knn_2, knn_3, llm_1, llm_2])
+    db_session.commit()
+
+    report = get_ai_quality_report(db_session, days=30, current_time=now)
+    assert "by_method" in report
+    by_method = {item["method"]: item for item in report["by_method"]}
+
+    assert "knn" in by_method
+    assert by_method["knn"]["n"] == 3
+    assert by_method["knn"]["reviewed_n"] == 2
+    assert by_method["knn"]["category_agreement_pct"] == 50.0
+
+    assert "llm-rag" in by_method
+    assert by_method["llm-rag"]["n"] == 2
+    assert by_method["llm-rag"]["reviewed_n"] == 1
+    assert by_method["llm-rag"]["category_agreement_pct"] == 100.0
+
+    # Also verify via API endpoint
+    resp = client.get("/api/v1/reports/ai-quality?days=30", headers=agent_auth_headers)
+    assert resp.status_code == 200
+    api_data = resp.json()
+    assert "by_method" in api_data
+    api_by_method = {item["method"]: item for item in api_data["by_method"]}
+    assert api_by_method["knn"]["n"] == 3
+    assert api_by_method["knn"]["reviewed_n"] == 2
+    assert api_by_method["knn"]["category_agreement_pct"] == 50.0
+    assert api_by_method["llm-rag"]["n"] == 2
+    assert api_by_method["llm-rag"]["reviewed_n"] == 1
+    assert api_by_method["llm-rag"]["category_agreement_pct"] == 100.0
+

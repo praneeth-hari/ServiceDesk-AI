@@ -21,6 +21,7 @@ import type {
   User,
 } from '../../api/types';
 import { StatusBadge, PriorityBadge } from './components/Badges';
+import { AITriageStrip } from './AITriageStrip';
 import { classifyTicketSla } from './slaState';
 import {
   computeBusinessMinutesRemaining,
@@ -378,6 +379,12 @@ export const TicketDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* AI Triage Strip (Staff only) */}
+      <AITriageStrip
+        ticket={ticket}
+        onTicketUpdated={(updated) => setTicket(updated)}
+      />
 
       {/* Requester Paused SLA Banner */}
       {!isStaff && ticket.status === 'waiting_on_requester' && (

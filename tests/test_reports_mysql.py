@@ -426,6 +426,14 @@ def test_mysql_ai_quality_report(mysql_session: Session):
     assert report["agent_review"]["reviewed_n"] >= 1
     assert report["agent_review"]["confirmed_n"] >= 1
     assert report["agent_review"]["corrected_n"] >= 0
+    assert "by_method" in report
+    assert len(report["by_method"]) >= 1
+    assert set(report["by_method"][0].keys()) == {
+        "method",
+        "n",
+        "reviewed_n",
+        "category_agreement_pct",
+    }
 
     # 4. Verify confirm_triage_feedback service on MySQL
     confirmed_fb = confirm_triage_feedback(
