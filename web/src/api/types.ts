@@ -210,3 +210,31 @@ export interface AIQualityReportResponse {
   top_corrections: CategoryCorrectionItem[];
   by_method: ByMethodItem[];
 }
+
+export interface AIAssistStatusResponse {
+  enabled: boolean;
+  mode: 'off' | 'ollama';
+  model: string | null;
+}
+
+export interface AIAssistFact {
+  label: string;
+  value: string;
+}
+
+export interface AIAssistSummaryResponse {
+  task: 'summary';
+  summary: string;
+  facts: AIAssistFact[];
+  model: string;
+  latency_ms: number;
+}
+
+export interface AIAssistReplyResponse {
+  task: 'reply';
+  reply: string;
+  model: string;
+  latency_ms: number;
+}
+
+export type AIAssistResponse = AIAssistSummaryResponse | AIAssistReplyResponse;
