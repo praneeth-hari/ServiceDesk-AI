@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     AI_LLM_TIMEOUT_SECONDS: float = 30.0
     AI_LLM_EXAMPLES: int = 5
 
+    # AI Assist Settings (optional, local via Ollama, off by default)
+    AI_ASSIST_MODE: str = "off"  # "off" or "ollama"
+    AI_ASSIST_MODEL: str = "llama3.1:8b"
+    AI_ASSIST_TIMEOUT_SECONDS: float = 60.0
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -117,6 +122,16 @@ class Settings(BaseSettings):
         if self.AI_LLM_EXAMPLES < 0:
             raise ValueError(
                 f"AI_LLM_EXAMPLES must be non-negative, got {self.AI_LLM_EXAMPLES}"
+            )
+
+        # 6. AI Assist Settings validation
+        if self.AI_ASSIST_MODE not in ("off", "ollama"):
+            raise ValueError(
+                f"Invalid AI_ASSIST_MODE '{self.AI_ASSIST_MODE}': must be 'off' or 'ollama'"
+            )
+        if self.AI_ASSIST_TIMEOUT_SECONDS <= 0:
+            raise ValueError(
+                f"AI_ASSIST_TIMEOUT_SECONDS must be positive, got {self.AI_ASSIST_TIMEOUT_SECONDS}"
             )
 
         if not (0.0 <= self.AI_MIN_SIMILARITY <= 1.0):

@@ -60,6 +60,7 @@ Role-based IT helpdesk ticketing application with business-hours SLA tracking, r
 | **Pausable SLA Clock** | Moving to `waiting_on_requester` freezes the SLA clock (`sla_paused_at`); resuming to `in_progress` pushes `due_at` forward by exact elapsed business minutes. |
 | **Holidays Management** | Admin CRUD API and web management (`/api/v1/holidays`), preventing SLA calculations on non-working dates. |
 | **AI Triage & Duplicates** | Advisory category/priority suggestions via similarity-weighted kNN voting; duplicate detection over active tickets using L2-normalized cosine embeddings; real-time debounced suggestions in the web UI. |
+| **AI Ticket Assist** | On-demand issue summary and draft reply assistance for agents via local Ollama (`AI_ASSIST_MODE=ollama`, off by default); strictly excludes internal notes, protects against prompt injection, and produces drafts for human review. |
 | **Comments & History** | Public comments and staff-only `is_internal` notes. Full status change audit history recorded on state changes with author attribution. |
 | **Search & Pagination** | Sanitized keyword search (`q`), multi-criteria filtering, multi-field sorting, and offset pagination. |
 | **SQL Reports** | 9 raw SQL reports using aggregations, `LEFT JOIN`, Common Table Expressions (CTEs), and `RANK()` window functions. |
@@ -210,6 +211,13 @@ Requesters only see evidence items and duplicate candidates from their own ticke
 The service exposes `POST /api/v1/triage/suggest` (advisory triage and duplicates) and `GET /api/v1/tickets/{id}/similar` (staff only).
 On the earlier small evaluation set (`data/triage_eval.csv`, 24 test tickets), category accuracy reached 58.33% vs 16.67% random chance (see [AI triage evaluation](#ai-triage-evaluation) below for the current benchmark on ServiceDesk-600).
 Full details: [docs/AI_TRIAGE.md](docs/AI_TRIAGE.md).
+
+### AI Ticket Assist (Summary & Draft Reply)
+
+On the ticket detail page, support staff (`agent` and `admin` roles) can optionally invoke on-demand AI assist powered by local Ollama (`AI_ASSIST_MODE=ollama`, off by default):
+- **Summarize**: Generates a concise summary of the issue and conversation history, extracting up to 4 key technical facts (error codes, OS, devices).
+- **Draft reply**: Composes a polite, contextual draft reply addressing the requester, which agents can insert directly into the composer to edit and verify.
+- **Privacy & Safety**: Internal notes (`is_internal=True`) are strictly excluded from LLM prompts. Nothing is persisted to the database, and no ticket content is logged. Outputs are advisory drafts for human review; no accuracy claims are made.
 
 ---
 
