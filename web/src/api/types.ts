@@ -226,6 +226,7 @@ export interface AIAssistSummaryResponse {
   task: 'summary';
   summary: string;
   facts: AIAssistFact[];
+  dropped_fact_count?: number;
   model: string;
   latency_ms: number;
 }

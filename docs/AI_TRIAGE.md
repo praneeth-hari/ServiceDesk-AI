@@ -144,6 +144,10 @@ The application supports an optional LLM-assisted workflow for support agents an
    - System prompts forbid resolution promises, SLA commitments, or requests for passwords and sensitive credentials.
 4. **No Accuracy Claims**:
    - Assist outputs are conversational drafts and summaries to accelerate agent productivity, not categorical classifiers. No accuracy or benchmark claims are made.
+5. **Fact-Grounding Guard**:
+   - Key-fact chips extracted during summarization pass through a deterministic grounding validator before display; any fact whose value does not appear in the ticket input (title, capped description, or sent public comments) is pruned (`dropped_fact_count`).
+   - This checks only that extracted values literally exist in the prompt input; it does not verify whether they are correctly labeled.
+   - It does not cover or constrain the free-form text in the issue summary or draft reply.
 
 ### Configuration Settings
 

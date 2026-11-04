@@ -114,10 +114,12 @@ def test_ai_assist_summary_success_and_clamping(
     monkeypatch.setattr(settings, "AI_ASSIST_MODE", "ollama")
     monkeypatch.setattr(settings, "AI_ASSIST_MODEL", "llama3.1:8b")
 
+    # Each clamped value is 80 chars: "Value_i" (7 chars) + 73 'Y's
+    desc_facts = " ".join(f"Value_{i}" + "Y" * 73 for i in range(6))
     ticket_res = client.post(
         "/api/v1/tickets",
         headers=requester_auth_headers,
-        json={"title": "VPN failure", "description": "Cannot connect to corporate VPN"},
+        json={"title": "VPN failure", "description": f"Cannot connect to corporate VPN. {desc_facts}"},
     )
     ticket_id = ticket_res.json()["id"]
 
@@ -611,10 +613,12 @@ def test_ai_assist_malformed_model_output_parametrised(
     """
     monkeypatch.setattr(settings, "AI_ASSIST_MODE", "ollama")
 
+    # Overlong value is clamped to 80 chars by validate_assist_response
+    desc = "Ticket description " + ("V" * 80) if "overlong_text_summary" in case_name else "Ticket description"
     ticket_res = client.post(
         "/api/v1/tickets",
         headers=requester_auth_headers,
-        json={"title": f"Malformed test {case_name}", "description": "Ticket description"},
+        json={"title": f"Malformed test {case_name}", "description": desc},
     )
     ticket_id = ticket_res.json()["id"]
 
@@ -854,3 +858,258 @@ def test_ai_assist_both_tasks_use_escaped_text(
         assert "&lt;brackets&gt;" in captured_prompt
         assert captured_prompt.count("<ticket_data>") == 1
         assert captured_prompt.count("</ticket_data>") == 1
+
+
+from app.ai.assist import ground_key_facts
+from app.schemas.assist import AIAssistFact, AIAssistSummaryResponse
+
+
+def test_ground_key_facts_verbatim_kept():
+    source_texts = ["Error 503 Service Unavailable on auth service"]
+    facts = [AIAssistFact(label="Error Code", value="503")]
+    grounded, dropped = ground_key_facts(facts, source_texts)
+    assert len(grounded) == 1
+    assert grounded[0].value == "503"
+    assert dropped == 0
+
+
+def test_ground_key_facts_absent_dropped_and_count_incremented():
+    source_texts = ["Error 503 Service Unavailable on auth service"]
+    facts = [
+        AIAssistFact(label="Error Code", value="404"),
+        AIAssistFact(label="Device", value="iPhone 15"),
+    ]
+    grounded, dropped = ground_key_facts(facts, source_texts)
+    assert len(grounded) == 0
+    assert dropped == 2
+
+
+def test_ground_key_facts_case_whitespace_unicode_kept():
+    source_texts = [
+        "Running on   Ubuntu   22.04   LTS   edition.",
+        "Server reported code \uff14\uff10\uff14 in logs.",
+    ]
+    facts = [
+        AIAssistFact(label="OS", value="ubuntu 22.04 lts"),
+        AIAssistFact(label="Error", value="404"),
+        AIAssistFact(label="Surrounded", value=' "Ubuntu 22.04 LTS." '),
+    ]
+    grounded, dropped = ground_key_facts(facts, source_texts)
+    assert len(grounded) == 3
+    assert dropped == 0
+
+
+def test_ground_key_facts_token_boundary_404_vs_14045():
+    source_texts = ["Incident #14045: Out of memory on worker 4040."]
+    facts = [
+        AIAssistFact(label="Status", value="404"),
+        AIAssistFact(label="Incident", value="14045"),
+        AIAssistFact(label="Worker", value="4040"),
+    ]
+    grounded, dropped = ground_key_facts(facts, source_texts)
+    assert len(grounded) == 2
+    assert [f.value for f in grounded] == ["14045", "4040"]
+    assert dropped == 1
+
+
+def test_ground_key_facts_truncated_or_internal_comment_dropped(
+    client: TestClient,
+    requester_auth_headers: dict[str, str],
+    agent_auth_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(settings, "AI_ASSIST_MODE", "ollama")
+
+    early_fact = "VALID_EARLY_FACT_123"
+    late_fact = "TRUNCATED_LATE_FACT_456"
+    long_desc = early_fact + " " + ("X" * 4100) + " " + late_fact
+
+    ticket_res = client.post(
+        "/api/v1/tickets",
+        headers=requester_auth_headers,
+        json={"title": "Long ticket", "description": long_desc},
+    )
+    ticket_id = ticket_res.json()["id"]
+
+    internal_fact = "SECRET_INTERNAL_NOTE_789"
+    client.post(
+        f"/api/v1/tickets/{ticket_id}/comments",
+        headers=agent_auth_headers,
+        json={"body": f"Staff note: {internal_fact}", "is_internal": True},
+    )
+
+    oldest_comment_fact = "TRUNCATED_OLD_COMMENT_000"
+    client.post(
+        f"/api/v1/tickets/{ticket_id}/comments",
+        headers=requester_auth_headers,
+        json={"body": f"Oldest comment: {oldest_comment_fact}"},
+    )
+    for i in range(1, 12):
+        client.post(
+            f"/api/v1/tickets/{ticket_id}/comments",
+            headers=requester_auth_headers,
+            json={"body": f"Public comment {i}"},
+        )
+
+    mock_facts = [
+        {"label": "Early", "value": early_fact},
+        {"label": "Late", "value": late_fact},
+        {"label": "Internal", "value": internal_fact},
+        {"label": "OldComment", "value": oldest_comment_fact},
+    ]
+
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = json.dumps({
+        "message": {"content": json.dumps({"summary": "Summary", "facts": mock_facts})}
+    }).encode("utf-8")
+    mock_resp.__enter__.return_value = mock_resp
+
+    with patch("urllib.request.urlopen", return_value=mock_resp):
+        res = client.post(
+            f"/api/v1/tickets/{ticket_id}/ai-assist",
+            headers=agent_auth_headers,
+            json={"task": "summary"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert len(data["facts"]) == 1
+        assert data["facts"][0]["value"] == early_fact
+        assert data["dropped_fact_count"] == 3
+
+
+def test_ground_key_facts_all_dropped_empty_list_valid():
+    source_texts = ["Simple ticket description"]
+    hallucinated_facts = [
+        {"label": "Fact1", "value": "phantom_1"},
+        {"label": "Fact2", "value": "phantom_2"},
+        {"label": "Fact3", "value": "phantom_3"},
+    ]
+    grounded, dropped = ground_key_facts(hallucinated_facts, source_texts)
+    assert grounded == []
+    assert dropped == 3
+
+    resp = AIAssistSummaryResponse(
+        task="summary",
+        summary="A summary without any facts",
+        facts=grounded,
+        dropped_fact_count=dropped,
+        model="llama3.1:8b",
+        latency_ms=120,
+    )
+    assert resp.facts == []
+    assert resp.dropped_fact_count == 3
+
+
+def test_ai_assist_endpoint_real_and_invented_facts(
+    client: TestClient,
+    requester_auth_headers: dict[str, str],
+    agent_auth_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(settings, "AI_ASSIST_MODE", "ollama")
+
+    ticket_res = client.post(
+        "/api/v1/tickets",
+        headers=requester_auth_headers,
+        json={"title": "Database connection error", "description": "PostgreSQL connection refused on port 5432"},
+    )
+    ticket_id = ticket_res.json()["id"]
+
+    mock_facts = [
+        {"label": "Port", "value": "5432"},
+        {"label": "Server", "value": "db-prod-99"},
+    ]
+
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = json.dumps({
+        "message": {"content": json.dumps({"summary": "DB is down on port 5432", "facts": mock_facts})}
+    }).encode("utf-8")
+    mock_resp.__enter__.return_value = mock_resp
+
+    with patch("urllib.request.urlopen", return_value=mock_resp):
+        res = client.post(
+            f"/api/v1/tickets/{ticket_id}/ai-assist",
+            headers=agent_auth_headers,
+            json={"task": "summary"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert len(data["facts"]) == 1
+        assert data["facts"][0]["label"] == "Port"
+        assert data["facts"][0]["value"] == "5432"
+        assert data["dropped_fact_count"] == 1
+
+
+from app.ai.assist import extract_assist_source_texts, build_assist_prompt
+from app.models.enums import TicketCategory, TicketPriority, TicketStatus
+
+
+def test_assist_grounding_uses_single_source_of_truth_and_cannot_diverge():
+    """
+    Ensure extract_assist_source_texts extracts directly from the prompt's <ticket_data> block.
+    This guarantees grounding always operates on the exact text and truncation the prompt builder produced.
+    """
+    class DummyTicket:
+        id = 99
+        status = TicketStatus.OPEN
+        category = TicketCategory.HARDWARE
+        priority = TicketPriority.URGENT
+        title = "Monitor flickering"
+        description = "Monitor displays horizontal green lines " * 50
+
+    ticket = DummyTicket()
+    prompt = build_assist_prompt(
+        ticket=ticket,
+        requester_name="Alice Smith",
+        agent_name="Bob Jones",
+        public_comments=[],
+        task="summary",
+    )
+
+    source_texts = extract_assist_source_texts(prompt)
+    assert len(source_texts) == 1
+
+    # Single source of truth assertion: source_text must exactly equal prompt's ticket_data content
+    start_tag = "<ticket_data>"
+    end_tag = "</ticket_data>"
+    start = prompt.find(start_tag) + len(start_tag)
+    end = prompt.rfind(end_tag)
+    expected_block = prompt[start:end].strip()
+
+    assert source_texts[0] == expected_block, "Grounding source diverged from prompt builder data block!"
+
+
+def test_ground_key_facts_structured_fields_kept():
+    """
+    Prompt includes structured fields (requester name, category, priority, status).
+    Ensure legitimate facts matching these structured fields are grounded and NOT dropped.
+    """
+    class DummyTicket:
+        id = 777
+        status = TicketStatus.RESOLVED
+        category = TicketCategory.ACCESS
+        priority = TicketPriority.HIGH
+        title = "Password reset request"
+        description = "User needs MFA device reset"
+
+    ticket = DummyTicket()
+    prompt = build_assist_prompt(
+        ticket=ticket,
+        requester_name="Charlie Brown",
+        agent_name="Diana Prince",
+        public_comments=[],
+        task="summary",
+    )
+
+    sources = extract_assist_source_texts(prompt)
+
+    structured_facts = [
+        AIAssistFact(label="Requester", value="Charlie"),
+        AIAssistFact(label="Category", value="access"),
+        AIAssistFact(label="Priority", value="high"),
+        AIAssistFact(label="Status", value="resolved"),
+    ]
+
+    grounded, dropped = ground_key_facts(structured_facts, sources)
+    assert len(grounded) == 4, f"Expected all 4 structured facts kept, got: {[f.value for f in grounded]}"
+    assert dropped == 0
