@@ -229,6 +229,11 @@ export const AIQualityPage: React.FC = () => {
                     : 'No data yet'}
                 </span>
               </div>
+              {data.requester_acceptance.n < 10 && (
+                <span className="text-[11px] text-muted italic mt-0.5">
+                  Small sample, treat as indicative only
+                </span>
+              )}
               <span className="text-muted text-xs mt-1">
                 {data.requester_acceptance.category_pct !== null
                   ? `${Math.round(
@@ -256,7 +261,7 @@ export const AIQualityPage: React.FC = () => {
             {/* Card 4: Agent agreement */}
             <div className="bg-paper border border-line rounded-lg p-4 shadow-sm flex flex-col justify-between">
               <span className="text-muted text-xs uppercase tracking-wider font-medium">
-                Agent agreement
+                Agent agreement (category)
               </span>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl sm:text-3xl font-serif font-bold text-ink">
@@ -265,6 +270,11 @@ export const AIQualityPage: React.FC = () => {
                     : 'No data yet'}
                 </span>
               </div>
+              {data.agent_review.reviewed_n < 10 && (
+                <span className="text-[11px] text-muted italic mt-0.5">
+                  Small sample, treat as indicative only
+                </span>
+              )}
               <span className="text-muted text-xs mt-1">
                 of {data.agent_review.reviewed_n} reviewed tickets
               </span>

@@ -141,7 +141,7 @@ describe('AIQualityPage', () => {
     expect(screen.getByText('38 confirmed · 12 corrected')).toBeInTheDocument();
 
     // Card 4: Agent agreement
-    expect(screen.getAllByText('Agent agreement').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Agent agreement (category)')).toBeInTheDocument();
     expect(screen.getByText('82.5%')).toBeInTheDocument();
     expect(screen.getByText('of 50 reviewed tickets')).toBeInTheDocument();
 
@@ -190,6 +190,36 @@ describe('AIQualityPage', () => {
     // Both requester and agent agreement should display "No data yet"
     const noDataElements = screen.getAllByText('No data yet');
     expect(noDataElements.length).toBeGreaterThanOrEqual(2);
+  });
+
+
+  it('displays small sample note when n < 10 or reviewed_n < 10', async () => {
+    const smallSampleReport: AIQualityReportResponse = {
+      ...mockFullReport,
+      requester_acceptance: {
+        category_pct: 66.7,
+        priority_pct: 50.0,
+        n: 6,
+      },
+      agent_review: {
+        reviewed_n: 3,
+        category_agreement_pct: 100.0,
+        priority_agreement_pct: 66.7,
+        confirmed_n: 2,
+        corrected_n: 1,
+      },
+    };
+
+    vi.mocked(clientApi.getAIQualityReport).mockResolvedValue(smallSampleReport);
+
+    renderAIQualityPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Suggestions made')).toBeInTheDocument();
+    });
+
+    const smallSampleNotes = screen.getAllByText('Small sample, treat as indicative only');
+    expect(smallSampleNotes.length).toBe(2);
   });
 
   it('empty state: when total_suggestions == 0, shows empty state message', async () => {

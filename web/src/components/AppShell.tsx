@@ -55,7 +55,6 @@ export const AppShell: React.FC = () => {
                 {isStaff && (
                   <NavLink to="/ai-quality" className={navLinkClass}>
                     AI quality
-                    Reports
                   </NavLink>
                 )}
                 {isAdmin && (

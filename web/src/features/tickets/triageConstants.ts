@@ -1,24 +1,22 @@
 /**
  * Benchmark evaluation metrics for AI triage.
- * Source reference: docs/AI_TRIAGE.md (evaluated on held-out test split of 24 tickets from synthetic 120-ticket dataset).
+ * Source reference: benchmarks/RESULTS.md (evaluated on held-out test split of 120 tickets from synthetic 600-ticket ServiceDesk-600 dataset).
  */
 
 export const TRIAGE_BENCHMARKS = {
-  categoryAccuracyPercent: 58,
-  categoryAccuracyExact: '58.33%',
-  categoryRandomChance: '16.67%',
-  categoryMajorityBaseline: '16.67%',
-  priorityAccuracyExact: '37.50%',
-  priorityMajorityBaseline: '38.33%',
-  testSplitSize: 24,
-  totalDatasetSize: 120,
+  categoryAccuracyPercent: 62.5,
+  categoryAccuracyExact: '62.5%',
+  categoryMajorityBaseline: '16.7%',
+  priorityAccuracyExact: '44.2%',
+  priorityMajorityBaseline: '33.3%',
+  testSplitSize: 120,
+  totalDatasetSize: 600,
   minTextLength: 15,
   debounceMs: 600,
 } as const;
 
 export const TRIAGE_HONESTY_SUMMARY =
-  `Measured: ${TRIAGE_BENCHMARKS.categoryAccuracyPercent}% category accuracy vs 17% by chance.`;
+  'Measured: 62.5% category accuracy vs 16.7% majority-class baseline (measured on the ServiceDesk-600 test split).';
 
 export const TRIAGE_EXPLANATION =
-  `Category accuracy is ${TRIAGE_BENCHMARKS.categoryAccuracyExact} (vs ${TRIAGE_BENCHMARKS.categoryRandomChance} random chance). Priority hint is ${TRIAGE_BENCHMARKS.priorityAccuracyExact} (vs ${TRIAGE_BENCHMARKS.priorityMajorityBaseline} majority class baseline). Evaluated on ${TRIAGE_BENCHMARKS.testSplitSize} held-out tickets from a synthetic ${TRIAGE_BENCHMARKS.totalDatasetSize}-ticket dataset (docs/AI_TRIAGE.md). The method compares text with past tickets (lexical feature hashing, not semantic understanding).`;
-
+  'Category accuracy is 62.5% (vs 16.7% majority-class baseline). Priority hint is 44.2% (vs 33.3% majority-class baseline). Evaluated on 120 held-out tickets from the synthetic 600-ticket ServiceDesk-600 dataset (benchmarks/RESULTS.md). The baseline method compares text with past tickets using lexical feature hashing.';
