@@ -19,6 +19,7 @@ from app.models.enums import TicketCategory, TicketPriority
 from app.scripts.benchmark_triage import (
     CATEGORIES,
     PRIORITIES,
+    OLLAMA_FORMAT_SCHEMA,
     SYSTEM_PROMPT,
     build_rag_prompt,
     build_zero_shot_prompt,
@@ -157,6 +158,38 @@ def test_prompt_building_strictly_excludes_label_note():
     assert "Priority: medium" in rag_prompt
     assert "VPN connectivity dropped" in rag_prompt
     assert "label_note" not in rag_prompt
+
+
+def test_llm_prompt_golden_fixture_exact_match():
+    fixture_path = Path("tests/fixtures/llm_prompt_golden.json")
+    assert fixture_path.is_file(), "Golden prompt fixture must exist"
+    golden = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    ticket_data = golden["ticket"]
+    ticket = TicketExample(
+        id=ticket_data["id"],
+        text=ticket_data["text"],
+        category=ticket_data["category"],
+        priority=ticket_data["priority"],
+        difficulty="easy",
+        group="grp-01",
+    )
+    retrieved = [
+        TicketExample(
+            id=ex["id"],
+            text=ex["text"],
+            category=ex["category"],
+            priority=ex["priority"],
+            difficulty="easy",
+            group=f"grp-ref-{idx}",
+        )
+        for idx, ex in enumerate(golden["retrieved_examples"])
+    ]
+
+    built_user_prompt = build_rag_prompt(ticket, retrieved)
+    assert built_user_prompt == golden["user_prompt"]
+    assert SYSTEM_PROMPT == golden["system_prompt"]
+    assert OLLAMA_FORMAT_SCHEMA == golden["format_schema"]
 
 
 def test_check_ollama_status_offline():

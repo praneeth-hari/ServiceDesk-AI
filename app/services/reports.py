@@ -338,3 +338,151 @@ def get_tickets_by_category(
     result = db.execute(stmt)
     return result.mappings().all()
 
+
+
+def get_ai_quality_report(
+    db: Session,
+    days: Optional[int] = 90,
+    current_time: Optional[datetime] = None,
+) -> dict[str, Any]:
+    """
+    Report 10: AI Triage Quality & Feedback metrics.
+    - Windowed by created_at >= now - timedelta(days=days) if days > 0.
+    - Computes requester acceptance rate, agent review agreement rate,
+      weekly timeline series (ISO week start), and top 10 correction pairs.
+    - All bucketing and percentage calculations performed in Python.
+    """
+    from collections import Counter, defaultdict
+    from datetime import date, timedelta
+    from app.models.triage_feedback import TriageFeedback
+
+    now = current_time or datetime.now(timezone.utc)
+    stmt = sa.select(TriageFeedback).order_by(TriageFeedback.created_at.asc())
+    if days is not None and days > 0:
+        cutoff = now - timedelta(days=days)
+        stmt = stmt.where(TriageFeedback.created_at >= cutoff)
+
+    rows = db.scalars(stmt).all()
+    total_suggestions = len(rows)
+
+    counts_by_method = dict(Counter(r.method for r in rows))
+
+    # Requester acceptance
+    if total_suggestions == 0:
+        requester_acceptance = {
+            "category_pct": None,
+            "priority_pct": None,
+            "n": 0,
+        }
+    else:
+        req_cat_match = sum(1 for r in rows if r.requester_category == r.suggested_category)
+        req_prio_match = sum(1 for r in rows if r.requester_priority == r.suggested_priority)
+        requester_acceptance = {
+            "category_pct": round(100.0 * req_cat_match / total_suggestions, 1),
+            "priority_pct": round(100.0 * req_prio_match / total_suggestions, 1),
+            "n": total_suggestions,
+        }
+
+    # Agent review
+    reviewed_rows = [r for r in rows if r.final_category is not None or r.final_set_at is not None]
+    reviewed_n = len(reviewed_rows)
+    if reviewed_n == 0:
+        agent_review = {
+            "reviewed_n": 0,
+            "category_agreement_pct": None,
+            "priority_agreement_pct": None,
+            "confirmed_n": 0,
+            "corrected_n": 0,
+        }
+    else:
+        agent_cat_match = sum(1 for r in reviewed_rows if r.final_category == r.suggested_category)
+        agent_prio_match = sum(1 for r in reviewed_rows if r.final_priority == r.suggested_priority)
+        confirmed_n = sum(
+            1 for r in reviewed_rows
+            if r.final_category == r.suggested_category and r.final_priority == r.suggested_priority
+        )
+        corrected_n = sum(
+            1 for r in reviewed_rows
+            if r.final_category != r.suggested_category or r.final_priority != r.suggested_priority
+        )
+        agent_review = {
+            "reviewed_n": reviewed_n,
+            "category_agreement_pct": round(100.0 * agent_cat_match / reviewed_n, 1),
+            "priority_agreement_pct": round(100.0 * agent_prio_match / reviewed_n, 1),
+            "confirmed_n": confirmed_n,
+            "corrected_n": corrected_n,
+        }
+
+    # Weekly series
+    weekly_groups: dict[date, list[TriageFeedback]] = defaultdict(list)
+    for r in rows:
+        r_dt = r.created_at
+        r_date = r_dt.date() if isinstance(r_dt, datetime) else r_dt
+        week_start = r_date - timedelta(days=r_date.weekday())
+        weekly_groups[week_start].append(r)
+
+    weekly = []
+    for w_start in sorted(weekly_groups.keys()):
+        w_rows = weekly_groups[w_start]
+        w_n = len(w_rows)
+        w_cat_match = sum(1 for r in w_rows if r.requester_category == r.suggested_category)
+        w_reviewed = [r for r in w_rows if r.final_category is not None or r.final_set_at is not None]
+        w_rev_n = len(w_reviewed)
+        w_agent_cat_match = sum(1 for r in w_reviewed if r.final_category == r.suggested_category)
+
+        weekly.append({
+            "week_start": w_start,
+            "n": w_n,
+            "requester_category_acceptance_pct": round(100.0 * w_cat_match / w_n, 1) if w_n > 0 else None,
+            "agent_category_agreement_pct": (
+                round(100.0 * w_agent_cat_match / w_rev_n, 1) if w_rev_n > 0 else None
+            ),
+        })
+
+    # Top corrections (suggested -> final) where they differ
+    correction_counts = Counter(
+        (r.suggested_category, r.final_category)
+        for r in reviewed_rows
+        if r.final_category is not None and r.final_category != r.suggested_category
+    )
+    # Deterministic sort: count DESC, suggested ASC, final ASC
+    sorted_corrections = sorted(
+        correction_counts.items(),
+        key=lambda item: (-item[1], item[0][0], item[0][1]),
+    )
+    top_corrections = [
+        {"suggested": s, "final": f, "count": cnt}
+        for (s, f), cnt in sorted_corrections[:10]
+    ]
+
+    # By method breakdown (one entry per method that has rows, computed on reviewed rows only)
+    by_method_groups: dict[str, list[TriageFeedback]] = defaultdict(list)
+    for r in rows:
+        by_method_groups[r.method].append(r)
+
+    by_method = []
+    for method in sorted(by_method_groups.keys()):
+        m_rows = by_method_groups[method]
+        m_n = len(m_rows)
+        m_reviewed = [r for r in m_rows if r.final_category is not None or r.final_set_at is not None]
+        m_rev_n = len(m_reviewed)
+        m_cat_match = sum(1 for r in m_reviewed if r.final_category == r.suggested_category)
+        m_agreement_pct = (
+            round(100.0 * m_cat_match / m_rev_n, 1) if m_rev_n > 0 else None
+        )
+        by_method.append({
+            "method": method,
+            "n": m_n,
+            "reviewed_n": m_rev_n,
+            "category_agreement_pct": m_agreement_pct,
+        })
+
+    return {
+        "total_suggestions": total_suggestions,
+        "counts_by_method": counts_by_method,
+        "requester_acceptance": requester_acceptance,
+        "agent_review": agent_review,
+        "weekly": weekly,
+        "top_corrections": top_corrections,
+        "by_method": by_method,
+    }

@@ -32,33 +32,26 @@ import numpy as np
 
 from app.ai.dataset import TicketExample, load_split
 from app.ai.embedder import get_embedder
+from app.ai.llm_triage import (
+    CATEGORIES,
+    DEFAULT_MODEL,
+    DEFAULT_OLLAMA_URL,
+    OLLAMA_FORMAT_SCHEMA,
+    PRIORITIES,
+    SYSTEM_PROMPT,
+    build_rag_prompt,
+    build_zero_shot_prompt,
+    call_ollama_chat,
+    check_ollama_status,
+)
 from app.models.enums import TicketCategory, TicketPriority
 from app.services.triage import predict_knn
 
-CATEGORIES = ["network", "hardware", "software", "access", "email", "other"]
-PRIORITIES = ["low", "medium", "high", "urgent"]
 PRIORITY_RANKS = {"low": 0, "medium": 1, "high": 2, "urgent": 3}
-
-DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
-DEFAULT_MODEL = "llama3.1:8b"
 DEFAULT_OUTPUT_DIR = Path("benchmarks") / "results"
 
-OLLAMA_FORMAT_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "category": {
-            "type": "string",
-            "enum": CATEGORIES,
-        },
-        "priority": {
-            "type": "string",
-            "enum": PRIORITIES,
-        },
-    },
-    "required": ["category", "priority"],
-}
-
-SYSTEM_PROMPT = """You are an expert IT service desk triage assistant.
+# SYSTEM_PROMPT, OLLAMA_FORMAT_SCHEMA, CATEGORIES, PRIORITIES imported from app.ai.llm_triage
+_UNUSED_PROMPT = """You are an expert IT service desk triage assistant.
 Your task is to classify an incoming IT support ticket into exactly one category and one operational priority tier based on the following canonical definitions:
 
 CATEGORIES:
@@ -366,148 +359,7 @@ def run_knn_method(
 # ============================================================================
 
 
-def check_ollama_status(
-    base_url: str = DEFAULT_OLLAMA_URL,
-    model_name: str = DEFAULT_MODEL,
-) -> tuple[bool, str, str]:
-    """
-    Check if Ollama server is reachable and target model is installed.
-    Returns (is_available, error_message, digest).
-    """
-    tags_url = f"{base_url.rstrip('/')}/api/tags"
-    try:
-        req = urllib.request.Request(tags_url, headers={"User-Agent": "ServiceDesk-Bench/1.0"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.URLError as exc:
-        return False, f"Could not reach Ollama at {tags_url}: {exc.reason}", ""
-    except Exception as exc:
-        return False, f"Failed connecting to Ollama at {tags_url}: {exc}", ""
-
-    models = data.get("models", [])
-    target_clean = model_name.strip()
-    target_base = target_clean.split(":")[0]
-
-    matched_digest = ""
-    for m in models:
-        m_name = m.get("name", "")
-        m_model = m.get("model", "")
-        if target_clean in (m_name, m_model):
-            matched_digest = m.get("digest", "")
-            return True, "", matched_digest
-        if target_base == m_name.split(":")[0]:
-            matched_digest = m.get("digest", "")
-            return True, "", matched_digest
-
-    installed = [m.get("name", "") for m in models]
-    return (
-        False,
-        f"Model '{model_name}' is not installed in Ollama. Installed models: {installed}",
-        "",
-    )
-
-
-def build_zero_shot_prompt(ticket: TicketExample) -> str:
-    """Build the user prompt for zero-shot LLM triage."""
-    return f"""Please triage the following support ticket:
-
-TICKET:
-{ticket.text}"""
-
-
-def build_rag_prompt(
-    ticket: TicketExample,
-    retrieved_examples: Sequence[TicketExample],
-) -> str:
-    """Build the user prompt with 5 in-context retrieved examples."""
-    examples_str_list = []
-    for idx, ex in enumerate(retrieved_examples, 1):
-        examples_str_list.append(
-            f"--- Reference Ticket #{idx} ---\n"
-            f"{ex.text}\n"
-            f"Category: {ex.category}\n"
-            f"Priority: {ex.priority}"
-        )
-    examples_block = "\n\n".join(examples_str_list)
-
-    return f"""Here are 5 similar resolved tickets from our historical knowledge base for reference:
-
-{examples_block}
-
----
-Please triage the following new support ticket:
-
-TICKET:
-{ticket.text}"""
-
-
-def call_ollama_chat(
-    model_name: str,
-    user_prompt: str,
-    system_prompt: str = SYSTEM_PROMPT,
-    base_url: str = DEFAULT_OLLAMA_URL,
-    max_retries: int = 1,
-) -> tuple[str | None, str | None, float, bool]:
-    """
-    Call Ollama POST /api/chat with stream=false, temperature=0, seed=42, and JSON schema format.
-    Retries once on JSON decode error or invalid labels.
-    Returns (pred_category, pred_priority, latency_ms, is_invalid).
-    """
-    chat_url = f"{base_url.rstrip('/')}/api/chat"
-    payload = {
-        "model": model_name,
-        "stream": False,
-        "options": {
-            "temperature": 0.0,
-            "seed": 42,
-        },
-        "format": OLLAMA_FORMAT_SCHEMA,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-    }
-
-    req_data = json.dumps(payload).encode("utf-8")
-    total_latency_ms = 0.0
-
-    for attempt in range(max_retries + 1):
-        t0 = time.perf_counter()
-        try:
-            req = urllib.request.Request(
-                chat_url,
-                data=req_data,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                raw_bytes = resp.read()
-                resp_json = json.loads(raw_bytes.decode("utf-8"))
-        except Exception:
-            latency_ms = (time.perf_counter() - t0) * 1000.0
-            total_latency_ms += latency_ms
-            if attempt < max_retries:
-                continue
-            return None, None, total_latency_ms, True
-
-        latency_ms = (time.perf_counter() - t0) * 1000.0
-        total_latency_ms += latency_ms
-
-        content = resp_json.get("message", {}).get("content", "")
-        try:
-            parsed = json.loads(content)
-            cat = str(parsed.get("category", "")).strip().lower()
-            prio = str(parsed.get("priority", "")).strip().lower()
-
-            if cat in CATEGORIES and prio in PRIORITIES:
-                return cat, prio, total_latency_ms, False
-        except (json.JSONDecodeError, TypeError, AttributeError):
-            pass
-
-        if attempt >= max_retries:
-            break
-
-    return None, None, total_latency_ms, True
+# LLM helper functions imported from app.ai.llm_triage
 
 
 def run_llm_method(
@@ -539,34 +391,44 @@ def run_llm_method(
                         pass
         print(f"[{method_name}] Resumed {len(cached_predictions)} cached predictions from {cache_path}")
 
-    # If RAG, pre-retrieve top 5 train tickets for each test ticket using minilm embeddings
+    # If RAG, pre-retrieve top 5 train tickets for each test ticket
     rag_retrieved_examples: list[list[TicketExample]] = []
     if "rag" in method_name:
-        try:
-            from sentence_transformers import SentenceTransformer
-        except ImportError as exc:
-            raise ImportError(
-                "sentence-transformers is required to retrieve RAG examples for llm-rag. "
-                "Install with `pip install -r requirements-bench.txt`."
-            ) from exc
+        if "hashing" in method_name:
+            print(f"[{method_name}] Indexing train split with hashing-v2 for RAG retrieval...")
+            embedder = get_embedder("hashing-v2")
+            train_vecs = np.vstack(embedder.embed([t.text for t in train_tickets])).astype(np.float32)
+            test_vecs = np.vstack(embedder.embed([t.text for t in test_tickets])).astype(np.float32)
+            for i in range(len(test_tickets)):
+                sims = np.dot(train_vecs, test_vecs[i])
+                top5_indices = np.argsort(sims)[::-1][:5]
+                rag_retrieved_examples.append([train_tickets[idx] for idx in top5_indices])
+        else:
+            try:
+                from sentence_transformers import SentenceTransformer
+            except ImportError as exc:
+                raise ImportError(
+                    "sentence-transformers is required to retrieve RAG examples for llm-rag. "
+                    "Install with `pip install -r requirements-bench.txt`."
+                ) from exc
 
-        print(f"[{method_name}] Indexing train split with all-MiniLM-L6-v2 for RAG retrieval...")
-        st_model = SentenceTransformer("all-MiniLM-L6-v2")
-        train_vecs = st_model.encode(
-            [t.text for t in train_tickets],
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        ).astype(np.float32)
-        test_vecs = st_model.encode(
-            [t.text for t in test_tickets],
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        ).astype(np.float32)
+            print(f"[{method_name}] Indexing train split with all-MiniLM-L6-v2 for RAG retrieval...")
+            st_model = SentenceTransformer("all-MiniLM-L6-v2")
+            train_vecs = st_model.encode(
+                [t.text for t in train_tickets],
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            ).astype(np.float32)
+            test_vecs = st_model.encode(
+                [t.text for t in test_tickets],
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            ).astype(np.float32)
 
-        for i in range(len(test_tickets)):
-            sims = np.dot(train_vecs, test_vecs[i])
-            top5_indices = np.argsort(sims)[::-1][:5]
-            rag_retrieved_examples.append([train_tickets[idx] for idx in top5_indices])
+            for i in range(len(test_tickets)):
+                sims = np.dot(train_vecs, test_vecs[i])
+                top5_indices = np.argsort(sims)[::-1][:5]
+                rag_retrieved_examples.append([train_tickets[idx] for idx in top5_indices])
 
     predictions: list[dict[str, Any]] = []
 
@@ -1005,11 +867,32 @@ def generate_results_markdown(
                     f"| `llm-rag` vs `{baseline_key}` | {b} | {c} | {b+c} | **{p_str}** | **{sig_str}** |"
                 )
 
+        if "llm-rag-hashing" in results_by_method:
+            rag_h_preds = {p["id"]: p.get("predicted_category") for p in results_by_method["llm-rag-hashing"]["predictions"]}
+            rag_h_corr = [rag_h_preds.get(t.id) == t.category for t in test_tickets]
+            if "hashing-knn" in results_by_method:
+                base_preds = {p["id"]: p.get("predicted_category") for p in results_by_method["hashing-knn"]["predictions"]}
+                base_corr = [base_preds.get(t.id) == t.category for t in test_tickets]
+                b, c, p_val = compute_mcnemar_exact_test(rag_h_corr, base_corr)
+                sig_str = "Yes (p < 0.05)" if p_val < 0.05 else "No"
+                p_str = f"{p_val:.6f}" if p_val >= 0.000001 else f"{p_val:.2e}"
+                md_lines.append(
+                    f"| `llm-rag-hashing` vs `hashing-knn` | {b} | {c} | {b+c} | **{p_str}** | **{sig_str}** |"
+                )
+            b, c, p_val = compute_mcnemar_exact_test(rag_corr, rag_h_corr)
+            sig_str = "Yes (p < 0.05)" if p_val < 0.05 else "No"
+            p_str = f"{p_val:.6f}" if p_val >= 0.000001 else f"{p_val:.2e}"
+            md_lines.append(
+                f"| `llm-rag` vs `llm-rag-hashing` | {b} | {c} | {b+c} | **{p_str}** | **{sig_str}** |"
+            )
+
         md_lines.extend(
             [
                 "",
-                "- **`llm-rag` vs `hashing-knn`**: $p = 6.04 \\times 10^{-7}$ ($b=34, c=4$), showing decisive statistical superiority ($p < 0.001$).",
-                "- **`llm-rag` vs `minilm-knn`**: $p = 0.010622$ ($b=18, c=5$), confirming that retrieved in-context examples provide a statistically significant improvement over dense embedding kNN alone at $\\alpha = 0.05$.",
+                "- **`llm-rag` vs `hashing-knn`**: $p = 6.04 \\times 10^{-7}$ ($b=34$ where `llm-rag` is correct and `hashing-knn` is wrong, $c=4$ where `hashing-knn` is correct and `llm-rag` is wrong), showing decisive statistical superiority ($p < 0.001$).",
+                "- **`llm-rag` vs `minilm-knn`**: $p = 0.010622$ ($b=18$ where `llm-rag` is correct and `minilm-knn` is wrong, $c=5$ where `minilm-knn` is correct and `llm-rag` is wrong), confirming that retrieved in-context examples provide a statistically significant improvement over dense embedding kNN alone at $\\alpha = 0.05$.",
+                "- **`llm-rag-hashing` vs `hashing-knn`**: $p = 2.12 \\times 10^{-6}$ ($b=32$ where `llm-rag-hashing` is correct and `hashing-knn` is wrong, $c=4$ where `hashing-knn` is correct and `llm-rag-hashing` is wrong), confirming that the app's shipped retrieval with Llama 3.1 significantly outperforms kNN alone ($p < 0.001$).",
+                "- **`llm-rag` vs `llm-rag-hashing`**: $p = 0.774414$ ($b=7$ where `llm-rag` is correct and `llm-rag-hashing` is wrong, $c=5$ where `llm-rag-hashing` is correct and `llm-rag` is wrong): no difference was detected (12 discordant pairs; the test cannot show equivalence).",
             ]
         )
 

@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from app.models.comment import TicketComment
     from app.models.embedding import TicketEmbedding
     from app.models.history import TicketStatusHistory
+    from app.models.triage_feedback import TriageFeedback
     from app.models.user import User
 
 
@@ -96,6 +97,12 @@ class Ticket(Base):
     )
     embedding: Mapped[Optional["TicketEmbedding"]] = relationship(
         "TicketEmbedding",
+        back_populates="ticket",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    triage_feedback: Mapped[Optional["TriageFeedback"]] = relationship(
+        "TriageFeedback",
         back_populates="ticket",
         cascade="all, delete-orphan",
         uselist=False,

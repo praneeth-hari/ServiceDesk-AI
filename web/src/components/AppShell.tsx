@@ -52,6 +52,11 @@ export const AppShell: React.FC = () => {
                     Reports
                   </NavLink>
                 )}
+                {isStaff && (
+                  <NavLink to="/ai-quality" className={navLinkClass}>
+                    AI quality
+                  </NavLink>
+                )}
                 {isAdmin && (
                   <NavLink to="/holidays" className={navLinkClass}>
                     Holidays
@@ -120,6 +125,15 @@ export const AppShell: React.FC = () => {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Reports
+                </NavLink>
+              )}
+              {isStaff && (
+                <NavLink
+                  to="/ai-quality"
+                  className={mobileNavLinkClass}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  AI quality
                 </NavLink>
               )}
               {isAdmin && (

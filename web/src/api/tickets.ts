@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { apiFetch, getTicketTriageFeedback, confirmTriageFeedback } from './client';
 import {
   PaginatedTickets,
   Ticket,
@@ -8,6 +8,8 @@ import {
   CommentCreateRequest,
   StatusHistory,
   TicketStatus,
+  TicketPriority,
+  TicketCategory,
   SimilarTicket,
   User,
 } from './types';
@@ -99,3 +101,19 @@ export async function listAgents(): Promise<User[]> {
   const users = await apiFetch<User[]>('/users?skip=0&limit=100');
   return users.filter((u) => u.role === 'agent' && u.is_active);
 }
+
+export interface TicketUpdateRequest {
+  title?: string;
+  description?: string;
+  priority?: TicketPriority;
+  category?: TicketCategory;
+}
+
+export async function updateTicket(id: number, input: TicketUpdateRequest): Promise<Ticket> {
+  return apiFetch<Ticket>(`/tickets/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export { getTicketTriageFeedback, confirmTriageFeedback };

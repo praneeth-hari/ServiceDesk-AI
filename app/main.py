@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api.routes import auth, health, holidays, reports, tickets, triage, users
+from app.api.routes import assist, auth, health, holidays, reports, tickets, triage, users
 from app.core.config import settings
 from app.core.logging import RequestIDLoggingMiddleware, setup_logging
 
@@ -52,7 +52,16 @@ async def lifespan(app: FastAPI):
 async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     """
     Standardize all HTTP error responses into {"error": {"message": "..."}} format.
+    Supports structured error dictionaries with error codes.
     """
+    if isinstance(exc.detail, dict):
+        message = str(exc.detail.get("message", ""))
+        code = exc.detail.get("code") or exc.detail.get("error")
+        content: dict[str, Any] = {"error": {"message": message}}
+        if code:
+            content["code"] = code
+            content["error"]["code"] = code
+        return JSONResponse(status_code=exc.status_code, content=content)
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": {"message": str(exc.detail)}},
@@ -169,6 +178,7 @@ def create_app(web_dist_dir: str | None = None) -> FastAPI:
     application.include_router(holidays.router, prefix=settings.API_V1_STR)
     application.include_router(reports.router, prefix=settings.API_V1_STR)
     application.include_router(triage.router, prefix=settings.API_V1_STR)
+    application.include_router(assist.router, prefix=settings.API_V1_STR)
 
     # Mount built frontend
     mount_frontend(application, dist_dir_override=web_dist_dir)

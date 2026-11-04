@@ -21,6 +21,8 @@ import type {
   User,
 } from '../../api/types';
 import { StatusBadge, PriorityBadge } from './components/Badges';
+import { AITriageStrip } from './AITriageStrip';
+import { AIAssistCard } from './AIAssistCard';
 import { classifyTicketSla } from './slaState';
 import {
   computeBusinessMinutesRemaining,
@@ -149,6 +151,17 @@ export const TicketDetailPage: React.FC = () => {
   };
 
   // Reply handler
+  const handleInsertReply = (draftText: string) => {
+    setReplyText((prev) => {
+      const combined = prev.trim() ? `${prev}\n\n${draftText}` : draftText;
+      return combined.slice(0, 2000);
+    });
+    composerRef.current?.focus();
+    if (typeof composerRef.current?.scrollIntoView === 'function') {
+      composerRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  };
+
   const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!replyText.trim() || submittingComment || !ticket) return;
@@ -379,6 +392,12 @@ export const TicketDetailPage: React.FC = () => {
         </div>
       </div>
 
+      {/* AI Triage Strip (Staff only) */}
+      <AITriageStrip
+        ticket={ticket}
+        onTicketUpdated={(updated) => setTicket(updated)}
+      />
+
       {/* Requester Paused SLA Banner */}
       {!isStaff && ticket.status === 'waiting_on_requester' && (
         <div
@@ -412,6 +431,14 @@ export const TicketDetailPage: React.FC = () => {
               {ticket.description}
             </div>
           </div>
+
+          {/* AI Assist Card (Staff only) */}
+          {isStaff && (
+            <AIAssistCard
+              ticketId={ticket.id}
+              onInsertReply={handleInsertReply}
+            />
+          )}
 
           {/* Activity Timeline */}
           <div className="flex flex-col gap-4">

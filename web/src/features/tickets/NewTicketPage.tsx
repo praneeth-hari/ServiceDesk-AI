@@ -178,11 +178,22 @@ export const NewTicketPage: React.FC = () => {
     setSubmitting(true);
 
     try {
+      const triage_suggestion =
+        triageResult && triageResult.suggested_category && triageResult.suggested_priority
+          ? {
+              suggested_category: triageResult.suggested_category,
+              suggested_priority: triageResult.suggested_priority,
+              method: triageResult.method || 'knn',
+              embedder: triageResult.embedder || null,
+            }
+          : undefined;
+
       const created = await createTicket({
         title: title.trim(),
         description: description.trim(),
         category: category as TicketCategory,
         priority,
+        ...(triage_suggestion ? { triage_suggestion } : {}),
       });
       navigate(`/tickets/${created.id}`);
     } catch (err: unknown) {
@@ -479,19 +490,21 @@ export const NewTicketPage: React.FC = () => {
                     <span className="px-2.5 py-0.5 rounded text-xs font-medium border bg-tealLight/20 text-teal border-teal/40 capitalize">
                       {triageResult.suggested_category}
                     </span>
-                    <div className="flex-1 flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-paper border border-line rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-teal"
-                          style={{
-                            width: `${Math.round(triageResult.confidence * 100)}%`,
-                          }}
-                        />
+                    {typeof triageResult.confidence === 'number' && (
+                      <div className="flex-1 flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-paper border border-line rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-teal"
+                            style={{
+                              width: `${Math.round(triageResult.confidence * 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="text-[11px] font-mono text-muted">
+                          {Math.round(triageResult.confidence * 100)}%
+                        </span>
                       </div>
-                      <span className="text-[11px] font-mono text-muted">
-                        {Math.round(triageResult.confidence * 100)}%
-                      </span>
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
