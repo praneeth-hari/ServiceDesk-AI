@@ -184,6 +184,42 @@ describe('NewTicketPage', () => {
     });
   });
 
+
+  it('renders suggestion card without confidence percentage when confidence is null (LLM triage)', async () => {
+    vi.mocked(triageApi.suggestTriage).mockResolvedValueOnce({
+      suggested_category: 'network',
+      suggested_priority: 'medium',
+      confidence: null,
+      evidence: [],
+      possible_duplicates: [],
+      embedder: 'hashing-v2',
+      method: 'llm-rag',
+      fallback_reason: null,
+    });
+
+    render(
+      <MemoryRouter>
+        <NewTicketPage />
+      </MemoryRouter>
+    );
+
+    const titleInput = screen.getByLabelText(/title/i);
+    const descInput = screen.getByLabelText(/description/i);
+
+    fireEvent.change(titleInput, { target: { value: 'VPN disconnects frequently' } });
+    fireEvent.change(descInput, { target: { value: 'Home WiFi connection drops every hour' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('Suggested Category')).toBeInTheDocument();
+      expect(screen.getByText('network')).toBeInTheDocument();
+      expect(screen.getByText('Priority Hint')).toBeInTheDocument();
+      expect(screen.getByText('medium')).toBeInTheDocument();
+    });
+
+    // Verify no confidence percentage badge is rendered
+    expect(screen.queryByText(/^\d+%$/)).not.toBeInTheDocument();
+  });
+
   it('sets form fields only when Apply category and Apply priority are clicked', async () => {
     render(
       <MemoryRouter>

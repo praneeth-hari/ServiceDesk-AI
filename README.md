@@ -239,7 +239,7 @@ How well can the system suggest a ticket's category and priority? I built a labe
 - The 3B model is within about 4 points of the 8B model on category at roughly one sixth of the latency, but with 120 test tickets the intervals overlap, so this is not a statistically established difference.
 - Category errors of the best method concentrate on software/hardware and other/network boundaries; `email` had no errors. Priority errors are balanced (20 over-predicted, 17 under-predicted), and nearly all are off by one level.
 
-**Limits.** The data is synthetic and from a single generator model; the test set is small (about +/-6-8 points); the LLM prompts include the written category and priority definitions; each result is a single deterministic run (temperature 0, seed 42); and some labels are genuinely ambiguous (for example, a ticket about typing a password into a phishing page is labelled `access`, though the definitions also put phishing under `email`). The test labels were not changed after seeing model results. The LLM methods run locally through Ollama and are benchmark-only: the app currently ships the lightweight hashing triage. Full tables, confusion matrices, failure examples and dataset hashes are in [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
+**Limits.** The data is synthetic and from a single generator model; the test set is small (about +/-6-8 points); the LLM prompts include the written category and priority definitions; each result is a single deterministic run (temperature 0, seed 42); and some labels are genuinely ambiguous (for example, a ticket about typing a password into a phishing page is labelled `access`, though the definitions also put phishing under `email`). The test labels were not changed after seeing model results. The LLM methods run locally through Ollama and can be enabled via `AI_TRIAGE_MODE=llm`; by default, the app ships the lightweight hashing triage. Full tables, confusion matrices, failure examples and dataset hashes are in [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
 
 **Reproduce**
 
@@ -248,6 +248,28 @@ How well can the system suggest a ticket's category and priority? I built a labe
     python -m app.scripts.benchmark_triage --methods hashing-knn,minilm-knn,bge-small-knn
     python -m app.scripts.benchmark_triage --methods llm-zero-shot,llm-rag --model llama3.1:8b
     python -m app.scripts.benchmark_triage --methods llm-zero-shot,llm-rag --model qwen2.5:3b
+
+
+### LLM-assisted triage (optional, local)
+
+While ServiceDesk-AI defaults to instant lexical kNN triage, you can optionally enable local LLM-assisted triage powered by Ollama:
+
+1. Install [Ollama](https://ollama.com/) and pull the target model:
+   ```bash
+   ollama pull llama3.1:8b
+   ```
+2. Enable LLM mode in your `.env`:
+   ```bash
+   AI_TRIAGE_MODE=llm
+   OLLAMA_BASE_URL=http://127.0.0.1:11434
+   AI_LLM_MODEL=llama3.1:8b
+   AI_LLM_TIMEOUT_SECONDS=30
+   AI_LLM_EXAMPLES=5
+   ```
+
+- **Resilience & Graceful Fallback**: If Ollama is unreachable, times out, the target model is not installed, or the LLM returns malformed JSON or labels outside the allowed taxonomy, the triage service silently and instantly falls back to lexical kNN. The triage API endpoint never fails (never returns 5xx) because the local LLM is down. The response marks `method: "knn"` and includes `fallback_reason`.
+- **Hosted Demo vs. Local Mode**: In the hosted demo and standard container deployment, triage runs in pure kNN mode (zero GPU, zero external network calls, <10ms response time).
+- **Benchmark Performance**: On the ServiceDesk-600 test split (120 tickets), the exact production pipeline (`llm-rag-hashing`: native hashing retrieval + Llama 3.1 8B 5-shot RAG) achieves **85.8%** category accuracy (64.2% priority accuracy, 96.7% within one level); paired McNemar exact test against dense MiniLM retrieval ($b=7$ where `llm-rag` is correct and `llm-rag-hashing` is wrong, $c=5$ where `llm-rag-hashing` is correct and `llm-rag` is wrong, $p = 0.774$): no difference was detected (12 discordant pairs; the test cannot show equivalence).
 
 ---
 
