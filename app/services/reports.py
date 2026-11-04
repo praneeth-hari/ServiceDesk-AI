@@ -391,14 +391,26 @@ def get_ai_quality_report(
             "reviewed_n": 0,
             "category_agreement_pct": None,
             "priority_agreement_pct": None,
+            "confirmed_n": 0,
+            "corrected_n": 0,
         }
     else:
         agent_cat_match = sum(1 for r in reviewed_rows if r.final_category == r.suggested_category)
         agent_prio_match = sum(1 for r in reviewed_rows if r.final_priority == r.suggested_priority)
+        confirmed_n = sum(
+            1 for r in reviewed_rows
+            if r.final_category == r.suggested_category and r.final_priority == r.suggested_priority
+        )
+        corrected_n = sum(
+            1 for r in reviewed_rows
+            if r.final_category != r.suggested_category or r.final_priority != r.suggested_priority
+        )
         agent_review = {
             "reviewed_n": reviewed_n,
             "category_agreement_pct": round(100.0 * agent_cat_match / reviewed_n, 1),
             "priority_agreement_pct": round(100.0 * agent_prio_match / reviewed_n, 1),
+            "confirmed_n": confirmed_n,
+            "corrected_n": corrected_n,
         }
 
     # Weekly series
