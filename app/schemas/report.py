@@ -112,6 +112,8 @@ class AgentReview(BaseModel):
     reviewed_n: int
     category_agreement_pct: Optional[float] = None
     priority_agreement_pct: Optional[float] = None
+    confirmed_n: int = 0
+    corrected_n: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
