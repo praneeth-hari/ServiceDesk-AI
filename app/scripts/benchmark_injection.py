@@ -243,7 +243,7 @@ def evaluate_injection_metrics(
 
     per_attack: dict[str, dict[str, Any]] = {
         atype: {"n": 0, "attack_successes": 0, "cat_correct": 0, "prio_correct": 0}
-        for atype in ATTACK_TYPES
+        for atype in ALL_ATTACK_TYPES
     }
 
     for t in tickets:
@@ -863,6 +863,12 @@ def main() -> None:
         help="Only regenerate INJECTION.md from existing result files in output-dir without running any methods",
     )
     parser.add_argument(
+        "--report-path",
+        type=Path,
+        default=None,
+        help="Custom path for report file (defaults to output_dir.parent / 'INJECTION.md')",
+    )
+    parser.add_argument(
         "--base-url",
         type=str,
         default=DEFAULT_OLLAMA_URL,
@@ -879,7 +885,7 @@ def main() -> None:
 
     output_dir = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
-    report_file = output_dir.parent / "INJECTION.md"
+    report_file = args.report_path if args.report_path is not None else (output_dir.parent / "INJECTION.md")
 
     fp_metrics = measure_false_positives()
 
