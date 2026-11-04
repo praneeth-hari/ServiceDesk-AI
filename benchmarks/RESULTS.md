@@ -13,14 +13,9 @@ Evaluation of automated category and priority triage methods on the **ServiceDes
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | *Baseline: Majority Class* | 16.7% [11.1%, 24.3%] | 0.0476 | 33.3% [25.5%, 42.2%] | 80.8% | 16.7% | <0.1 ms | <0.1s | 0.0% |
 | *Baseline: Random Guess (seed=42)* | 10.8% [6.4%, 17.7%] (expected: 16.7% [1/6]) | 0.1082 | 30.0% [22.5%, 38.7%] (expected: 25.0% [1/4]) | 65.0% | 10.0% | <0.1 ms | <0.1s | 0.0% |
-| **`llm-rag`** | **87.5%** [80.4%, 92.3%] | 0.8711 | 69.2% [60.4%, 76.7%] | 98.3% | 76.7% | 2376.7 ms | 267.1s | 0.0% |
-| **`llm-rag-hashing`** | **85.8%** [78.5%, 91.0%] | 0.8584 | 64.2% [55.3%, 72.2%] | 96.7% | 70.0% | 2736.3 ms | 328.7s | 0.0% |
-| **`llm-rag-qwen3b`** | **83.3%** [75.6%, 88.9%] | 0.8232 | 60.0% [51.1%, 68.3%] | 95.8% | 70.0% | 441.8 ms | 70.2s | 0.0% |
-| **`llm-zero-shot-qwen3b`** | **80.8%** [72.9%, 86.9%] | 0.8046 | 55.8% [46.9%, 64.4%] | 95.8% | 73.3% | 360.4 ms | 43.3s | 0.0% |
-| **`llm-zero-shot`** | **79.2%** [71.0%, 85.5%] | 0.7848 | 68.3% [59.6%, 76.0%] | 99.2% | 70.0% | 2111.3 ms | 222.4s | 0.0% |
-| **`minilm-knn`** | **76.7%** [68.3%, 83.3%] | 0.7571 | 47.5% [38.8%, 56.4%] | 85.0% | 70.0% | 0.9 ms | 14.4s | 0.0% |
-| **`bge-small-knn`** | **69.2%** [60.4%, 76.7%] | 0.6673 | 45.0% [36.4%, 53.9%] | 88.3% | 56.7% | 1.0 ms | 9.3s | 0.0% |
-| **`hashing-knn`** | **62.5%** [53.6%, 70.7%] | 0.6100 | 44.2% [35.6%, 53.1%] | 81.7% | 56.7% | 1.1 ms | 0.3s | 0.0% |
+| **`llm-rag`** | **86.7%** [79.4%, 91.6%] | 0.8626 | 68.3% [59.6%, 76.0%] | 98.3% | 73.3% | 4055.8 ms | 503.8s | 0.0% |
+| **`llm-rag-hashing`** | **85.0%** [77.5%, 90.3%] | 0.8497 | 62.5% [53.6%, 70.7%] | 97.5% | 70.0% | 4261.6 ms | 512.2s | 0.0% |
+| **`llm-zero-shot`** | **85.0%** [77.5%, 90.3%] | 0.8457 | 60.0% [51.1%, 68.3%] | 96.7% | 76.7% | 3214.8 ms | 385.9s | 0.0% |
 
 > **Baseline Clarification (Priority Accuracy)**: Training set majority priority is `medium` (175/480 tickets = 36.5%). In `test.jsonl`, there are exactly 40 `medium` tickets out of 120 (with 31 `low`, 26 `high`, 23 `urgent`). Predicting `medium` for all test tickets yields an exact priority accuracy of **33.3%** (40/120 = 0.3333).
 
@@ -28,19 +23,21 @@ Evaluation of automated category and priority triage methods on the **ServiceDes
 
 ## 2. Best Method Analysis (`llm-rag`)
 
-**Best Performing Model**: `llm-rag` achieved **87.5%** category accuracy and **0.8711** macro-F1.
+**Best Performing Model**: `llm-rag` achieved **86.7%** category accuracy and **0.8626** macro-F1.
 
-### Category Confusion Pairs (9 distinct pairs)
+### Category Confusion Pairs (11 distinct pairs)
 
 | True Category | Predicted As | Total Count | Hard Tickets |
 | :--- | :--- | :---: | :---: |
-| `software` | `hardware` | 3 | 2 |
+| `software` | `access` | 3 | 2 |
 | `other` | `network` | 3 | 0 |
-| `software` | `access` | 2 | 2 |
 | `other` | `hardware` | 2 | 0 |
+| `access` | `hardware` | 1 | 1 |
 | `access` | `email` | 1 | 1 |
 | `hardware` | `other` | 1 | 1 |
 | `network` | `other` | 1 | 1 |
+| `other` | `email` | 1 | 1 |
+| `software` | `hardware` | 1 | 1 |
 | `other` | `access` | 1 | 0 |
 | `software` | `email` | 1 | 0 |
 
@@ -48,12 +45,12 @@ Evaluation of automated category and priority triage methods on the **ServiceDes
 
 | True Priority \ Predicted | `low` | `medium` | `high` | `urgent` |
 | :--- | :---: | :---: | :---: | :---: |
-| **`low`** | 21 | 8 | 1 | 1 |
-| **`medium`** | 2 | 29 | 9 | 0 |
-| **`high`** | 0 | 2 | 23 | 1 |
-| **`urgent`** | 0 | 0 | 13 | 10 |
+| **`low`** | 21 | 9 | 0 | 1 |
+| **`medium`** | 1 | 32 | 7 | 0 |
+| **`high`** | 0 | 3 | 21 | 2 |
+| **`urgent`** | 0 | 1 | 14 | 8 |
 
-> **Error Direction**: Across 37 total priority errors (30.8% of the test set), misclassifications lean towards over-prediction of urgency with 20 tickets triaged at higher priority than ground truth (16.7%) versus 17 under-predicted tickets (14.2%), most notably 8 low-priority tickets escalated to medium and 9 medium-priority tickets escalated to high.
+> **Error Direction**: Across 38 total priority errors (31.7% of the test set), misclassifications were evenly balanced between 19 over-predicted tickets (15.8%) and 19 under-predicted tickets (15.8%).
 
 ### Category Failure Examples
 
@@ -80,12 +77,12 @@ Showing 8 category misclassifications for `llm-rag`, spread across all categorie
 - **True Category**: `software` | **Predicted Category**: `access`
 - **Label Note**: *"Ransomware actively encrypting files is malicious software on the endpoint, so it is labelled software and urgent as a security incident causing data loss; it could also be routed as other or as a dedicated security incident."*
 
-#### Example 4: Ticket `ACC-077` (HARD)
+#### Example 4: Ticket `ACC-044` (HARD)
 - **Ticket Text**:
-  > entered my password on a fake page?
-  > I clicked a link in an email about a shared invoice and it took me to a login page that looked like ours. I entered my username and password, then it went blank. Now I've noticed the address was odd. I'm in accounts payable and I can change supplier bank details.
-- **True Category**: `access` | **Predicted Category**: `email`
-- **Label Note**: *"Compromised credentials need an immediate reset and session revoke, so it is access and urgent because of privileged finance access; it could be routed to email as a phishing report."*
+  > 40 graduates started today - no accounts
+  > Our graduate intake of 40 started at 9am today in the Chennai training centre. None of them have accounts, so they can't log in to the training laptops. The request went in three weeks ago. The trainers are presenting from the projector for now.
+- **True Category**: `access` | **Predicted Category**: `hardware`
+- **Label Note**: *"Missing new-joiner accounts are access; priority is debatable because no business system is down and training continues on the projector (high), but 40 people blocked justifies urgent."*
 
 #### Example 5: Ticket `OTH-004` (EASY)
 - **Ticket Text**:
@@ -94,26 +91,26 @@ Showing 8 category misclassifications for `llm-rag`, spread across all categorie
 - **True Category**: `other` | **Predicted Category**: `network`
 - **Label Note**: *"A meeting-room display fault is AV, so it is other, and it is high because a client meeting is at risk."*
 
-#### Example 6: Ticket `SW-011` (HARD)
+#### Example 6: Ticket `SW-017` (EASY)
 - **Ticket Text**:
-  > computer acting up
-  > computer acting up again since this morning. stuff not working properly
-- **True Category**: `software` | **Predicted Category**: `hardware`
-- **Label Note**: *"The ticket is vague with no app, symptom or device detail, so it is labelled software as the most common cause of general misbehaviour, with medium as a placeholder; it could equally be hardware or other."*
+  > PayRun says licence expired - payroll due today
+  > PayRun opened this morning with 'Your licence has expired. Contact your administrator.' and won't go past the login screen for anyone in the payroll team. Monthly payroll for 1,800 staff has to reach the bank by 4pm today.
+- **True Category**: `software` | **Predicted Category**: `access`
+- **Label Note**: *"An expired application licence is software, and it is urgent because a business-critical payroll run is blocked today."*
 
-#### Example 7: Ticket `OTH-024` (EASY)
+#### Example 7: Ticket `ACC-077` (HARD)
 - **Ticket Text**:
-  > video conference camera dead in boardroom 2
-  > The camera in boardroom 2 shows a black image in every meeting. The board's call with the overseas investors is at 3pm in that room and they want video.
-- **True Category**: `other` | **Predicted Category**: `hardware`
-- **Label Note**: *"Meeting-room video equipment is AV, so it is other, and it is high because a high-stakes meeting is today."*
+  > entered my password on a fake page?
+  > I clicked a link in an email about a shared invoice and it took me to a login page that looked like ours. I entered my username and password, then it went blank. Now I've noticed the address was odd. I'm in accounts payable and I can change supplier bank details.
+- **True Category**: `access` | **Predicted Category**: `email`
+- **Label Note**: *"Compromised credentials need an immediate reset and session revoke, so it is access and urgent because of privileged finance access; it could be routed to email as a phishing report."*
 
-#### Example 8: Ticket `SW-023` (EASY)
+#### Example 8: Ticket `OTH-021` (HARD)
 - **Ticket Text**:
-  > everything tiny on new screen
-  > Since I got my new 4K monitor, text in most apps is tiny, and some older apps look blurry when I make them bigger. I've been zooming in on each window.
-- **True Category**: `software` | **Predicted Category**: `hardware`
-- **Label Note**: *"Display scaling is an OS setting, so it is software, and it is medium because zooming is a workaround."*
+  > room panel shows a meeting that was cancelled
+  > The booking panel outside room 4A shows a recurring meeting every morning that was cancelled weeks ago, so people think the room is taken and leave. The room is actually free.
+- **True Category**: `other` | **Predicted Category**: `email`
+- **Label Note**: *"The room panel is meeting-room AV, so it is labelled other and medium, but the likely cause is the room's calendar resource, so it could be routed to email."*
 
 ---
 
@@ -123,9 +120,6 @@ Paired two-sided McNemar exact test evaluating whether `llm-rag` (`llama3.1:8b`)
 
 | Comparison | Discordant Pairs (A correct, B wrong) | Discordant Pairs (A wrong, B correct) | Total Discordant (n) | Exact Two-Sided p-value | Statistically Significant (α=0.05)? |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `llm-rag` vs `hashing-knn` | 34 | 4 | 38 | **0.000001** | **Yes (p < 0.05)** |
-| `llm-rag` vs `minilm-knn` | 18 | 5 | 23 | **0.010622** | **Yes (p < 0.05)** |
-| `llm-rag-hashing` vs `hashing-knn` | 32 | 4 | 36 | **0.000002** | **Yes (p < 0.05)** |
 | `llm-rag` vs `llm-rag-hashing` | 7 | 5 | 12 | **0.774414** | **No** |
 
 - **`llm-rag` vs `hashing-knn`**: $p = 6.04 \times 10^{-7}$ ($b=34$ where `llm-rag` is correct and `hashing-knn` is wrong, $c=4$ where `hashing-knn` is correct and `llm-rag` is wrong), showing decisive statistical superiority ($p < 0.001$).

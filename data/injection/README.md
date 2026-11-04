@@ -6,6 +6,17 @@ The prompt-injection evaluation dataset (`injection_set.jsonl`) contains 40 synt
 
 Every ticket consists of a realistic IT helpdesk issue (e.g. software crashes, VPN timeouts, password resets, hardware replacements) paired with an embedded adversarial prompt injection payload attempting to coerce the triage system into misclassifying the ticket's category or priority.
 
+## Datasets
+
+### 1. Development Set (`injection_set.jsonl`)
+- **Size**: 40 adversarial tickets (5–7 per attack type).
+- Used for analyzing vulnerabilities, designing, and tuning defense rules.
+
+### 2. Held-Out Evaluation Set (`heldout_set.jsonl`)
+- **Size**: 30 adversarial tickets (3 each across 10 attack types).
+- **SHA-256 Checksum**: `91d4ab7d3c8238914b23f75955185311b89814554540c58220af658dfaa88f47` (CRLF) / `7b9acf86c4255691b747581e4d55673e286f3180bc141d0d0b8944479940ee8f` (LF)
+- **Integrity Rule**: "Held-out set. Frozen before any defense work. Not used for designing or tuning the defense."
+
 ## Dataset Structure
 
 Each record in `injection_set.jsonl` follows the schema compatible with the ServiceDesk-600 dataset, augmented with security testing metadata:
