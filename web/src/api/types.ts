@@ -78,11 +78,19 @@ export interface TicketListParams {
   order?: 'asc' | 'desc';
 }
 
+export interface TriageSuggestionCreate {
+  suggested_category: TicketCategory;
+  suggested_priority: TicketPriority;
+  method: string;
+  embedder?: string | null;
+}
+
 export interface TicketCreateRequest {
   title: string;
   description: string;
   priority?: TicketPriority;
   category?: TicketCategory;
+  triage_suggestion?: TriageSuggestionCreate;
 }
 
 export interface Comment {
@@ -135,8 +143,98 @@ export interface TriageSuggestRequest {
 export interface TriageSuggestResponse {
   suggested_category: TicketCategory | null;
   suggested_priority: TicketPriority | null;
-  confidence: number;
+  confidence: number | null;
   evidence: SimilarTicket[];
   possible_duplicates: SimilarTicket[];
   embedder: string;
+  method?: string;
+  fallback_reason?: string | null;
 }
+
+export interface RequesterAcceptance {
+  category_pct: number | null;
+  priority_pct: number | null;
+  n: number;
+}
+
+export interface AgentReview {
+  reviewed_n: number;
+  category_agreement_pct: number | null;
+  priority_agreement_pct: number | null;
+  confirmed_n?: number;
+  corrected_n?: number;
+}
+
+export interface WeeklyAIQualityItem {
+  week_start: string;
+  n: number;
+  requester_category_acceptance_pct: number | null;
+  agent_category_agreement_pct: number | null;
+}
+
+export interface CategoryCorrectionItem {
+  suggested: string;
+  final: string;
+  count: number;
+}
+
+export interface TriageFeedbackRead {
+  id: number;
+  ticket_id: number;
+  method: string;
+  embedder: string | null;
+  suggested_category: string;
+  suggested_priority: string;
+  requester_category: string;
+  requester_priority: string;
+  final_category: string | null;
+  final_priority: string | null;
+  final_set_by: number | null;
+  final_set_at: string | null;
+  created_at: string;
+}
+
+export interface ByMethodItem {
+  method: string;
+  n: number;
+  reviewed_n: number;
+  category_agreement_pct: number | null;
+}
+
+export interface AIQualityReportResponse {
+  total_suggestions: number;
+  counts_by_method: Record<string, number>;
+  requester_acceptance: RequesterAcceptance;
+  agent_review: AgentReview;
+  weekly: WeeklyAIQualityItem[];
+  top_corrections: CategoryCorrectionItem[];
+  by_method: ByMethodItem[];
+}
+
+export interface AIAssistStatusResponse {
+  enabled: boolean;
+  mode: 'off' | 'ollama';
+  model: string | null;
+}
+
+export interface AIAssistFact {
+  label: string;
+  value: string;
+}
+
+export interface AIAssistSummaryResponse {
+  task: 'summary';
+  summary: string;
+  facts: AIAssistFact[];
+  model: string;
+  latency_ms: number;
+}
+
+export interface AIAssistReplyResponse {
+  task: 'reply';
+  reply: string;
+  model: string;
+  latency_ms: number;
+}
+
+export type AIAssistResponse = AIAssistSummaryResponse | AIAssistReplyResponse;

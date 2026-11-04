@@ -4,6 +4,7 @@ from app.models.enums import TicketCategory, TicketPriority, TicketStatus, UserR
 from app.models.history import TicketStatusHistory
 from app.models.holiday import Holiday
 from app.models.ticket import Ticket
+from app.models.triage_feedback import TriageFeedback
 from app.models.user import User
 
 __all__ = [
@@ -17,6 +18,5 @@ __all__ = [
     "TicketStatusHistory",
     "Holiday",
     "TicketEmbedding",
+    "TriageFeedback",
 ]
-
-

@@ -122,3 +122,33 @@ Threshold tuning for `AI_MIN_SIMILARITY` was conducted via 5-fold stratified cro
 - `email`: **50.00%** (2/4)
 - `other`: **25.00%** (1/4)
 - `software`: **25.00%** (1/4)
+
+
+---
+
+## AI Ticket Assist (Summary & Draft Reply)
+
+The application supports an optional LLM-assisted workflow for support agents and administrators to quickly summarize complex tickets and generate draft replies directly on the ticket detail page.
+
+### Core Principles
+
+1. **Local-Only & Off by Default**: Powered exclusively by local Ollama (`AI_ASSIST_MODE=ollama`). When set to `off` (the default), no outgoing HTTP requests are made and the card displays a subtle inactive notice.
+2. **Strict Privacy & Internal Notes Protection**:
+   - Restricted to `agent` and `admin` roles (requesters receive HTTP 403 Forbidden).
+   - Only public comments are included in the conversation history provided to the model. **Internal notes (`is_internal=True`) are strictly excluded** and never sent to Ollama.
+   - All ticket fields and comments are wrapped in an untrusted `<ticket_data>` context block to protect against prompt injection.
+   - Ephemeral and privacy-preserving: nothing is persisted to the database, and neither ticket content nor model outputs are ever logged.
+3. **Advisory Drafts for Human Review**:
+   - All AI draft replies are clearly tagged with "Draft only. Review before posting."
+   - Clicking "Insert into reply" copies the draft into the reply composer without posting. Agents review and edit the draft before sending.
+   - System prompts forbid resolution promises, SLA commitments, or requests for passwords and sensitive credentials.
+4. **No Accuracy Claims**:
+   - Assist outputs are conversational drafts and summaries to accelerate agent productivity, not categorical classifiers. No accuracy or benchmark claims are made.
+
+### Configuration Settings
+
+| Setting | Default | Description |
+| :--- | :--- | :--- |
+| `AI_ASSIST_MODE` | `"off"` | Assist mode: `"off"` (disabled) or `"ollama"` (active). |
+| `AI_ASSIST_MODEL` | `"llama3.1:8b"` | Model tag for assist tasks (defaults to same model as triage). |
+| `AI_ASSIST_TIMEOUT_SECONDS` | `60.0` | Timeout in seconds for Ollama assist requests (allows for cold start). |

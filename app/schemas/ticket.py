@@ -1,9 +1,36 @@
 from app.schemas.common import UTCDateTime
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.models.enums import TicketCategory, TicketPriority, TicketStatus
+
+
+class TriageSuggestionCreate(BaseModel):
+    """AI triage advisory payload captured when a ticket is created."""
+    suggested_category: TicketCategory
+    suggested_priority: TicketPriority
+    method: Literal["knn", "llm-rag"]
+    embedder: Optional[str] = None
+
+
+class TriageFeedbackRead(BaseModel):
+    """Schema for returning triage feedback."""
+    id: int
+    ticket_id: int
+    method: str
+    embedder: Optional[str] = None
+    suggested_category: str
+    suggested_priority: str
+    requester_category: str
+    requester_priority: str
+    final_category: Optional[str] = None
+    final_priority: Optional[str] = None
+    final_set_by: Optional[int] = None
+    final_set_at: Optional[UTCDateTime] = None
+    created_at: UTCDateTime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TicketCreate(BaseModel):
@@ -12,6 +39,7 @@ class TicketCreate(BaseModel):
     description: str = Field(..., min_length=1)
     priority: TicketPriority = TicketPriority.MEDIUM
     category: TicketCategory = TicketCategory.OTHER
+    triage_suggestion: Optional[TriageSuggestionCreate] = None
 
 
 class TicketUpdate(BaseModel):

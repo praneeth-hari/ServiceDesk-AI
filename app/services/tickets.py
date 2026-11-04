@@ -8,6 +8,7 @@ from app.core.sla import add_business_minutes, business_minutes_between, calcula
 from app.models.enums import TicketCategory, TicketPriority, TicketStatus, UserRole
 from app.models.history import TicketStatusHistory
 from app.models.ticket import Ticket
+from app.models.triage_feedback import TriageFeedback
 from app.models.user import User
 from app.schemas.ticket import (
     TicketAssign,
@@ -72,6 +73,24 @@ def create_ticket(
         created_at=now,
     )
     db.add(history_entry)
+
+    # Record triage feedback if advisory suggestion was provided
+    if ticket_in.triage_suggestion:
+        feedback = TriageFeedback(
+            ticket_id=ticket.id,
+            method=ticket_in.triage_suggestion.method,
+            embedder=ticket_in.triage_suggestion.embedder,
+            suggested_category=ticket_in.triage_suggestion.suggested_category.value,
+            suggested_priority=ticket_in.triage_suggestion.suggested_priority.value,
+            requester_category=ticket.category.value,
+            requester_priority=ticket.priority.value,
+            final_category=None,
+            final_priority=None,
+            final_set_by=None,
+            final_set_at=None,
+            created_at=now,
+        )
+        db.add(feedback)
 
     # Sync embedding (failure is logged and ignored to never break ticket creation)
     sync_ticket_embedding(db, ticket)
@@ -289,6 +308,9 @@ def update_ticket(
 
     has_changed = False
     text_changed = False
+    priority_changed = False
+    category_changed = False
+
     if ticket_in.title is not None and ticket_in.title != ticket.title:
         ticket.title = ticket_in.title
         has_changed = True
@@ -300,6 +322,7 @@ def update_ticket(
     if ticket_in.priority is not None and ticket_in.priority != ticket.priority:
         ticket.priority = ticket_in.priority
         has_changed = True
+        priority_changed = True
 
         # Recalculate due_at from created_at only if open or in_progress
         if ticket.status in (TicketStatus.OPEN, TicketStatus.IN_PROGRESS):
@@ -310,12 +333,25 @@ def update_ticket(
     if ticket_in.category is not None and ticket_in.category != ticket.category:
         ticket.category = ticket_in.category
         has_changed = True
+        category_changed = True
 
     if has_changed:
+        now = current_time or datetime.now(timezone.utc)
+
+        # Update triage feedback if changed by agent or admin
+        if current_user.role in (UserRole.AGENT, UserRole.ADMIN) and (category_changed or priority_changed):
+            fb_stmt = sa.select(TriageFeedback).where(TriageFeedback.ticket_id == ticket.id)
+            feedback = db.scalars(fb_stmt).first()
+            if feedback:
+                feedback.final_category = ticket.category.value
+                feedback.final_priority = ticket.priority.value
+                feedback.final_set_by = current_user.id
+                feedback.final_set_at = now
+
         if text_changed:
             sync_ticket_embedding(db, ticket)
 
-        ticket.updated_at = current_time or datetime.now(timezone.utc)
+        ticket.updated_at = now
         db.commit()
         return get_ticket_by_id(db, ticket_id=ticket.id, current_user=current_user)
 
@@ -473,3 +509,83 @@ def get_ticket_status_history(
         .order_by(TicketStatusHistory.created_at.asc(), TicketStatusHistory.id.asc())
     )
     return db.scalars(stmt).all()
+
+
+def get_triage_feedback_for_ticket(
+    db: Session,
+    ticket_id: int,
+    current_user: User,
+) -> TriageFeedback:
+    """
+    Get triage feedback for a ticket.
+    Roles: agent and admin only (requester gets 403).
+    404 if the ticket does not exist or has no triage_feedback row.
+    """
+    if current_user.role not in (UserRole.AGENT, UserRole.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only agents and admins can view triage feedback",
+        )
+
+    ticket = db.get(Ticket, ticket_id)
+    if not ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found",
+        )
+
+    fb_stmt = sa.select(TriageFeedback).where(TriageFeedback.ticket_id == ticket_id)
+    feedback = db.scalars(fb_stmt).first()
+    if not feedback:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Triage feedback not found for this ticket",
+        )
+
+    return feedback
+
+
+def confirm_triage_feedback(
+    db: Session,
+    ticket_id: int,
+    current_user: User,
+    current_time: Optional[datetime] = None,
+) -> TriageFeedback:
+    """
+    Explicitly confirm/review AI triage feedback for a ticket.
+    Roles: agent and admin only (requester gets 403).
+    404 if the ticket does not exist or has no triage_feedback row.
+    Stamps final_category / final_priority with the ticket's current values,
+    final_set_by = current user, final_set_at = now.
+    Does not modify the ticket itself. Calling it again re-stamps (idempotent).
+    """
+    if current_user.role not in (UserRole.AGENT, UserRole.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only agents and admins can confirm triage feedback",
+        )
+
+    ticket = db.get(Ticket, ticket_id)
+    if not ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found",
+        )
+
+    fb_stmt = sa.select(TriageFeedback).where(TriageFeedback.ticket_id == ticket_id)
+    feedback = db.scalars(fb_stmt).first()
+    if not feedback:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Triage feedback not found for this ticket",
+        )
+
+    now = current_time or datetime.now(timezone.utc)
+    feedback.final_category = ticket.category.value if hasattr(ticket.category, "value") else str(ticket.category)
+    feedback.final_priority = ticket.priority.value if hasattr(ticket.priority, "value") else str(ticket.priority)
+    feedback.final_set_by = current_user.id
+    feedback.final_set_at = now
+
+    db.commit()
+    db.refresh(feedback)
+    return feedback
