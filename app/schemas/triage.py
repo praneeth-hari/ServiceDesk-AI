@@ -26,7 +26,9 @@ class TriageSuggestResponse(BaseModel):
     """Advisory category/priority suggestion and duplicate detection result."""
     suggested_category: Optional[TicketCategory] = None
     suggested_priority: Optional[TicketPriority] = None
-    confidence: float = 0.0
+    confidence: Optional[float] = None
     evidence: list[SimilarTicket] = Field(default_factory=list)
     possible_duplicates: list[SimilarTicket] = Field(default_factory=list)
     embedder: str
+    method: str = "knn"
+    fallback_reason: Optional[str] = None
