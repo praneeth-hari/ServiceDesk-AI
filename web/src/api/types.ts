@@ -78,11 +78,19 @@ export interface TicketListParams {
   order?: 'asc' | 'desc';
 }
 
+export interface TriageSuggestionCreate {
+  suggested_category: TicketCategory;
+  suggested_priority: TicketPriority;
+  method: string;
+  embedder?: string | null;
+}
+
 export interface TicketCreateRequest {
   title: string;
   description: string;
   priority?: TicketPriority;
   category?: TicketCategory;
+  triage_suggestion?: TriageSuggestionCreate;
 }
 
 export interface Comment {
@@ -141,4 +149,38 @@ export interface TriageSuggestResponse {
   embedder: string;
   method?: string;
   fallback_reason?: string | null;
+}
+
+export interface RequesterAcceptance {
+  category_pct: number | null;
+  priority_pct: number | null;
+  n: number;
+}
+
+export interface AgentReview {
+  reviewed_n: number;
+  category_agreement_pct: number | null;
+  priority_agreement_pct: number | null;
+}
+
+export interface WeeklyAIQualityItem {
+  week_start: string;
+  n: number;
+  requester_category_acceptance_pct: number | null;
+  agent_category_agreement_pct: number | null;
+}
+
+export interface CategoryCorrectionItem {
+  suggested: string;
+  final: string;
+  count: number;
+}
+
+export interface AIQualityReportResponse {
+  total_suggestions: number;
+  counts_by_method: Record<string, number>;
+  requester_acceptance: RequesterAcceptance;
+  agent_review: AgentReview;
+  weekly: WeeklyAIQualityItem[];
+  top_corrections: CategoryCorrectionItem[];
 }
