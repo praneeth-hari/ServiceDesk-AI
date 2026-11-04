@@ -181,4 +181,19 @@ When a prompt-injection attempt is detected and routed to kNN similarity fallbac
 
 This ensures the user still receives an accurate, similarity-based suggestion based on historical tickets without giving an attacker access to LLM prompt execution.
 
-For detailed attack-type breakdowns and empirical benchmark numbers, see [benchmarks/INJECTION.md](../benchmarks/INJECTION.md).
+### Empirical Robustness & Evaluation Splits
+
+The defense was benchmarked across three separate evaluation datasets:
+1. **Independent Held-Out Set (v2, $N = 30$)**: Authored completely independently outside this workflow and evaluated once. Heuristic guard detection was **36.7%** (11/30, missing 19 novel attack phrasings and lexical stuffing), but prompt boundary isolation kept overall attacked ASR to **6.7%** (2/30 [1.8%, 21.3%]), **comparable to kNN** at **13.3%** (4/30 [5.3%, 29.7%]) with overlapping intervals. Under keyword stuffing (`lexical_stuffing`), pure kNN suffered an 80.0% (4/5) attack success rate, while the full LLM defense resisted completely (0.0%, 0/5).
+2. **In-Workflow Held-Out Set (v1, $N = 30$, Frozen by Process)**: Authored by the same agent in the same workflow and frozen before defense implementation (held out by process, not independent). Attacked ASR drops from **63.3%** to **13.3%** (4/30 [5.3%, 29.7%]), which is **comparable to kNN** at **20.0%** (6/30 [9.5%, 37.3%]) with overlapping confidence intervals.
+3. **Development Set ($N = 40$, tuned on this set)**: Attacked Attack Success Rate (ASR) drops from **55.0%** to **2.5%** with full defense.
+4. **False-Positive Rate on Clean Tickets**: Verified **0.0%** false-positive rate across 220 clean problem descriptions [0.0%, 1.7%].
+
+### Security Limitations & Caveats
+- **Small Sample Sizes**: Datasets of 30–40 tickets yield wide confidence intervals (±10–15 percentage points).
+- **Heuristic Evasion**: Deterministic regexes can be evaded by paraphrasing, unfamiliar phrasing, leetspeak, or unsupported languages.
+- **Model Scope**: Benchmarks reflect `llama3.1:8b` via Ollama; different models or parameter scales may exhibit different susceptibility.
+- **Lexical Keyword Stuffing**: The guard does not address repeated keyword stuffing targeted at similarity search (in v2, lexical stuffing achieved 80% ASR against pure kNN).
+- **Human-in-the-Loop Review**: Triage suggestions are strictly automated aids; service desk agents always verify and review tickets before taking operational action.
+
+For detailed attack-type breakdowns, confusion tables, and empirical benchmark numbers, see [benchmarks/INJECTION.md](../benchmarks/INJECTION.md).
