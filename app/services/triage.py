@@ -6,6 +6,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session, joinedload
 
 from app.ai.embedder import Embedder, get_embedder, get_text_to_embed
+from app.ai.injection_guard import inspect_ticket
 from app.ai.llm_triage import triage_with_llm
 from app.core.config import settings
 from app.models.embedding import TicketEmbedding
@@ -303,32 +304,41 @@ def suggest(
     fallback_reason: Optional[str] = None
 
     if settings.AI_TRIAGE_MODE == "llm":
-        try:
-            rag_examples = resolved_candidates[: settings.AI_LLM_EXAMPLES]
-            ticket_text = f"{title}\n{description}".strip()
-
-            llm_cat, llm_prio, latency_ms, error_reason = triage_with_llm(
-                ticket_text=ticket_text,
-                retrieved_examples=rag_examples,
-                model_name=settings.AI_LLM_MODEL,
-                base_url=settings.OLLAMA_BASE_URL,
-                timeout=settings.AI_LLM_TIMEOUT_SECONDS,
-            )
-
-            if error_reason is not None or llm_cat is None or llm_prio is None:
-                method = "knn"
-                fallback_reason = error_reason or "LLM triage failed"
-                logger.warning("LLM triage fallback to kNN: %s", fallback_reason)
-            else:
-                suggested_cat = TicketCategory(llm_cat)
-                suggested_prio = TicketPriority(llm_prio)
-                confidence = None
-                method = "llm-rag"
-                fallback_reason = None
-        except Exception as exc:
+        ticket_text = f"{title}\n{description}".strip()
+        guard_res = inspect_ticket(ticket_text)
+        if guard_res.is_injection:
             method = "knn"
-            fallback_reason = f"LLM error: {exc}"
-            logger.warning("Unexpected error during LLM triage, falling back to kNN: %s", exc, exc_info=True)
+            fallback_reason = "possible_prompt_injection"
+            logger.warning(
+                "Prompt injection detected by guard (rules: %s); falling back to kNN",
+                guard_res.matched_rules,
+            )
+        else:
+            try:
+                rag_examples = resolved_candidates[: settings.AI_LLM_EXAMPLES]
+
+                llm_cat, llm_prio, latency_ms, error_reason = triage_with_llm(
+                    ticket_text=ticket_text,
+                    retrieved_examples=rag_examples,
+                    model_name=settings.AI_LLM_MODEL,
+                    base_url=settings.OLLAMA_BASE_URL,
+                    timeout=settings.AI_LLM_TIMEOUT_SECONDS,
+                )
+
+                if error_reason is not None or llm_cat is None or llm_prio is None:
+                    method = "knn"
+                    fallback_reason = error_reason or "LLM triage failed"
+                    logger.warning("LLM triage fallback to kNN: %s", fallback_reason)
+                else:
+                    suggested_cat = TicketCategory(llm_cat)
+                    suggested_prio = TicketPriority(llm_prio)
+                    confidence = None
+                    method = "llm-rag"
+                    fallback_reason = None
+            except Exception as exc:
+                method = "knn"
+                fallback_reason = f"LLM error: {exc}"
+                logger.warning("Unexpected error during LLM triage, falling back to kNN: %s", exc, exc_info=True)
 
     return {
         "suggested_category": suggested_cat,
