@@ -178,11 +178,22 @@ export const NewTicketPage: React.FC = () => {
     setSubmitting(true);
 
     try {
+      const triage_suggestion =
+        triageResult && triageResult.suggested_category && triageResult.suggested_priority
+          ? {
+              suggested_category: triageResult.suggested_category,
+              suggested_priority: triageResult.suggested_priority,
+              method: triageResult.method || 'knn',
+              embedder: triageResult.embedder || null,
+            }
+          : undefined;
+
       const created = await createTicket({
         title: title.trim(),
         description: description.trim(),
         category: category as TicketCategory,
         priority,
+        ...(triage_suggestion ? { triage_suggestion } : {}),
       });
       navigate(`/tickets/${created.id}`);
     } catch (err: unknown) {

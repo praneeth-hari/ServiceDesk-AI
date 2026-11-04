@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Optional, Sequence
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
@@ -6,6 +6,7 @@ from app.api.deps import require_roles
 from app.db.session import get_db
 from app.models.enums import UserRole
 from app.schemas.report import (
+    AIQualityReportResponse,
     AgentRankingItem,
     AgentWorkloadItem,
     DailyVolumeItem,
@@ -17,6 +18,7 @@ from app.schemas.report import (
     TicketsByStatusItem,
 )
 from app.services.reports import (
+    get_ai_quality_report,
     get_agent_ranking,
     get_agent_workload,
     get_daily_volume,
@@ -156,3 +158,17 @@ def report_tickets_by_category(
     """Report count of tickets per category, optionally broken down by status."""
     return get_tickets_by_category(db=db, breakdown_by_status=breakdown_by_status)
 
+
+
+@router.get(
+    "/ai-quality",
+    response_model=AIQualityReportResponse,
+    status_code=status.HTTP_200_OK,
+    summary="AI triage quality and feedback report",
+)
+def report_ai_quality(
+    days: Optional[int] = Query(default=90, ge=1, le=365, description="Window in days (default 90)"),
+    db: Session = Depends(get_db),
+) -> AIQualityReportResponse:
+    """Report measuring AI triage suggestion acceptance, agent review agreement, and weekly trend."""
+    return get_ai_quality_report(db=db, days=days)

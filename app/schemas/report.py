@@ -98,3 +98,47 @@ class TicketsByCategoryItem(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+
+class RequesterAcceptance(BaseModel):
+    category_pct: Optional[float] = None
+    priority_pct: Optional[float] = None
+    n: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AgentReview(BaseModel):
+    reviewed_n: int
+    category_agreement_pct: Optional[float] = None
+    priority_agreement_pct: Optional[float] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WeeklyAIQualityItem(BaseModel):
+    week_start: date
+    n: int
+    requester_category_acceptance_pct: Optional[float] = None
+    agent_category_agreement_pct: Optional[float] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CategoryCorrectionItem(BaseModel):
+    suggested: str
+    final: str
+    count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AIQualityReportResponse(BaseModel):
+    total_suggestions: int
+    counts_by_method: dict[str, int]
+    requester_acceptance: RequesterAcceptance
+    agent_review: AgentReview
+    weekly: list[WeeklyAIQualityItem]
+    top_corrections: list[CategoryCorrectionItem]
+
+    model_config = ConfigDict(from_attributes=True)

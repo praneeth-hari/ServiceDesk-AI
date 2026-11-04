@@ -312,11 +312,11 @@ describe('NewTicketPage', () => {
     const categorySelect = screen.getByLabelText(/category/i);
     fireEvent.change(categorySelect, { target: { value: 'hardware' } });
 
-    const submitBtn = screen.getByRole('button', { name: /create ticket/i });
+    const submitBtn = screen.getByRole('button', { name: /(create ticket|create anyway)/i });
     expect(submitBtn).toBeEnabled();
   });
 
-  it('submits valid ticket, calls createTicket, and navigates to /tickets/:id', async () => {
+  it('submits valid ticket with triage_suggestion when created after suggestion is shown', async () => {
     const mockCreatedTicket: Ticket = {
       id: 142,
       title: 'New keyboard request',
@@ -351,7 +351,12 @@ describe('NewTicketPage', () => {
     fireEvent.change(descInput, { target: { value: 'Need mechanical keyboard for ergonomics' } });
     fireEvent.change(categorySelect, { target: { value: 'hardware' } });
 
-    const submitBtn = screen.getByRole('button', { name: /create ticket/i });
+    // Wait for debounced triage suggestion to appear
+    await waitFor(() => {
+      expect(screen.getByText('Suggested Category')).toBeInTheDocument();
+    });
+
+    const submitBtn = screen.getByRole('button', { name: /(create ticket|create anyway)/i });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
@@ -360,8 +365,65 @@ describe('NewTicketPage', () => {
         description: 'Need mechanical keyboard for ergonomics',
         category: 'hardware',
         priority: 'medium',
+        triage_suggestion: {
+          suggested_category: 'network',
+          suggested_priority: 'high',
+          method: 'knn',
+          embedder: 'hashing-v2',
+        },
       });
       expect(mockNavigate).toHaveBeenCalledWith('/tickets/142');
+    });
+  });
+
+
+  it('submits ticket without triage_suggestion when triage fails or returns no suggestion', async () => {
+    vi.mocked(triageApi.suggestTriage).mockRejectedValueOnce(new Error('Triage offline'));
+
+    const mockCreatedTicket: Ticket = {
+      id: 143,
+      title: 'Quick help request',
+      description: 'Short issue description here',
+      status: 'open',
+      priority: 'low',
+      category: 'other',
+      requester_id: 1,
+      assignee_id: null,
+      requester_name: 'Test Requester',
+      assignee_name: null,
+      due_at: '2026-11-05T12:00:00Z',
+      sla_paused_at: null,
+      created_at: '2026-11-02T12:00:00Z',
+      updated_at: '2026-11-02T12:00:00Z',
+      is_overdue: false,
+    };
+    vi.mocked(ticketsApi.createTicket).mockResolvedValueOnce(mockCreatedTicket);
+
+    render(
+      <MemoryRouter>
+        <NewTicketPage />
+      </MemoryRouter>
+    );
+
+    const titleInput = screen.getByLabelText(/title/i);
+    const descInput = screen.getByLabelText(/description/i);
+    const categorySelect = screen.getByLabelText(/category/i);
+
+    fireEvent.change(titleInput, { target: { value: 'Quick help request' } });
+    fireEvent.change(descInput, { target: { value: 'Short issue description here' } });
+    fireEvent.change(categorySelect, { target: { value: 'other' } });
+
+    const submitBtn = screen.getByRole('button', { name: /(create ticket|create anyway)/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(ticketsApi.createTicket).toHaveBeenCalledWith({
+        title: 'Quick help request',
+        description: 'Short issue description here',
+        category: 'other',
+        priority: 'medium',
+      });
+      expect(mockNavigate).toHaveBeenCalledWith('/tickets/143');
     });
   });
 
@@ -383,7 +445,7 @@ describe('NewTicketPage', () => {
     fireEvent.change(descInput, { target: { value: 'Valid description here' } });
     fireEvent.change(categorySelect, { target: { value: 'software' } });
 
-    const submitBtn = screen.getByRole('button', { name: /create ticket/i });
+    const submitBtn = screen.getByRole('button', { name: /(create ticket|create anyway)/i });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
