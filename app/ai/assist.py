@@ -7,10 +7,14 @@ and privacy-preserving execution (internal notes excluded, no DB persistence, ze
 
 from __future__ import annotations
 
+import html
 import json
 import logging
+import re
+import string
 import time
-from typing import Any, Sequence
+from typing import Any, Sequence, Union
+import unicodedata
 import urllib.error
 import urllib.request
 
@@ -110,6 +114,160 @@ REPLY_FORMAT_SCHEMA = {
     },
     "required": ["reply"],
 }
+
+
+SURROUNDING_PUNCT = string.punctuation + "“" + "”" + "‘" + "’" + "«" + "»" + "‹" + "›" + "—" + "–" + "…" + " \t\r\n"
+
+
+def normalize_assist_text(text: str) -> str:
+    """
+    Normalise text for fact grounding comparison:
+    - HTML unescape
+    - Unicode NFKC normalisation
+    - Lowercase
+    - Whitespace collapsed
+    """
+    if not text:
+        return ""
+    t = html.unescape(str(text))
+    t = unicodedata.normalize("NFKC", t)
+    t = t.lower()
+    t = re.sub(r"\s+", " ", t).strip()
+    return t
+
+
+def is_whole_token_match(cand: str, source: str) -> bool:
+    """
+    Check if cand matches as a whole token in source, not as a substring of a longer token.
+    E.g. '404' matches in 'error 404 in log', 'status: 404.', '(404)', but NOT in '14045' or '4040'.
+    """
+    pattern = re.escape(cand)
+    for m in re.finditer(pattern, source):
+        start, end = m.start(), m.end()
+
+        # Check left boundary
+        if start > 0:
+            c_before = source[start - 1]
+            if c_before.isalnum() or c_before == "_":
+                continue
+            if c_before in "-./" and start >= 2 and source[start - 2].isalnum():
+                continue
+
+        # Check right boundary
+        if end < len(source):
+            c_after = source[end]
+            if c_after.isalnum() or c_after == "_":
+                continue
+            if c_after in "-./" and end + 1 < len(source) and source[end + 1].isalnum():
+                continue
+
+        return True
+
+    return False
+
+
+def _fact_value_matches(norm_val: str, clean_val: str, norm_source: str) -> bool:
+    """
+    Check if a normalized fact value or its punctuation-stripped variant appears in a normalized source text.
+    """
+    for cand in (norm_val, clean_val):
+        if not cand:
+            continue
+        words = cand.split()
+        if len(words) > 1:
+            # Multi-word values match as a normalised substring
+            if cand in norm_source:
+                return True
+        elif len(words) == 1:
+            # Values that are numbers, IDs, error codes, versions or dates
+            # must match as a whole token, not as a substring of a longer token
+            if is_whole_token_match(cand, norm_source):
+                return True
+    return False
+
+
+def ground_key_facts(
+    facts: Sequence[Union[dict[str, Any], AIAssistFact]],
+    source_texts: Sequence[str],
+) -> tuple[list[Any], int]:
+    """
+    Filter key facts to keep only those whose VALUE appears in the source texts
+    provided to the model (after same truncation caps and exclusions).
+
+    Matching:
+    - Unicode NFKC, case-insensitive, collapse whitespace, strip surrounding punctuation.
+    - Numbers, IDs, error codes, versions, dates (single tokens) must match as whole tokens,
+      not as substrings of longer tokens (so '404' does not match '14045').
+    - Multi-word values match as a normalised substring.
+
+    Returns:
+        (grounded_facts, dropped_count)
+    """
+    norm_sources = [normalize_assist_text(s) for s in source_texts if s and str(s).strip()]
+    grounded_facts: list[Any] = []
+    dropped_count = 0
+
+    for fact in facts:
+        if isinstance(fact, AIAssistFact):
+            val_raw = fact.value
+        elif isinstance(fact, dict):
+            val_raw = fact.get("value", "")
+        else:
+            val_raw = getattr(fact, "value", "")
+
+        val_str = str(val_raw or "").strip()
+        if not val_str:
+            dropped_count += 1
+            continue
+
+        norm_val = normalize_assist_text(val_str)
+        clean_val = norm_val.strip(SURROUNDING_PUNCT)
+
+        if not norm_val and not clean_val:
+            dropped_count += 1
+            continue
+
+        matched = any(_fact_value_matches(norm_val, clean_val, src) for src in norm_sources)
+        if matched:
+            grounded_facts.append(fact)
+        else:
+            dropped_count += 1
+
+    return grounded_facts, dropped_count
+
+
+def extract_assist_source_texts(
+    prompt_or_ticket: Any,
+    public_comments: Sequence[Any] | None = None,
+    requester_name: str | None = None,
+    agent_name: str | None = None,
+) -> list[str]:
+    """
+    Extract the untrusted source text directly from the prompt's <ticket_data> block.
+    Guarantees that grounding uses the exact same text and truncation the prompt
+    builder produced (single source of truth), including all structured fields:
+    Ticket ID, Status, Category, Priority, Title, Requester First Name,
+    Signing Agent First Name, Description, and Public Conversation History (author, time, body).
+    """
+    if isinstance(prompt_or_ticket, str):
+        prompt = prompt_or_ticket
+    else:
+        prompt = build_assist_prompt(
+            ticket=prompt_or_ticket,
+            requester_name=requester_name,
+            agent_name=agent_name,
+            public_comments=public_comments or [],
+            task="summary",
+        )
+
+    start_tag = "<ticket_data>"
+    end_tag = "</ticket_data>"
+    if start_tag in prompt and end_tag in prompt:
+        start = prompt.find(start_tag) + len(start_tag)
+        end = prompt.rfind(end_tag)
+        data_block = prompt[start:end].strip()
+        return [data_block]
+    return [prompt]
 
 
 def escape_untrusted_text(text: str | None) -> str:
