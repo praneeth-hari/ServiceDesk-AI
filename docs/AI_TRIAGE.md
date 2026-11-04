@@ -152,3 +152,33 @@ The application supports an optional LLM-assisted workflow for support agents an
 | `AI_ASSIST_MODE` | `"off"` | Assist mode: `"off"` (disabled) or `"ollama"` (active). |
 | `AI_ASSIST_MODEL` | `"llama3.1:8b"` | Model tag for assist tasks (defaults to same model as triage). |
 | `AI_ASSIST_TIMEOUT_SECONDS` | `60.0` | Timeout in seconds for Ollama assist requests (allows for cold start). |
+
+
+---
+
+## Prompt-Injection Robustness & Safety (AI Triage)
+
+When `AI_TRIAGE_MODE="llm"`, tickets are sent to a local large language model for categorization and priority hint generation. Because user-submitted ticket text is inherently untrusted, the triage pipeline implements a **two-tier defense** against prompt-injection attacks (instruction overrides, role impersonation, simulated triage formatting, polite extraction, and executive priority inflation).
+
+### Two-Tier Defense Architecture
+
+1. **Tier 1: Deterministic Heuristic Injection Guard (`app/ai/injection_guard.py`)**
+   - **Fast Pre-Screening**: Tickets are inspected before any prompt is assembled or sent to the LLM.
+   - **Obfuscation Normalisation**: Normalises Unicode (NFKC), removes invisible / zero-width characters (`\u200b`, `\ufeff`), lowercases tokens, and collapses letter-spaced words (e.g. `u r g e n t` $\rightarrow$ `urgent`, `c-a-t-e-g-o-r-y` $\rightarrow$ `category`).
+   - **Syntactically Anchored Rules**: Detects adversarial directives (`ignore previous instructions`, `system prompt reset`), role impersonation headers (`SYSTEM:`, `Agent triage note:`), format breaks (`--- Reference Ticket #1 ---`, raw JSON classification blocks), explicit classification directives, and executive escalation social engineering.
+   - **Zero False Positives on Benign IT Queries**: Strict anchoring ensures innocent tickets using words like *urgent*, *ignore*, *system*, or *priority* (e.g. "urgent help with payroll", "please ignore the earlier alert", "Windows 11 system crash") are **never flagged** (0.0% false-positive rate across 190 clean benchmark tickets).
+   - **Safe Similarity Fallback**: When an injection pattern is detected, the pipeline **bypasses the LLM entirely** and routes directly to similarity-weighted kNN fallback with `fallback_reason = "possible_prompt_injection"`.
+   - **Privacy Integrity**: The guard returns only boolean flags and rule identifiers; it never includes or leaks raw ticket text in result objects.
+
+2. **Tier 2: Prompt Boundary Isolation & Escaping (`app/ai/llm_triage.py` V2)**
+   - **Boundary Delimiters**: Raw ticket text is enclosed in strict `<ticket_data>...</ticket_data>` boundary tags.
+   - **Character Escaping**: All angle brackets within untrusted ticket text are neutralized (`<` $\rightarrow$ `&lt;`, `>` $\rightarrow$ `&gt;`, with `&` $\rightarrow$ `&amp;` escaped first), ensuring injected text cannot escape the boundary context.
+   - **System Instruction Hardening**: Explicit system prompt instructions remind the model that everything inside `<ticket_data>` is untrusted user text to be classified, never system instructions or commands.
+
+### User Interface Advisory
+When a prompt-injection attempt is detected and routed to kNN similarity fallback, the UI displays an honest, non-punitive notice in the AI Triage Advisory box:
+> *"Possible prompt injection detected. Showing the similarity-based suggestion instead."*
+
+This ensures the user still receives an accurate, similarity-based suggestion based on historical tickets without giving an attacker access to LLM prompt execution.
+
+For detailed attack-type breakdowns and empirical benchmark numbers, see [benchmarks/INJECTION.md](../benchmarks/INJECTION.md).

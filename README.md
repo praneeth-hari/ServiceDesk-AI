@@ -278,6 +278,10 @@ While ServiceDesk-AI defaults to instant lexical kNN triage, you can optionally 
 - **Resilience & Graceful Fallback**: If Ollama is unreachable, times out, the target model is not installed, or the LLM returns malformed JSON or labels outside the allowed taxonomy, the triage service silently and instantly falls back to lexical kNN. The triage API endpoint never fails (never returns 5xx) because the local LLM is down. The response marks `method: "knn"` and includes `fallback_reason`.
 - **Hosted Demo vs. Local Mode**: In the hosted demo and standard container deployment, triage runs in pure kNN mode (zero GPU, zero external network calls, <10ms response time).
 - **Benchmark Performance**: On the ServiceDesk-600 test split (120 tickets), the exact production pipeline (`llm-rag-hashing`: native hashing retrieval + Llama 3.1 8B 5-shot RAG) achieves **85.8%** category accuracy (64.2% priority accuracy, 96.7% within one level); paired McNemar exact test against dense MiniLM retrieval ($b=7$ where `llm-rag` is correct and `llm-rag-hashing` is wrong, $c=5$ where `llm-rag-hashing` is correct and `llm-rag` is wrong, $p = 0.774$): no difference was detected (12 discordant pairs; the test cannot show equivalence).
+- **Prompt Injection Defense**: When LLM triage is enabled, incoming ticket text is protected by a two-tier defense:
+  1. *Deterministic Heuristic Guard (`app/ai/injection_guard.py`)*: Detects instruction overrides, role impersonation, and format breaks. On detection, bypasses the LLM and falls back to kNN similarity (`fallback_reason = "possible_prompt_injection"`). Verified 0.0% false positives across 190 clean benchmark tickets.
+  2. *Prompt Boundary Isolation (`app/ai/llm_triage.py` v2)*: Wraps ticket text in `<ticket_data>` tags and escapes angle brackets (`<` -> `&lt;`, `>` -> `&gt;`).
+  - *Empirical Robustness: Attacked Attack Success Rate (ASR) drops from **55.0%** to **2.5%** on the development set (N=40) and from **63.3%** to **13.3%** on the held-out set (N=30, SHA-256 frozen). See [benchmarks/INJECTION.md](benchmarks/INJECTION.md).
 
 ---
 
