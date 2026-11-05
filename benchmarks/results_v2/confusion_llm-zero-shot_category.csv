@@ -1,0 +1,7 @@
+true_category,network,hardware,software,access,email,other
+network,17,1,0,0,0,2
+hardware,0,20,0,0,0,0
+software,0,2,17,1,0,0
+access,0,0,0,20,0,0
+email,0,0,2,6,12,0
+other,3,1,0,0,0,16

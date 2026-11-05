@@ -9,6 +9,8 @@ Evaluation of automated category and priority triage methods on the **ServiceDes
 
 ## 1. Headline Benchmark Results
 
+The headline results below quote the canonical benchmark figures from the original ServiceDesk-600 evaluation (Prompt V1 across all methods, N=120 test tickets):
+
 | Method | Category Accuracy [95% CI] | Cat Macro-F1 | Priority Accuracy [95% CI] | Priority Within-One | Hard-Ticket Cat Acc | Mean Latency / Ticket | Total Run Time | Invalid Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | *Baseline: Majority Class* | 16.7% [11.1%, 24.3%] | 0.0476 | 33.3% [25.5%, 42.2%] | 80.8% | 16.7% | <0.1 ms | <0.1s | 0.0% |
@@ -24,23 +26,51 @@ Evaluation of automated category and priority triage methods on the **ServiceDes
 
 > **Baseline Clarification (Priority Accuracy)**: Training set majority priority is `medium` (175/480 tickets = 36.5%). In `test.jsonl`, there are exactly 40 `medium` tickets out of 120 (with 31 `low`, 26 `high`, 23 `urgent`). Predicting `medium` for all test tickets yields an exact priority accuracy of **33.3%** (40/120 = 0.3333).
 
+### Prompt Hardening Evaluation (Prompt V1 vs Hardened Prompt V2)
+
+To defend against prompt injection attacks, LLM triage prompts were upgraded from V1 to hardened V2 (enclosing user input in strict `<ticket_data>` boundaries, HTML entity escaping `<` and `>`, and adding safety instructions).
+
+Below is the verified side-by-side comparison evaluated on the identical 120 test tickets of ServiceDesk-600 (drawn directly from `benchmarks/results/` and `benchmarks/results_v2/`):
+
+| Method | Prompt Version | Category Acc (exact) [95% CI] | Priority Acc (exact) [95% CI] | Priority Within-One [95% CI] | Combined Acc (both exact) [95% CI] | Category McNemar p-value | Priority McNemar p-value | Combined McNemar p-value |
+| :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: |
+| `llm-zero-shot` | V1 (unhardened) | 79.2% (95/120) [71.0%, 85.5%] | 68.3% (82/120) [59.6%, 76.0%] | 99.2% (119/120) [95.4%, 99.9%] | 50.8% (61/120) [42.0%, 59.6%] | — | — | — |
+| `llm-zero-shot` | V2 (hardened) | 85.0% (102/120) [77.5%, 90.3%] | 60.0% (72/120) [51.1%, 68.3%] | 96.7% (116/120) [91.7%, 98.7%] | 49.2% (59/120) [40.4%, 58.0%] | p = 0.0923 (b=10, c=3) | p = 0.0129 (b=2, c=12) | p = 0.7905 (b=6, c=8) |
+| `llm-rag` | V1 (unhardened) | 87.5% (105/120) [80.4%, 92.3%] | 69.2% (83/120) [60.4%, 76.7%] | 98.3% (118/120) [94.1%, 99.5%] | 58.3% (70/120) [49.4%, 66.8%] | — | — | — |
+| `llm-rag` | V2 (hardened) | 86.7% (104/120) [79.4%, 91.6%] | 68.3% (82/120) [59.6%, 76.0%] | 98.3% (118/120) [94.1%, 99.5%] | 59.2% (71/120) [50.2%, 67.6%] | p = 1.0000 (b=3, c=4) | p = 1.0000 (b=7, c=8) | p = 1.0000 (b=8, c=7) |
+| `llm-rag-hashing` | V1 (unhardened) | 85.8% (103/120) [78.5%, 91.0%] | 64.2% (77/120) [55.3%, 72.2%] | 96.7% (116/120) [91.7%, 98.7%] | 53.3% (64/120) [44.4%, 62.0%] | — | — | — |
+| `llm-rag-hashing` | V2 (hardened) | 85.0% (102/120) [77.5%, 90.3%] | 62.5% (75/120) [53.6%, 70.7%] | 97.5% (117/120) [92.9%, 99.1%] | 50.0% (60/120) [41.2%, 58.8%] | p = 1.0000 (b=1, c=2) | p = 0.7744 (b=5, c=7) | p = 0.4239 (b=5, c=9) |
+
+> **Column Definitions & Underlying Keys**:
+> - **Category Acc (exact)**: Exact match accuracy on ground-truth category (`category_metrics.accuracy`).
+> - **Priority Acc (exact)**: Exact match accuracy on ground-truth priority (`priority_metrics.accuracy`).
+> - **Priority Within-One**: Proportion of predictions within $\pm 1$ level of ground-truth priority (`priority_metrics.within_one_accuracy`).
+> - **Combined Acc (both exact)**: Proportion of tickets where both category and priority exactly matched ground truth (`predictions` item matching both true fields).
+>
+> **Statistical Significance Summary (McNemar Exact Tests)**:
+> - **Category Accuracy**: No statistically significant difference between V1 and V2 for any method (`llm-zero-shot` $p = 0.0923$, `llm-rag` $p = 1.0000$, `llm-rag-hashing` $p = 1.0000$). The zero-shot category difference is **not statistically significant**.
+> - **Priority Accuracy**: For `llm-zero-shot`, exact priority match showed a statistically significant drop ($p = 0.0129$, with 12 tickets correct in V1 but missed in V2 vs. 2 correct in V2 but missed in V1). For `llm-rag` ($p = 1.0000$) and `llm-rag-hashing` ($p = 0.7744$), priority accuracy showed no significant difference.
+> - **Combined Accuracy**: No statistically significant difference across any method (`llm-zero-shot` $p = 0.7905$, `llm-rag` $p = 1.0000$, `llm-rag-hashing` $p = 0.4239$).
+
 ---
 
 ## 2. Best Method Analysis (`llm-rag`)
 
-**Best Performing Model**: `llm-rag` achieved **87.5%** category accuracy and **0.8711** macro-F1.
+**Best Performing Model**: `llm-rag` achieved **86.7%** category accuracy and **0.8626** macro-F1.
 
-### Category Confusion Pairs (9 distinct pairs)
+### Category Confusion Pairs (11 distinct pairs)
 
 | True Category | Predicted As | Total Count | Hard Tickets |
 | :--- | :--- | :---: | :---: |
-| `software` | `hardware` | 3 | 2 |
+| `software` | `access` | 3 | 2 |
 | `other` | `network` | 3 | 0 |
-| `software` | `access` | 2 | 2 |
 | `other` | `hardware` | 2 | 0 |
+| `access` | `hardware` | 1 | 1 |
 | `access` | `email` | 1 | 1 |
 | `hardware` | `other` | 1 | 1 |
 | `network` | `other` | 1 | 1 |
+| `other` | `email` | 1 | 1 |
+| `software` | `hardware` | 1 | 1 |
 | `other` | `access` | 1 | 0 |
 | `software` | `email` | 1 | 0 |
 
@@ -48,12 +78,12 @@ Evaluation of automated category and priority triage methods on the **ServiceDes
 
 | True Priority \ Predicted | `low` | `medium` | `high` | `urgent` |
 | :--- | :---: | :---: | :---: | :---: |
-| **`low`** | 21 | 8 | 1 | 1 |
-| **`medium`** | 2 | 29 | 9 | 0 |
-| **`high`** | 0 | 2 | 23 | 1 |
-| **`urgent`** | 0 | 0 | 13 | 10 |
+| **`low`** | 21 | 9 | 0 | 1 |
+| **`medium`** | 1 | 32 | 7 | 0 |
+| **`high`** | 0 | 3 | 21 | 2 |
+| **`urgent`** | 0 | 1 | 14 | 8 |
 
-> **Error Direction**: Across 37 total priority errors (30.8% of the test set), misclassifications lean towards over-prediction of urgency with 20 tickets triaged at higher priority than ground truth (16.7%) versus 17 under-predicted tickets (14.2%), most notably 8 low-priority tickets escalated to medium and 9 medium-priority tickets escalated to high.
+> **Error Direction**: Across 38 total priority errors (31.7% of the test set), misclassifications were evenly balanced between 19 over-predicted tickets (15.8%) and 19 under-predicted tickets (15.8%).
 
 ### Category Failure Examples
 
@@ -80,12 +110,12 @@ Showing 8 category misclassifications for `llm-rag`, spread across all categorie
 - **True Category**: `software` | **Predicted Category**: `access`
 - **Label Note**: *"Ransomware actively encrypting files is malicious software on the endpoint, so it is labelled software and urgent as a security incident causing data loss; it could also be routed as other or as a dedicated security incident."*
 
-#### Example 4: Ticket `ACC-077` (HARD)
+#### Example 4: Ticket `ACC-044` (HARD)
 - **Ticket Text**:
-  > entered my password on a fake page?
-  > I clicked a link in an email about a shared invoice and it took me to a login page that looked like ours. I entered my username and password, then it went blank. Now I've noticed the address was odd. I'm in accounts payable and I can change supplier bank details.
-- **True Category**: `access` | **Predicted Category**: `email`
-- **Label Note**: *"Compromised credentials need an immediate reset and session revoke, so it is access and urgent because of privileged finance access; it could be routed to email as a phishing report."*
+  > 40 graduates started today - no accounts
+  > Our graduate intake of 40 started at 9am today in the Chennai training centre. None of them have accounts, so they can't log in to the training laptops. The request went in three weeks ago. The trainers are presenting from the projector for now.
+- **True Category**: `access` | **Predicted Category**: `hardware`
+- **Label Note**: *"Missing new-joiner accounts are access; priority is debatable because no business system is down and training continues on the projector (high), but 40 people blocked justifies urgent."*
 
 #### Example 5: Ticket `OTH-004` (EASY)
 - **Ticket Text**:
@@ -94,26 +124,26 @@ Showing 8 category misclassifications for `llm-rag`, spread across all categorie
 - **True Category**: `other` | **Predicted Category**: `network`
 - **Label Note**: *"A meeting-room display fault is AV, so it is other, and it is high because a client meeting is at risk."*
 
-#### Example 6: Ticket `SW-011` (HARD)
+#### Example 6: Ticket `SW-017` (EASY)
 - **Ticket Text**:
-  > computer acting up
-  > computer acting up again since this morning. stuff not working properly
-- **True Category**: `software` | **Predicted Category**: `hardware`
-- **Label Note**: *"The ticket is vague with no app, symptom or device detail, so it is labelled software as the most common cause of general misbehaviour, with medium as a placeholder; it could equally be hardware or other."*
+  > PayRun says licence expired - payroll due today
+  > PayRun opened this morning with 'Your licence has expired. Contact your administrator.' and won't go past the login screen for anyone in the payroll team. Monthly payroll for 1,800 staff has to reach the bank by 4pm today.
+- **True Category**: `software` | **Predicted Category**: `access`
+- **Label Note**: *"An expired application licence is software, and it is urgent because a business-critical payroll run is blocked today."*
 
-#### Example 7: Ticket `OTH-024` (EASY)
+#### Example 7: Ticket `ACC-077` (HARD)
 - **Ticket Text**:
-  > video conference camera dead in boardroom 2
-  > The camera in boardroom 2 shows a black image in every meeting. The board's call with the overseas investors is at 3pm in that room and they want video.
-- **True Category**: `other` | **Predicted Category**: `hardware`
-- **Label Note**: *"Meeting-room video equipment is AV, so it is other, and it is high because a high-stakes meeting is today."*
+  > entered my password on a fake page?
+  > I clicked a link in an email about a shared invoice and it took me to a login page that looked like ours. I entered my username and password, then it went blank. Now I've noticed the address was odd. I'm in accounts payable and I can change supplier bank details.
+- **True Category**: `access` | **Predicted Category**: `email`
+- **Label Note**: *"Compromised credentials need an immediate reset and session revoke, so it is access and urgent because of privileged finance access; it could be routed to email as a phishing report."*
 
-#### Example 8: Ticket `SW-023` (EASY)
+#### Example 8: Ticket `OTH-021` (HARD)
 - **Ticket Text**:
-  > everything tiny on new screen
-  > Since I got my new 4K monitor, text in most apps is tiny, and some older apps look blurry when I make them bigger. I've been zooming in on each window.
-- **True Category**: `software` | **Predicted Category**: `hardware`
-- **Label Note**: *"Display scaling is an OS setting, so it is software, and it is medium because zooming is a workaround."*
+  > room panel shows a meeting that was cancelled
+  > The booking panel outside room 4A shows a recurring meeting every morning that was cancelled weeks ago, so people think the room is taken and leave. The room is actually free.
+- **True Category**: `other` | **Predicted Category**: `email`
+- **Label Note**: *"The room panel is meeting-room AV, so it is labelled other and medium, but the likely cause is the room's calendar resource, so it could be routed to email."*
 
 ---
 

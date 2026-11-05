@@ -486,3 +486,130 @@ def get_ai_quality_report(
         "top_corrections": top_corrections,
         "by_method": by_method,
     }
+
+
+def compute_nearest_rank_percentile(sorted_values: list[int], percentile: float) -> Optional[int]:
+    """
+    Compute the nearest-rank percentile for an ordered list of integer measurements.
+
+    Percentile Method Definition:
+    Given N observations sorted in ascending order (v_1 <= v_2 <= ... <= v_N),
+    for a target percentile P (0 < P <= 100):
+      1. Calculate the ordinal rank: k = ceil((P / 100) * N)
+      2. The percentile value is v_k (1-indexed), corresponding to index (k - 1) in Python.
+
+    If the input list is empty, returns None.
+    """
+    import math
+
+    if not sorted_values:
+        return None
+    n = len(sorted_values)
+    rank = math.ceil((percentile / 100.0) * n)
+    rank = max(1, min(n, rank))
+    return int(sorted_values[rank - 1])
+
+
+def get_ai_health_report(db: Session, range_str: str = "7d") -> dict[str, Any]:
+    """
+    AI triage operational health report covering request volume, answer methods,
+    fallback rates, latency percentiles, and fallback reasons over a time window.
+
+    - Latencies are calculated over LLM-answered requests ONLY.
+    - Percentiles use the Python nearest-rank method via compute_nearest_rank_percentile().
+    - Opportunistically deletes telemetry log rows older than 90 days.
+    """
+    import logging
+    from app.models.llm_triage_log import LLMTriageLog
+
+    logger = logging.getLogger(__name__)
+    now = datetime.now(timezone.utc)
+    bind = db.get_bind() if hasattr(db, "get_bind") else getattr(db, "bind", None)
+    dialect_name = getattr(getattr(bind, "dialect", None), "name", "")
+
+    # 1. Opportunistic 90-day retention cleanup
+    retention_cutoff = now - timedelta(days=90)
+    cleanup_cutoff = (
+        retention_cutoff.replace(tzinfo=None)
+        if dialect_name == "sqlite"
+        else retention_cutoff
+    )
+    try:
+        db.execute(sa.delete(LLMTriageLog).where(LLMTriageLog.created_at < cleanup_cutoff))
+        db.commit()
+    except Exception as exc:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        logger.warning("Opportunistic retention cleanup failed: %s", exc)
+
+    # 2. Compute date filter window
+    range_map = {
+        "24h": timedelta(hours=24),
+        "7d": timedelta(days=7),
+        "30d": timedelta(days=30),
+    }
+    window = range_map.get(range_str, timedelta(days=7))
+    start_time = now - window
+    query_start = (
+        start_time.replace(tzinfo=None)
+        if dialect_name == "sqlite"
+        else start_time
+    )
+
+    # 3. Query telemetry records within the window
+    rows = db.scalars(
+        sa.select(LLMTriageLog)
+        .where(LLMTriageLog.created_at >= query_start)
+        .order_by(LLMTriageLog.created_at.desc())
+    ).all()
+
+    total_requests = len(rows)
+    llm_answered_rows = [r for r in rows if r.method == "llm"]
+    knn_fallback_rows = [r for r in rows if r.method == "knn"]
+
+    llm_answered = len(llm_answered_rows)
+    knn_fallbacks = len(knn_fallback_rows)
+
+    fallback_rate = (
+        round(knn_fallbacks / total_requests, 4) if total_requests > 0 else 0.0
+    )
+    small_sample = bool(llm_answered < 20)
+
+    # Compute median and p95 over LLM-answered requests ONLY
+    llm_latencies = sorted(r.latency_ms for r in llm_answered_rows)
+    median_latency_ms = compute_nearest_rank_percentile(llm_latencies, 50.0)
+    p95_latency_ms = compute_nearest_rank_percentile(llm_latencies, 95.0)
+
+    # Aggregate fallback reasons for kNN fallback rows
+    reason_counts: dict[str, int] = {}
+    for r in knn_fallback_rows:
+        reason = r.fallback_reason or "other"
+        reason_counts[reason] = reason_counts.get(reason, 0) + 1
+
+    # Sorted by count desc, omit counts == 0
+    fallback_reasons = [
+        {"reason": reason, "count": count}
+        for reason, count in sorted(
+            reason_counts.items(), key=lambda item: (-item[1], item[0])
+        )
+        if count > 0
+    ]
+
+    from app.core.config import settings
+
+    llm_enabled = bool(settings.AI_TRIAGE_MODE == "llm")
+
+    return {
+        "range": range_str,
+        "llm_enabled": llm_enabled,
+        "total_requests": total_requests,
+        "llm_answered": llm_answered,
+        "knn_fallbacks": knn_fallbacks,
+        "fallback_rate": fallback_rate,
+        "median_latency_ms": median_latency_ms,
+        "p95_latency_ms": p95_latency_ms,
+        "small_sample": small_sample,
+        "fallback_reasons": fallback_reasons,
+    }
