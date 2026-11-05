@@ -1,5 +1,12 @@
+import hashlib
+import json
 import logging
-from typing import Optional, Protocol, runtime_checkable
+import os
+from pathlib import Path
+import sqlite3
+from typing import Any, Optional, Protocol, runtime_checkable
+import urllib.error
+import urllib.request
 import numpy as np
 from sklearn.feature_extraction.text import HashingVectorizer
 
@@ -139,6 +146,240 @@ class SbertEmbedder:
         return [vec.astype(np.float32) for vec in vectors]
 
 
+class OllamaEmbedder:
+    """
+    Dense semantic embedder using local Ollama (/api/embed) with nomic-embed-text.
+    Supports configurable task prefixes and deterministic disk caching keyed by
+    (model_name, model_digest, prefix, text_hash).
+    """
+
+    PREFIX_VARIANTS: dict[str, tuple[str, str]] = {
+        "search": ("search_document: ", "search_query: "),
+        "classification": ("classification: ", "classification: "),
+        "clustering": ("clustering: ", "clustering: "),
+        "none": ("", ""),
+    }
+
+    def __init__(
+        self,
+        model_name: str = "nomic-embed-text",
+        base_url: Optional[str] = None,
+        variant: str = "classification",
+        doc_prefix: Optional[str] = None,
+        query_prefix: Optional[str] = None,
+        cache_dir: Optional[Path | str] = None,
+        batch_size: int = 32,
+        digest: Optional[str] = None,
+        version: Optional[str] = None,
+    ) -> None:
+        self._name = "nomic-embed-text"
+        self._model_name = model_name
+        self._base_url = (base_url or getattr(settings, "OLLAMA_BASE_URL", "http://localhost:11434")).rstrip("/")
+        self._variant = variant.lower() if variant else "none"
+        if self._variant not in self.PREFIX_VARIANTS:
+            raise ValueError(
+                f"Unknown prefix variant '{variant}'. Supported variants: {list(self.PREFIX_VARIANTS.keys())}"
+            )
+        default_doc, default_query = self.PREFIX_VARIANTS[self._variant]
+        self._doc_prefix = doc_prefix if doc_prefix is not None else default_doc
+        self._query_prefix = query_prefix if query_prefix is not None else default_query
+        self._batch_size = batch_size
+        self._dim = 768
+        self._digest = digest
+        self._version = version
+        self._cache_dir = Path(cache_dir) if cache_dir is not None else Path(".cache") / "embeddings"
+        self._cache_db_path = self._cache_dir / "cache.sqlite3"
+        self._db_initialized = False
+        self.cache_hits: int = 0
+        self.cache_misses: int = 0
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    @property
+    def model_name(self) -> str:
+        return self._model_name
+
+    @property
+    def variant(self) -> str:
+        return self._variant
+
+    @property
+    def doc_prefix(self) -> str:
+        return self._doc_prefix
+
+    @property
+    def query_prefix(self) -> str:
+        return self._query_prefix
+
+    @property
+    def digest(self) -> str:
+        if self._digest is None:
+            self._fetch_model_metadata()
+        return self._digest or "unknown"
+
+    @property
+    def version(self) -> str:
+        if self._version is None:
+            self._fetch_model_metadata()
+        return self._version or "unknown"
+
+    def _fetch_model_metadata(self) -> None:
+        try:
+            req_v = urllib.request.Request(f"{self._base_url}/api/version")
+            with urllib.request.urlopen(req_v, timeout=5) as resp:
+                v_data = json.loads(resp.read().decode("utf-8"))
+                self._version = v_data.get("version", "unknown")
+        except urllib.error.URLError as exc:
+            raise RuntimeError(
+                f"Cannot reach Ollama at {self._base_url}. Ensure Ollama is running."
+            ) from exc
+        except Exception:
+            self._version = "unknown"
+
+        try:
+            req_t = urllib.request.Request(f"{self._base_url}/api/tags")
+            with urllib.request.urlopen(req_t, timeout=5) as resp:
+                t_data = json.loads(resp.read().decode("utf-8"))
+                models = t_data.get("models", [])
+                match = None
+                for m in models:
+                    m_name = m.get("name", "")
+                    if m_name == self._model_name or m_name.startswith(f"{self._model_name}:"):
+                        match = m
+                        break
+                if match:
+                    self._digest = match.get("digest", "unknown")
+                else:
+                    avail = [m.get("name", "") for m in models]
+                    raise RuntimeError(
+                        f"Model '{self._model_name}' not found in Ollama at {self._base_url}. Available: {avail}"
+                    )
+        except urllib.error.URLError as exc:
+            raise RuntimeError(
+                f"Cannot reach Ollama at {self._base_url}. Ensure Ollama is running."
+            ) from exc
+
+    def _init_db(self) -> None:
+        if not self._db_initialized:
+            self._cache_dir.mkdir(parents=True, exist_ok=True)
+            with sqlite3.connect(self._cache_db_path) as conn:
+                conn.execute(
+                    "CREATE TABLE IF NOT EXISTS embeddings (cache_key TEXT PRIMARY KEY, vector BLOB)"
+                )
+                conn.commit()
+            self._db_initialized = True
+
+    def compute_cache_key(self, prefix: str, text: str) -> str:
+        """
+        Compute deterministic cache key for text under model name, model digest, and prefix.
+        Key = sha256(model_name:digest:prefix:sha256(text)).
+        """
+        text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        raw = f"{self._model_name}:{self.digest}:{prefix}:{text_hash}"
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    def embed(self, texts: list[str], prefix: Optional[str] = None) -> list[np.ndarray]:
+        if not texts:
+            return []
+
+        eff_prefix = prefix if prefix is not None else self._doc_prefix
+        self._init_db()
+
+        keys = [self.compute_cache_key(eff_prefix, t) for t in texts]
+        results: list[Optional[np.ndarray]] = [None] * len(texts)
+        missing_indices: list[int] = []
+
+        # 1. Read hits from sqlite cache
+        with sqlite3.connect(self._cache_db_path) as conn:
+            cur = conn.cursor()
+            found_map: dict[str, np.ndarray] = {}
+            chunk_size = 500
+            for i in range(0, len(keys), chunk_size):
+                k_chunk = keys[i : i + chunk_size]
+                chunk_ph = ",".join("?" for _ in k_chunk)
+                cur.execute(
+                    f"SELECT cache_key, vector FROM embeddings WHERE cache_key IN ({chunk_ph})",
+                    k_chunk,
+                )
+                for k, blob in cur.fetchall():
+                    found_map[k] = np.frombuffer(blob, dtype=np.float32)
+
+        for i, (t, k) in enumerate(zip(texts, keys)):
+            if k in found_map:
+                results[i] = found_map[k]
+                self.cache_hits += 1
+            else:
+                missing_indices.append(i)
+                self.cache_misses += 1
+
+        # 2. Fetch misses from Ollama
+        if missing_indices:
+            newly_cached: list[tuple[str, bytes]] = []
+            for batch_start in range(0, len(missing_indices), self._batch_size):
+                batch_idxs = missing_indices[batch_start : batch_start + self._batch_size]
+                batch_inputs = [f"{eff_prefix}{texts[idx]}" for idx in batch_idxs]
+
+                raw_vectors = self._call_ollama_embed(batch_inputs)
+                if len(raw_vectors) != len(batch_inputs):
+                    raise RuntimeError(
+                        f"Expected {len(batch_inputs)} embeddings from Ollama, got {len(raw_vectors)}"
+                    )
+
+                for idx, raw_vec in zip(batch_idxs, raw_vectors):
+                    vec = np.array(raw_vec, dtype=np.float32)
+                    norm = float(np.linalg.norm(vec))
+                    if norm > 0.0:
+                        vec = (vec / norm).astype(np.float32)
+                    else:
+                        vec = np.zeros_like(vec, dtype=np.float32)
+                    results[idx] = vec
+                    newly_cached.append((keys[idx], vec.tobytes()))
+
+            if newly_cached:
+                with sqlite3.connect(self._cache_db_path) as conn:
+                    conn.executemany("INSERT OR REPLACE INTO embeddings VALUES (?, ?)", newly_cached)
+                    conn.commit()
+
+        return [r for r in results if r is not None]
+
+    def _call_ollama_embed(self, inputs: list[str]) -> list[list[float]]:
+        payload = json.dumps({"model": self._model_name, "input": inputs}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{self._base_url}/api/embed",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data.get("embeddings", [])
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                raise RuntimeError(
+                    f"Model '{self._model_name}' not found in Ollama at {self._base_url}. Run `ollama pull {self._model_name}`."
+                ) from exc
+            raise RuntimeError(f"Ollama API HTTP error {exc.code}: {exc.reason}") from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(
+                f"Cannot reach Ollama at {self._base_url}. Ensure Ollama is running."
+            ) from exc
+
+    def embed_documents(self, texts: list[str]) -> list[np.ndarray]:
+        """Embed stored tickets using the document prefix."""
+        return self.embed(texts, prefix=self._doc_prefix)
+
+    def embed_query(self, texts: list[str]) -> list[np.ndarray]:
+        """Embed incoming query tickets using the query prefix."""
+        return self.embed(texts, prefix=self._query_prefix)
+
+
+
 def get_text_to_embed(title: str, description: str) -> str:
     """Format ticket title and description for embedding representation."""
     clean_title = (title or "").strip()
@@ -164,9 +405,11 @@ def get_embedder(name: Optional[str] = None) -> Embedder:
         embedder = HashingEmbedder()
     elif target_name == "sbert":
         embedder = SbertEmbedder()
+    elif target_name in ("nomic", "nomic-embed-text", "ollama"):
+        embedder = OllamaEmbedder()
     else:
         raise ValueError(
-            f"Unknown embedder name '{target_name}'. Allowed: 'hashing', 'hashing-v2', 'sbert'"
+            f"Unknown embedder name '{target_name}'. Allowed: 'hashing', 'hashing-v2', 'sbert', 'nomic', 'nomic-embed-text'"
         )
 
     _EMBEDDER_CACHE[target_name] = embedder

@@ -1,0 +1,292 @@
+{
+  "clean": {
+    "metrics": {
+      "num_samples": 40,
+      "category_accuracy": 0.875,
+      "category_ci": [
+        0.7389,
+        0.9454
+      ],
+      "priority_accuracy": 0.375,
+      "priority_ci": [
+        0.2422,
+        0.5297
+      ],
+      "attack_success_rate": 0.025,
+      "attack_success_ci": [
+        0.0044,
+        0.1288
+      ],
+      "fallback_rate": 0.0,
+      "fallback_ci": [
+        0.0,
+        0.0876
+      ],
+      "invalid_rate": 0.0,
+      "invalid_ci": [
+        0.0,
+        0.0876
+      ],
+      "per_attack_type": {
+        "fake_label": {
+          "n": 7,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.3543
+          ],
+          "category_accuracy": 0.8571,
+          "priority_accuracy": 0.2857
+        },
+        "instruction_override": {
+          "n": 7,
+          "attack_successes": 1,
+          "attack_success_rate": 0.1429,
+          "attack_success_ci": [
+            0.0257,
+            0.5131
+          ],
+          "category_accuracy": 0.8571,
+          "priority_accuracy": 0.2857
+        },
+        "role_impersonation": {
+          "n": 7,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.3543
+          ],
+          "category_accuracy": 1.0,
+          "priority_accuracy": 0.4286
+        },
+        "delimiter_breaking": {
+          "n": 7,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.3543
+          ],
+          "category_accuracy": 0.8571,
+          "priority_accuracy": 0.4286
+        },
+        "priority_inflation": {
+          "n": 6,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.3903
+          ],
+          "category_accuracy": 0.6667,
+          "priority_accuracy": 0.6667
+        },
+        "obfuscated": {
+          "n": 6,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.3903
+          ],
+          "category_accuracy": 1.0,
+          "priority_accuracy": 0.1667
+        },
+        "polite_request": {
+          "n": 0,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.0
+          ],
+          "category_accuracy": 0.0,
+          "priority_accuracy": 0.0
+        },
+        "fake_agent_note": {
+          "n": 0,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.0
+          ],
+          "category_accuracy": 0.0,
+          "priority_accuracy": 0.0
+        },
+        "fake_previous_result": {
+          "n": 0,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.0
+          ],
+          "category_accuracy": 0.0,
+          "priority_accuracy": 0.0
+        },
+        "lexical_stuffing": {
+          "n": 0,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.0
+          ],
+          "category_accuracy": 0.0,
+          "priority_accuracy": 0.0
+        }
+      }
+    },
+    "elapsed_seconds": 0.76
+  },
+  "attacked": {
+    "metrics": {
+      "num_samples": 40,
+      "category_accuracy": 0.825,
+      "category_ci": [
+        0.6805,
+        0.9125
+      ],
+      "priority_accuracy": 0.35,
+      "priority_ci": [
+        0.2213,
+        0.5049
+      ],
+      "attack_success_rate": 0.05,
+      "attack_success_ci": [
+        0.0138,
+        0.165
+      ],
+      "fallback_rate": 0.0,
+      "fallback_ci": [
+        0.0,
+        0.0876
+      ],
+      "invalid_rate": 0.0,
+      "invalid_ci": [
+        0.0,
+        0.0876
+      ],
+      "per_attack_type": {
+        "fake_label": {
+          "n": 7,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.3543
+          ],
+          "category_accuracy": 0.8571,
+          "priority_accuracy": 0.2857
+        },
+        "instruction_override": {
+          "n": 7,
+          "attack_successes": 1,
+          "attack_success_rate": 0.1429,
+          "attack_success_ci": [
+            0.0257,
+            0.5131
+          ],
+          "category_accuracy": 0.7143,
+          "priority_accuracy": 0.2857
+        },
+        "role_impersonation": {
+          "n": 7,
+          "attack_successes": 1,
+          "attack_success_rate": 0.1429,
+          "attack_success_ci": [
+            0.0257,
+            0.5131
+          ],
+          "category_accuracy": 1.0,
+          "priority_accuracy": 0.1429
+        },
+        "delimiter_breaking": {
+          "n": 7,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.3543
+          ],
+          "category_accuracy": 0.7143,
+          "priority_accuracy": 0.4286
+        },
+        "priority_inflation": {
+          "n": 6,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.3903
+          ],
+          "category_accuracy": 0.6667,
+          "priority_accuracy": 0.8333
+        },
+        "obfuscated": {
+          "n": 6,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.3903
+          ],
+          "category_accuracy": 1.0,
+          "priority_accuracy": 0.1667
+        },
+        "polite_request": {
+          "n": 0,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.0
+          ],
+          "category_accuracy": 0.0,
+          "priority_accuracy": 0.0
+        },
+        "fake_agent_note": {
+          "n": 0,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.0
+          ],
+          "category_accuracy": 0.0,
+          "priority_accuracy": 0.0
+        },
+        "fake_previous_result": {
+          "n": 0,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.0
+          ],
+          "category_accuracy": 0.0,
+          "priority_accuracy": 0.0
+        },
+        "lexical_stuffing": {
+          "n": 0,
+          "attack_successes": 0,
+          "attack_success_rate": 0.0,
+          "attack_success_ci": [
+            0.0,
+            0.0
+          ],
+          "category_accuracy": 0.0,
+          "priority_accuracy": 0.0
+        }
+      }
+    },
+    "elapsed_seconds": 0.55
+  },
+  "model_name": "nomic-embed-text",
+  "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+  "ollama_version": "0.34.3",
+  "prefix_variant": "classification"
+}

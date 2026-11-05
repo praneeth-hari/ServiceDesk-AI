@@ -288,10 +288,23 @@ def run_knn_method(
     train_texts = [t.text for t in train_tickets]
     test_texts = [t.text for t in test_tickets]
 
+    per_ticket_embed_ms = 0.0
     if method_name == "hashing-knn":
         embedder = get_embedder("hashing-v2")
         train_vecs = np.vstack(embedder.embed(train_texts)).astype(np.float32)
         test_vecs = np.vstack(embedder.embed(test_texts)).astype(np.float32)
+    elif method_name == "nomic-knn":
+        try:
+            embedder = get_embedder("nomic-embed-text")
+            _ = embedder.digest
+        except Exception as exc:
+            print(f"[nomic-knn] Skipping: Ollama nomic-embed-text not available ({exc})", file=sys.stderr)
+            return []
+        train_vecs = np.vstack(embedder.embed(train_texts)).astype(np.float32)
+        t_embed_0 = time.perf_counter()
+        test_vecs = np.vstack(embedder.embed(test_texts)).astype(np.float32)
+        test_embed_elapsed = time.perf_counter() - t_embed_0
+        per_ticket_embed_ms = (test_embed_elapsed / len(test_texts)) * 1000.0 if test_texts else 0.0
     elif method_name in ("minilm-knn", "bge-small-knn"):
         try:
             from sentence_transformers import SentenceTransformer
@@ -339,6 +352,8 @@ def run_knn_method(
             min_similarity=min_similarity,
         )
         latency_ms = (time.perf_counter() - t0) * 1000.0
+        if method_name == "nomic-knn":
+            latency_ms += per_ticket_embed_ms
 
         predictions.append(
             {
@@ -1047,7 +1062,7 @@ def main() -> None:
         print(f"\n{'='*70}\nRunning Method: {out_name} (base method: {method})\n{'='*70}")
         start_time = time.time()
 
-        if method in ("hashing-knn", "minilm-knn", "bge-small-knn"):
+        if method in ("hashing-knn", "minilm-knn", "bge-small-knn", "nomic-knn"):
             predictions = run_knn_method(
                 method_name=method,
                 train_tickets=train_tickets,
@@ -1055,6 +1070,9 @@ def main() -> None:
                 k=5,
                 min_similarity=0.12,
             )
+            if not predictions:
+                print(f"[{method}] No predictions returned (skipped).")
+                continue
         elif method in ("llm-zero-shot", "llm-rag") or method.startswith("llm-"):
             base_llm_mode = "llm-rag" if "rag" in method else "llm-zero-shot"
             predictions = run_llm_method(
@@ -1102,11 +1120,22 @@ def main() -> None:
             f"Mean Latency = {mean_lat:.1f}ms, Total Elapsed = {elapsed:.2f}s"
         )
 
+        nomic_digest = None
+        nomic_version = None
+        if method == "nomic-knn":
+            try:
+                emb = get_embedder("nomic-embed-text")
+                nomic_digest = emb.digest
+                nomic_version = emb.version
+            except Exception:
+                pass
+
         result_payload = {
             "method": out_name,
             "base_method": method,
-            "model_name": args.model if method.startswith("llm-") else None,
-            "digest": ollama_digest if method.startswith("llm-") else None,
+            "model_name": args.model if method.startswith("llm-") else ("nomic-embed-text" if method == "nomic-knn" else None),
+            "digest": ollama_digest if method.startswith("llm-") else nomic_digest,
+            "ollama_version": nomic_version,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "elapsed_seconds": round(elapsed, 2),
             "mean_latency_ms": round(mean_lat, 2),
@@ -1146,13 +1175,16 @@ def main() -> None:
         if prev_name not in all_results:
             try:
                 with open(prev_file, "r", encoding="utf-8") as f:
-                    all_results[prev_name] = json.load(f)
+                    prev_data = json.load(f)
+                    if isinstance(prev_data, dict) and "metrics" in prev_data:
+                        all_results[prev_name] = prev_data
             except Exception:
                 pass
 
-    # Generate benchmarks/RESULTS.md
-    report_file = output_dir.parent / "RESULTS.md"
-    generate_results_markdown(all_results, baselines, test_tickets, report_file)
+    # Only generate benchmarks/RESULTS.md if output_dir is default results dir
+    if output_dir.name == "results":
+        report_file = output_dir.parent / "RESULTS.md"
+        generate_results_markdown(all_results, baselines, test_tickets, report_file)
 
 
 if __name__ == "__main__":

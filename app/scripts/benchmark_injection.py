@@ -463,6 +463,62 @@ def run_hashing_knn(
     return predictions
 
 
+def run_nomic_knn(
+    train_tickets: Sequence[TicketExample],
+    test_tickets: Sequence[InjectionTicket],
+    variant: str = "attacked",
+    output_dir: Path | None = None,
+    k: int = 5,
+    min_similarity: float = 0.12,
+) -> list[dict[str, Any]]:
+    """Execute nomic-knn triage on injection tickets."""
+    embedder = get_embedder("nomic-embed-text")
+    train_texts = [t.text for t in train_tickets]
+    train_vecs = np.vstack(embedder.embed(train_texts)).astype(np.float32)
+
+    if variant == "clean":
+        test_texts = [t.get_clean_text() for t in test_tickets]
+    else:
+        test_texts = [t.get_attacked_text() for t in test_tickets]
+
+    test_vecs = np.vstack(embedder.embed(test_texts)).astype(np.float32)
+
+    predictions: list[dict[str, Any]] = []
+    for i, ticket in enumerate(test_tickets):
+        t0 = time.perf_counter()
+        sims = np.dot(train_vecs, test_vecs[i])
+        candidates = [
+            {
+                "category": TicketCategory(train_tickets[j].category),
+                "priority": TicketPriority(train_tickets[j].priority),
+                "similarity": float(sims[j]),
+            }
+            for j in range(len(train_tickets))
+        ]
+
+        pred_cat, pred_prio, conf = predict_knn(
+            candidates,
+            k=k,
+            min_similarity=min_similarity,
+        )
+        latency_ms = (time.perf_counter() - t0) * 1000.0
+
+        is_invalid = pred_cat is None or pred_prio is None
+        predictions.append(
+            {
+                "id": ticket.id,
+                "predicted_category": pred_cat.value if pred_cat else None,
+                "predicted_priority": pred_prio.value if pred_prio else None,
+                "confidence": conf,
+                "latency_ms": round(latency_ms, 3),
+                "invalid": is_invalid,
+                "fallback": False,
+            }
+        )
+
+    return predictions
+
+
 def run_llm_rag_hashing(
     train_tickets: Sequence[TicketExample],
     test_tickets: Sequence[InjectionTicket],
@@ -944,19 +1000,35 @@ def main() -> None:
     all_results: dict[str, dict[str, Any]] = {}
 
     for method in requested_methods:
-        if method == "hashing-knn":
+        if method in ("hashing-knn", "nomic-knn"):
             print(f"\n{'='*70}\nRunning Method: {method}\n{'='*70}")
             all_results[method] = {}
+
+            if method == "nomic-knn":
+                try:
+                    emb = get_embedder("nomic-embed-text")
+                    _ = emb.digest
+                except Exception as exc:
+                    print(f"[nomic-knn] Skipping: Ollama nomic-embed-text not available ({exc})", file=sys.stderr)
+                    continue
 
             for variant in ("clean", "attacked"):
                 print(f"\n--- Condition: {method} ({variant}) ---")
                 t0 = time.time()
-                preds = run_hashing_knn(
-                    train_tickets=train_tickets,
-                    test_tickets=injection_tickets,
-                    variant=variant,
-                    output_dir=output_dir,
-                )
+                if method == "hashing-knn":
+                    preds = run_hashing_knn(
+                        train_tickets=train_tickets,
+                        test_tickets=injection_tickets,
+                        variant=variant,
+                        output_dir=output_dir,
+                    )
+                else:
+                    preds = run_nomic_knn(
+                        train_tickets=train_tickets,
+                        test_tickets=injection_tickets,
+                        variant=variant,
+                        output_dir=output_dir,
+                    )
                 elapsed = time.time() - t0
                 metrics = evaluate_injection_metrics(injection_tickets, preds)
                 all_results[method][variant] = {
@@ -989,6 +1061,15 @@ def main() -> None:
                     "elapsed_seconds": all_results[method]["attacked"]["elapsed_seconds"],
                 },
             }
+            if method == "nomic-knn":
+                try:
+                    emb = get_embedder("nomic-embed-text")
+                    summary_data["model_name"] = "nomic-embed-text"
+                    summary_data["digest"] = emb.digest
+                    summary_data["ollama_version"] = emb.version
+                    summary_data["prefix_variant"] = getattr(emb, "variant", "classification")
+                except Exception:
+                    pass
             with open(summary_file, "w", encoding="utf-8") as f:
                 json.dump(summary_data, f, indent=2)
 

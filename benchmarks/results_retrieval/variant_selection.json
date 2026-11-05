@@ -1,0 +1,115 @@
+{
+  "model": "nomic-embed-text",
+  "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+  "ollama_version": "0.34.3",
+  "dataset_split": "train.jsonl (N=480)",
+  "cv_folds": 5,
+  "seed": 42,
+  "timestamp": "2026-11-05T10:34:10Z",
+  "results": [
+    {
+      "variant": "classification",
+      "doc_prefix": "classification: ",
+      "query_prefix": "classification: ",
+      "description": "Symmetric classification prefix for both stored and query",
+      "n_samples": 480,
+      "n_folds": 5,
+      "k": 5,
+      "category_accuracy": 0.7125,
+      "category_ci": [
+        0.6704,
+        0.7512
+      ],
+      "macro_f1": 0.7039,
+      "priority_accuracy": 0.575,
+      "priority_ci": [
+        0.5304,
+        0.6185
+      ],
+      "priority_within_one": 0.8958,
+      "combined_accuracy": 0.4062,
+      "combined_ci": [
+        0.3632,
+        0.4508
+      ]
+    },
+    {
+      "variant": "clustering",
+      "doc_prefix": "clustering: ",
+      "query_prefix": "clustering: ",
+      "description": "Symmetric clustering prefix for both stored and query",
+      "n_samples": 480,
+      "n_folds": 5,
+      "k": 5,
+      "category_accuracy": 0.7063,
+      "category_ci": [
+        0.664,
+        0.7452
+      ],
+      "macro_f1": 0.6945,
+      "priority_accuracy": 0.5437,
+      "priority_ci": [
+        0.499,
+        0.5878
+      ],
+      "priority_within_one": 0.8917,
+      "combined_accuracy": 0.3875,
+      "combined_ci": [
+        0.345,
+        0.4318
+      ]
+    },
+    {
+      "variant": "none",
+      "doc_prefix": "",
+      "query_prefix": "",
+      "description": "No task prefix (raw ticket text)",
+      "n_samples": 480,
+      "n_folds": 5,
+      "k": 5,
+      "category_accuracy": 0.7042,
+      "category_ci": [
+        0.6618,
+        0.7432
+      ],
+      "macro_f1": 0.6967,
+      "priority_accuracy": 0.5354,
+      "priority_ci": [
+        0.4907,
+        0.5796
+      ],
+      "priority_within_one": 0.875,
+      "combined_accuracy": 0.3729,
+      "combined_ci": [
+        0.3308,
+        0.417
+      ]
+    },
+    {
+      "variant": "search",
+      "doc_prefix": "search_document: ",
+      "query_prefix": "search_query: ",
+      "description": "Asymmetric search (document for stored, query for lookup)",
+      "n_samples": 480,
+      "n_folds": 5,
+      "k": 5,
+      "category_accuracy": 0.6562,
+      "category_ci": [
+        0.6127,
+        0.6973
+      ],
+      "macro_f1": 0.6448,
+      "priority_accuracy": 0.4792,
+      "priority_ci": [
+        0.4348,
+        0.5238
+      ],
+      "priority_within_one": 0.8583,
+      "combined_accuracy": 0.3187,
+      "combined_ci": [
+        0.2786,
+        0.3617
+      ]
+    }
+  ]
+}
