@@ -239,3 +239,22 @@ export interface AIAssistReplyResponse {
 }
 
 export type AIAssistResponse = AIAssistSummaryResponse | AIAssistReplyResponse;
+
+
+export interface FallbackReasonCount {
+  reason: string;
+  count: number;
+}
+
+export interface AIHealthReportResponse {
+  llm_enabled: boolean;
+  range: '24h' | '7d' | '30d';
+  total_requests: number;
+  llm_answered: number;
+  knn_fallbacks: number;
+  fallback_rate: number;
+  median_latency_ms: number | null;
+  p95_latency_ms: number | null;
+  small_sample: boolean;
+  fallback_reasons: FallbackReasonCount[];
+}

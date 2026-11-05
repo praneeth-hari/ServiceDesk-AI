@@ -31,4 +31,5 @@ def get_triage_suggestions(
         description=payload.description,
         current_user=current_user,
     )
+    db.commit()
     return TriageSuggestResponse(**result)
