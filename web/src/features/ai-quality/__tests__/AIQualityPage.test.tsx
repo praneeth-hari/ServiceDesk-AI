@@ -4,13 +4,14 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { AIQualityPage } from '../AIQualityPage';
 import * as clientApi from '../../../api/client';
 import * as authHook from '../../../context/useAuth';
-import type { AIQualityReportResponse, User } from '../../../api/types';
+import type { AIQualityReportResponse, AIHealthReportResponse, User } from '../../../api/types';
 
 vi.mock('../../../api/client', async () => {
   const actual = await vi.importActual('../../../api/client');
   return {
     ...actual,
     getAIQualityReport: vi.fn(),
+    getAIHealthReport: vi.fn(),
   };
 });
 vi.mock('../../../context/useAuth');
@@ -93,6 +94,22 @@ const mockFullReport: AIQualityReportResponse = {
   ],
 };
 
+const mockHealthReport: AIHealthReportResponse = {
+  llm_enabled: true,
+  range: '7d',
+  total_requests: 25,
+  llm_answered: 20,
+  knn_fallbacks: 5,
+  fallback_rate: 0.2,
+  median_latency_ms: 820,
+  p95_latency_ms: 2140,
+  small_sample: false,
+  fallback_reasons: [
+    { reason: 'possible_prompt_injection', count: 3 },
+    { reason: 'timeout', count: 2 },
+  ],
+};
+
 function renderAIQualityPage() {
   return render(
     <MemoryRouter initialEntries={['/ai-quality']}>
@@ -116,6 +133,7 @@ describe('AIQualityPage', () => {
       logout: vi.fn(),
     });
     vi.mocked(clientApi.getAIQualityReport).mockResolvedValue(mockFullReport);
+    vi.mocked(clientApi.getAIHealthReport).mockResolvedValue(mockHealthReport);
   });
 
   it('loaded state: shows all four stat cards and sections when data present', async () => {
@@ -192,7 +210,6 @@ describe('AIQualityPage', () => {
     expect(noDataElements.length).toBeGreaterThanOrEqual(2);
   });
 
-
   it('displays small sample note when n < 10 or reviewed_n < 10', async () => {
     const smallSampleReport: AIQualityReportResponse = {
       ...mockFullReport,
@@ -219,7 +236,7 @@ describe('AIQualityPage', () => {
     });
 
     const smallSampleNotes = screen.getAllByText('Small sample, treat as indicative only');
-    expect(smallSampleNotes.length).toBe(2);
+    expect(smallSampleNotes.length).toBeGreaterThanOrEqual(2);
   });
 
   it('empty state: when total_suggestions == 0, shows empty state message', async () => {
@@ -275,6 +292,7 @@ describe('AIQualityPage', () => {
 
     expect(screen.queryByRole('heading', { name: 'AI quality' })).not.toBeInTheDocument();
     expect(clientApi.getAIQualityReport).not.toHaveBeenCalled();
+    expect(clientApi.getAIHealthReport).not.toHaveBeenCalled();
   });
 
   it('table toggle: clicking View as table shows tabular data', async () => {
@@ -314,5 +332,160 @@ describe('AIQualityPage', () => {
     await waitFor(() => {
       expect(clientApi.getAIQualityReport).toHaveBeenCalledWith(7);
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Model Health Section Tests
+  // -------------------------------------------------------------------------
+  it('renders Model health section with stat cards, stacked bar, and fallback reasons', async () => {
+    renderAIQualityPage();
+
+    // Section header & subtitle
+    expect(await screen.findByRole('heading', { level: 2, name: 'Model health' })).toBeInTheDocument();
+    expect(
+      screen.getByText(/Measured from real triage requests\. Stored: timing and outcome only, never ticket text\./i)
+    ).toBeInTheDocument();
+
+    // Stat Cards
+    expect(screen.getByText('Median LLM latency')).toBeInTheDocument();
+    expect(screen.getByText('820 ms')).toBeInTheDocument();
+
+    expect(screen.getByText('Slowest 5%')).toBeInTheDocument();
+    expect(screen.getByText('2,140 ms')).toBeInTheDocument();
+
+    expect(screen.getByText('Fallback rate')).toBeInTheDocument();
+    expect(screen.getByText('20.0%')).toBeInTheDocument();
+
+    expect(screen.getByText('Requests')).toBeInTheDocument();
+    expect(screen.getByText('25')).toBeInTheDocument();
+    expect(screen.getByText(/LLM: 20 · kNN fallback: 5/i)).toBeInTheDocument();
+
+    // Stacked bar breakdown
+    expect(screen.getByText('Which method answered')).toBeInTheDocument();
+    expect(screen.getByText(/20 \(80\.0%\)/)).toBeInTheDocument();
+    expect(screen.getByText(/5 \(20\.0%\)/)).toBeInTheDocument();
+
+    // Why it fell back table with human-friendly mapped labels
+    expect(screen.getByText('Why it fell back')).toBeInTheDocument();
+    expect(screen.getByText('Prompt injection suspected')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('Model timed out')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+  });
+
+  it('health range selector triggers getAIHealthReport with 24h, 7d, 30d', async () => {
+    renderAIQualityPage();
+
+    await waitFor(() => {
+      expect(clientApi.getAIHealthReport).toHaveBeenCalledWith('7d');
+    });
+
+    const button24h = screen.getByRole('button', { name: 'Show 24h health' });
+    fireEvent.click(button24h);
+
+    await waitFor(() => {
+      expect(clientApi.getAIHealthReport).toHaveBeenCalledWith('24h');
+    });
+
+    const button30d = screen.getByRole('button', { name: 'Show 30d health' });
+    fireEvent.click(button30d);
+
+    await waitFor(() => {
+      expect(clientApi.getAIHealthReport).toHaveBeenCalledWith('30d');
+    });
+  });
+
+  it('model health shows small sample disclaimer when small_sample is true', async () => {
+    const smallSampleHealth: AIHealthReportResponse = {
+      ...mockHealthReport,
+      total_requests: 5,
+      llm_answered: 4,
+      knn_fallbacks: 1,
+      small_sample: true,
+    };
+    vi.mocked(clientApi.getAIHealthReport).mockResolvedValue(smallSampleHealth);
+
+    renderAIQualityPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: 'Model health' })).toBeInTheDocument();
+    });
+
+    const smallSampleBadges = screen.getAllByText('Small sample, treat as indicative only');
+    expect(smallSampleBadges.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('model health empty state when total_requests === 0', async () => {
+    const emptyHealth: AIHealthReportResponse = {
+      llm_enabled: true,
+      range: '7d',
+      total_requests: 0,
+      llm_answered: 0,
+      knn_fallbacks: 0,
+      fallback_rate: 0.0,
+      median_latency_ms: null,
+      p95_latency_ms: null,
+      small_sample: true,
+      fallback_reasons: [],
+    };
+    vi.mocked(clientApi.getAIHealthReport).mockResolvedValue(emptyHealth);
+
+    renderAIQualityPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('No triage requests in this period')).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/Health metrics only collect when LLM triage is enabled \(AI_TRIAGE_MODE=llm\)\./i)
+    ).toBeInTheDocument();
+  });
+
+  it('model health shows green note when no fallbacks occurred', async () => {
+    const noFallbacksHealth: AIHealthReportResponse = {
+      llm_enabled: true,
+      range: '7d',
+      total_requests: 15,
+      llm_answered: 15,
+      knn_fallbacks: 0,
+      fallback_rate: 0.0,
+      median_latency_ms: 700,
+      p95_latency_ms: 1200,
+      small_sample: true,
+      fallback_reasons: [],
+    };
+    vi.mocked(clientApi.getAIHealthReport).mockResolvedValue(noFallbacksHealth);
+
+    renderAIQualityPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('No fallbacks in this period')).toBeInTheDocument();
+    });
+  });
+
+  it('model health shows "Local LLM is turned off" and hides numbers when llm_enabled is false', async () => {
+    const disabledHealth: AIHealthReportResponse = {
+      llm_enabled: false,
+      range: '7d',
+      total_requests: 50,
+      llm_answered: 40,
+      knn_fallbacks: 10,
+      fallback_rate: 0.2,
+      median_latency_ms: 800,
+      p95_latency_ms: 1500,
+      small_sample: false,
+      fallback_reasons: [{ reason: 'timeout', count: 10 }],
+    };
+    vi.mocked(clientApi.getAIHealthReport).mockResolvedValue(disabledHealth);
+
+    renderAIQualityPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Local LLM is turned off')).toBeInTheDocument();
+    });
+
+    // Numbers and stat cards should be hidden
+    expect(screen.queryByText('Median LLM latency')).not.toBeInTheDocument();
+    expect(screen.queryByText('Slowest 5%')).not.toBeInTheDocument();
+    expect(screen.queryByText('Which method answered')).not.toBeInTheDocument();
   });
 });

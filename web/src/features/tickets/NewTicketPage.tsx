@@ -473,6 +473,11 @@ export const NewTicketPage: React.FC = () => {
             <p className="text-xs text-muted italic py-2">No confident suggestion yet</p>
           ) : (
             <div className="space-y-4">
+              {triageResult?.fallback_reason === 'possible_prompt_injection' && (
+                <div className="p-2.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-900 text-xs">
+                  Possible prompt injection detected. Showing the similarity-based suggestion instead.
+                </div>
+              )}
               {/* Category suggestion */}
               {triageResult?.suggested_category && (
                 <div className="p-3 bg-paper2/60 border border-line rounded-lg space-y-2">

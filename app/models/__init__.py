@@ -3,6 +3,7 @@ from app.models.embedding import TicketEmbedding
 from app.models.enums import TicketCategory, TicketPriority, TicketStatus, UserRole
 from app.models.history import TicketStatusHistory
 from app.models.holiday import Holiday
+from app.models.llm_triage_log import LLMTriageLog
 from app.models.ticket import Ticket
 from app.models.triage_feedback import TriageFeedback
 from app.models.user import User
@@ -19,4 +20,5 @@ __all__ = [
     "Holiday",
     "TicketEmbedding",
     "TriageFeedback",
+    "LLMTriageLog",
 ]

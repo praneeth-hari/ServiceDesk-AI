@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 import sqlalchemy as sa
 from sqlalchemy.orm import Session, joinedload
 
-from app.ai.assist import build_assist_prompt, call_ollama_assist
+from app.ai.assist import (
+    build_assist_prompt,
+    call_ollama_assist,
+    extract_assist_source_texts,
+    ground_key_facts,
+)
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
@@ -153,6 +158,11 @@ def run_ai_assist(
     result_dict["latency_ms"] = latency_ms
 
     if payload.task == "summary":
+        source_texts = extract_assist_source_texts(prompt)
+        raw_facts = result_dict.get("facts", [])
+        grounded_facts, dropped_count = ground_key_facts(raw_facts, source_texts)
+        result_dict["facts"] = grounded_facts
+        result_dict["dropped_fact_count"] = dropped_count
         return AIAssistSummaryResponse(**result_dict)
     return AIAssistReplyResponse(**result_dict)
 

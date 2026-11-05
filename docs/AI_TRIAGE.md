@@ -144,6 +144,10 @@ The application supports an optional LLM-assisted workflow for support agents an
    - System prompts forbid resolution promises, SLA commitments, or requests for passwords and sensitive credentials.
 4. **No Accuracy Claims**:
    - Assist outputs are conversational drafts and summaries to accelerate agent productivity, not categorical classifiers. No accuracy or benchmark claims are made.
+5. **Fact-Grounding Guard**:
+   - Key-fact chips extracted during summarization pass through a deterministic grounding validator before display; any fact whose value does not appear in the ticket input (title, capped description, or sent public comments) is pruned (`dropped_fact_count`).
+   - This checks only that extracted values literally exist in the prompt input; it does not verify whether they are correctly labeled.
+   - It does not cover or constrain the free-form text in the issue summary or draft reply.
 
 ### Configuration Settings
 
@@ -152,3 +156,58 @@ The application supports an optional LLM-assisted workflow for support agents an
 | `AI_ASSIST_MODE` | `"off"` | Assist mode: `"off"` (disabled) or `"ollama"` (active). |
 | `AI_ASSIST_MODEL` | `"llama3.1:8b"` | Model tag for assist tasks (defaults to same model as triage). |
 | `AI_ASSIST_TIMEOUT_SECONDS` | `60.0` | Timeout in seconds for Ollama assist requests (allows for cold start). |
+
+
+---
+
+## Prompt-Injection Robustness & Safety (AI Triage)
+
+When `AI_TRIAGE_MODE="llm"`, tickets are sent to a local large language model for categorization and priority hint generation. Because user-submitted ticket text is inherently untrusted, the triage pipeline implements a **two-tier defense** against prompt-injection attacks (instruction overrides, role impersonation, simulated triage formatting, polite extraction, and executive priority inflation).
+
+### Two-Tier Defense Architecture
+
+1. **Tier 1: Deterministic Heuristic Injection Guard (`app/ai/injection_guard.py`)**
+   - **Fast Pre-Screening**: Tickets are inspected before any prompt is assembled or sent to the LLM.
+   - **Obfuscation Normalisation**: Normalises Unicode (NFKC), removes invisible / zero-width characters (`\u200b`, `\ufeff`), lowercases tokens, and collapses letter-spaced words (e.g. `u r g e n t` $\rightarrow$ `urgent`, `c-a-t-e-g-o-r-y` $\rightarrow$ `category`).
+   - **Syntactically Anchored Rules**: Detects adversarial directives (`ignore previous instructions`, `system prompt reset`), role impersonation headers (`SYSTEM:`, `Agent triage note:`), format breaks (`--- Reference Ticket #1 ---`, raw JSON classification blocks), explicit classification directives, and executive escalation social engineering.
+   - **Zero False Positives on Benign IT Queries**: Strict anchoring ensures innocent tickets using words like *urgent*, *ignore*, *system*, or *priority* (e.g. "urgent help with payroll", "please ignore the earlier alert", "Windows 11 system crash") are **never flagged** (0.0% false-positive rate across 190 clean benchmark tickets).
+   - **Safe Similarity Fallback**: When an injection pattern is detected, the pipeline **bypasses the LLM entirely** and routes directly to similarity-weighted kNN fallback with `fallback_reason = "possible_prompt_injection"`.
+   - **Privacy Integrity**: The guard returns only boolean flags and rule identifiers; it never includes or leaks raw ticket text in result objects.
+
+2. **Tier 2: Prompt Boundary Isolation & Escaping (`app/ai/llm_triage.py` V2)**
+   - **Boundary Delimiters**: Raw ticket text is enclosed in strict `<ticket_data>...</ticket_data>` boundary tags.
+   - **Character Escaping**: All angle brackets within untrusted ticket text are neutralized (`<` $\rightarrow$ `&lt;`, `>` $\rightarrow$ `&gt;`, with `&` $\rightarrow$ `&amp;` escaped first), ensuring injected text cannot escape the boundary context.
+   - **System Instruction Hardening**: Explicit system prompt instructions remind the model that everything inside `<ticket_data>` is untrusted user text to be classified, never system instructions or commands.
+
+### User Interface Advisory
+When a prompt-injection attempt is detected and routed to kNN similarity fallback, the UI displays an honest, non-punitive notice in the AI Triage Advisory box:
+> *"Possible prompt injection detected. Showing the similarity-based suggestion instead."*
+
+This ensures the user still receives an accurate, similarity-based suggestion based on historical tickets without giving an attacker access to LLM prompt execution.
+
+### Empirical Robustness & Evaluation Splits
+
+The defense was benchmarked across three separate evaluation datasets:
+1. **Independent Held-Out Set (v2, $N = 30$)**: Authored completely independently outside this workflow and evaluated once. Heuristic guard detection was **36.7%** (11/30, missing 19 novel attack phrasings and lexical stuffing), but prompt boundary isolation kept overall attacked ASR to **6.7%** (2/30 [1.8%, 21.3%]), **comparable to kNN** at **13.3%** (4/30 [5.3%, 29.7%]) with overlapping intervals. Under keyword stuffing (`lexical_stuffing`), pure kNN suffered an 80.0% (4/5) attack success rate, while the full LLM defense resisted completely (0.0%, 0/5).
+2. **In-Workflow Held-Out Set (v1, $N = 30$, Frozen by Process)**: Authored by the same agent in the same workflow and frozen before defense implementation (held out by process, not independent). Attacked ASR drops from **63.3%** to **13.3%** (4/30 [5.3%, 29.7%]), which is **comparable to kNN** at **20.0%** (6/30 [9.5%, 37.3%]) with overlapping confidence intervals.
+3. **Development Set ($N = 40$, tuned on this set)**: Attacked Attack Success Rate (ASR) drops from **55.0%** to **2.5%** with full defense.
+4. **False-Positive Rate on Clean Tickets**: Verified **0.0%** false-positive rate across 220 clean problem descriptions [0.0%, 1.7%].
+
+### Security Limitations & Caveats
+- **Small Sample Sizes**: Datasets of 30–40 tickets yield wide confidence intervals (±10–15 percentage points).
+- **Heuristic Evasion**: Deterministic regexes can be evaded by paraphrasing, unfamiliar phrasing, leetspeak, or unsupported languages.
+- **Model Scope**: Benchmarks reflect `llama3.1:8b` via Ollama; different models or parameter scales may exhibit different susceptibility.
+- **Lexical Keyword Stuffing**: The guard does not address repeated keyword stuffing targeted at similarity search (in v2, lexical stuffing achieved 80% ASR against pure kNN).
+- **Human-in-the-Loop Review**: Triage suggestions are strictly automated aids; service desk agents always verify and review tickets before taking operational action.
+
+For detailed attack-type breakdowns, confusion tables, and empirical benchmark numbers, see [benchmarks/INJECTION.md](../benchmarks/INJECTION.md).
+
+
+---
+
+## Operational Telemetry & Model Health
+
+When `AI_TRIAGE_MODE="llm"`, operational triage metrics are logged to table `llm_triage_log` (`id`, `created_at`, `method`, `latency_ms`, `fallback_reason`).
+- **Privacy Guarantee**: The table strictly excludes ticket text, titles, descriptions, user IDs, and emails, logging outcome and latency only.
+- **Percentile Calculation**: Median and p95 latencies are calculated over LLM-answered requests only using the nearest-rank percentile method ($k = \lceil \frac{P}{100} \times N \rceil$).
+- **Data Retention**: Telemetry rows older than 90 days are deleted opportunistically during each health report execution.
