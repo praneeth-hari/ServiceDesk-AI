@@ -41,6 +41,8 @@ Role-based IT helpdesk ticketing application with business-hours SLA tracking, r
 - [Quick Start](#quick-start)
 - [Run with Docker](#run-with-docker)
 - [Demo Data](#demo-data)
+- [Sign-In Rate Limiting](#sign-in-rate-limiting)
+- [Admin User Management](#admin-user-management)
 - [Testing & Quality](#testing--quality)
 - [Design Decisions](#design-decisions)
 - [Known Limitations](#known-limitations)
@@ -303,8 +305,11 @@ All routes are prefixed with `/api/v1`. Interactive documentation is available a
 | `POST` | `/api/v1/auth/register` | Register a new user account (defaults to requester role) | Public |
 | `POST` | `/api/v1/auth/login` | Authenticate with email and password, returning JWT access token | Public |
 | `GET` | `/api/v1/users/me` | Retrieve profile of the currently authenticated user | Authenticated |
-| `GET` | `/api/v1/users` | List registered users with pagination parameters | Admin |
-| `PATCH` | `/api/v1/users/{id}/role` | Update role of a specific user | Admin |
+| `GET` | `/api/v1/users` | List registered users with pagination parameters (flat list with count headers) | Admin |
+| `GET` | `/api/v1/users/admin` | List users with search (`q`), role, and active status filters, totals, and open ticket metrics | Admin |
+| `POST` | `/api/v1/users` | Create a new user with specified role and password | Admin |
+| `PATCH` | `/api/v1/users/{id}/role` | Update role of a specific user (`requester`, `agent`, `admin`) | Admin |
+| `PATCH` | `/api/v1/users/{id}/status` | Activate or deactivate a user account | Admin |
 | `POST` | `/api/v1/tickets` | Create a new support ticket (calculates business-hours SLA `due_at`) | Authenticated |
 | `GET` | `/api/v1/tickets` | List tickets with filters (status, priority, category, assignee, overdue), search, and pagination | Authenticated |
 | `GET` | `/api/v1/tickets/{id}` | Get ticket details (returns 404 if accessed by foreign requester) | Authenticated |
@@ -551,6 +556,21 @@ ServiceDesk-AI includes an in-memory sliding-window rate limiter on the password
 - **Keyed by Email + IP (No Per-IP Cap)**: The limiter is keyed strictly by normalized email plus client IP `(email, IP)`. This means one IP address can still try many different emails without locking (there is no aggregate per-IP cap), while protecting individual accounts from targeted credential guessing from a given host.
 - **Untrusted Headers**: `X-Forwarded-For` is not trusted. The limiter strictly evaluates direct connection IP via `request.client.host` to prevent header-spoofing bypasses. Behind reverse proxies, trusted proxy middleware must configure client IP safely.
 - **Bounded Memory**: State entries are pruned on each request window, and expired keys can be evicted via `purge_stale()`.
+
+---
+
+## Admin User Management
+
+ServiceDesk-AI provides comprehensive user management capabilities for administrators via the web portal (`/users`) and REST endpoints (`/api/v1/users`, `/api/v1/users/admin`).
+
+### Safety Rules & Invariants
+- **Cannot change your own role or active status**: Administrators are prevented from modifying their own role or deactivating their own account (HTTP 400).
+- **Last active admin is protected**: The system disallows demoting or deactivating the last remaining active administrator (HTTP 400), ensuring the system never becomes unmanageable. The last-admin check is not transactionally locked, so two admins changing each other at the same instant is a known, unlikely race.
+- **Deactivated users locked out immediately**: `get_current_user` validates `user.is_active` on every request. Existing JWT sessions for deactivated accounts are rejected immediately on the next request (HTTP 401).
+- **Immediate role changes**: User roles are checked on every request via `require_roles`. Role updates take effect immediately on subsequent requests without requiring users to log in again.
+
+### Audit Logging
+Administrative actions (creating users, changing roles, activating or deactivating accounts) are recorded to the structured application log with actor ID, target user ID, action name, and old/new values. Administrative changes are logged to the audit log (not stored in a table), and sensitive data such as passwords or password hashes are never logged.
 
 ---
 
