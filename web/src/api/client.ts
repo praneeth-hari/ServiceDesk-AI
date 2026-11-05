@@ -5,6 +5,8 @@ import {
   AIHealthReportResponse,
   AIAssistStatusResponse,
   AIAssistResponse,
+  DemoAccountsResponse,
+  TokenResponse,
 } from './types';
 
 export class ApiError extends Error {
@@ -63,9 +65,18 @@ export async function apiFetch<T>(
         errorMessage = apiErr.error.message;
       } else if (typeof (json as { message?: string }).message === 'string') {
         errorMessage = (json as { message: string }).message;
+      } else if (typeof (json as { detail?: string }).detail === 'string') {
+        errorMessage = (json as { detail: string }).detail;
       }
     } catch {
       // Body was not JSON
+    }
+
+    if (response.status === 429 && typeof errorData === 'object' && errorData !== null) {
+      const retryHeader = response.headers.get('Retry-After');
+      if (retryHeader && !(errorData as Record<string, unknown>).retry_after_seconds) {
+        (errorData as Record<string, unknown>).retry_after_seconds = parseInt(retryHeader, 10);
+      }
     }
 
     if (response.status === 401) {
@@ -90,6 +101,20 @@ export async function apiFetch<T>(
   }
 
   return response.json() as Promise<T>;
+}
+
+export async function getDemoAccounts(): Promise<DemoAccountsResponse> {
+  return apiFetch<DemoAccountsResponse>('/auth/demo-accounts', { skipAuth: true });
+}
+
+export async function demoLogin(
+  role: 'requester' | 'agent' | 'admin'
+): Promise<TokenResponse> {
+  return apiFetch<TokenResponse>('/auth/demo-login', {
+    method: 'POST',
+    body: JSON.stringify({ role }),
+    skipAuth: true,
+  });
 }
 
 export async function getTicketTriageFeedback(ticketId: number): Promise<TriageFeedbackRead> {

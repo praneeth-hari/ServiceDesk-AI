@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
-import { ApiError } from '../api/client';
+import { ApiError, getDemoAccounts, demoLogin as apiDemoLogin } from '../api/client';
+import type { DemoAccountsResponse, RateLimitErrorData } from '../api/types';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -9,14 +10,66 @@ export const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
+  // Rate limiting lockout state
+  const [retryAfter, setRetryAfter] = useState<number | null>(null);
+
+  // Demo mode state
+  const [demoAccounts, setDemoAccounts] = useState<DemoAccountsResponse | null>(null);
+  const [demoLoading, setDemoLoading] = useState<string | null>(null);
+  const [demoError, setDemoError] = useState<string | null>(null);
+
+  const { login, demoLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/tickets';
 
+  // Fetch demo accounts on mount. If disabled or fails, show nothing extra.
+  useEffect(() => {
+    let ignore = false;
+    const fetchDemo = async () => {
+      try {
+        const res = await getDemoAccounts();
+        if (!ignore && res && res.enabled) {
+          setDemoAccounts(res);
+        }
+      } catch {
+        // Silently ignore if demo accounts call fails or demo mode is off
+      }
+    };
+    fetchDemo();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  // Live countdown timer for rate limiting lockout
+  useEffect(() => {
+    if (retryAfter === null || retryAfter <= 0) return;
+
+    const timer = setInterval(() => {
+      setRetryAfter((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [retryAfter]);
+
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (retryAfter !== null && retryAfter > 0) return;
+
     setError(null);
     setLoading(true);
 
@@ -24,7 +77,12 @@ export const LoginPage: React.FC = () => {
       await login(email, password);
       navigate(from, { replace: true });
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
+      if (err instanceof ApiError && err.status === 429) {
+        const data = err.data as RateLimitErrorData | undefined;
+        const retrySec = data?.retry_after_seconds ?? 300;
+        setRetryAfter(retrySec);
+        setError(null);
+      } else if (err instanceof ApiError && err.status === 401) {
         setError('Invalid email or password.');
       } else if (
         (err instanceof ApiError && err.status >= 500) ||
@@ -40,6 +98,32 @@ export const LoginPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const handleDemoLogin = async (role: 'requester' | 'agent' | 'admin') => {
+    setDemoError(null);
+    setDemoLoading(role);
+
+    try {
+      if (demoLogin) {
+        await demoLogin(role);
+      } else {
+        await apiDemoLogin(role);
+      }
+      navigate(from, { replace: true });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setDemoError('Demo accounts not found. Please run seed_demo to create sample accounts.');
+      } else if (err instanceof Error) {
+        setDemoError(err.message || 'Failed to sign in with demo account.');
+      } else {
+        setDemoError('Failed to sign in with demo account.');
+      }
+    } finally {
+      setDemoLoading(null);
+    }
+  };
+
+  const isPaused = retryAfter !== null && retryAfter > 0;
 
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-paper text-ink font-sans">
@@ -100,14 +184,9 @@ export const LoginPage: React.FC = () => {
               </text>
 
               {/* Three horizontal bars (teal/amber) */}
-              {/* Bar 1: Ticket SLA spanning before & after weekend */}
               <rect x="30" y="56" width="110" height="14" rx="2" fill="#0F766E" />
               <rect x="320" y="56" width="50" height="14" rx="2" fill="#99D2CB" />
-
-              {/* Bar 2: Medium SLA */}
               <rect x="40" y="94" width="75" height="14" rx="2" fill="#D99A00" />
-
-              {/* Bar 3: Low SLA */}
               <rect x="20" y="146" width="95" height="14" rx="2" fill="#0F766E" opacity="0.8" />
 
               {/* Coral vertical NOW line with small label */}
@@ -139,6 +218,18 @@ export const LoginPage: React.FC = () => {
           <h1 className="font-serif text-3xl font-semibold text-ink mb-6">
             Sign in
           </h1>
+
+          {/* Rate limiting amber pause notice */}
+          {isPaused && (
+            <div
+              role="status"
+              className="mb-4 p-3 rounded bg-amber-500/10 border border-amber-500/30 text-ink text-sm flex items-start gap-2"
+            >
+              <div>
+                Too many sign-in attempts. For safety, sign-in is paused for this email and device. Try again in {formatCountdown(retryAfter)}.
+              </div>
+            </div>
+          )}
 
           {error && (
             <div
@@ -191,8 +282,8 @@ export const LoginPage: React.FC = () => {
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-2.5 px-4 bg-teal hover:bg-teal/90 text-white font-medium rounded text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-teal focus:ring-offset-2 disabled:opacity-50 flex items-center justify-center"
+              disabled={loading || isPaused}
+              className="w-full py-2.5 px-4 bg-teal hover:bg-teal/90 text-white font-medium rounded text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-teal focus:ring-offset-2 disabled:opacity-50 flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
             >
               {loading ? (
                 <span className="inline-flex items-center">
@@ -217,15 +308,64 @@ export const LoginPage: React.FC = () => {
                   </svg>
                   Signing in...
                 </span>
+              ) : isPaused ? (
+                'Sign in (paused)'
               ) : (
                 'Sign in'
               )}
             </button>
           </form>
 
-          <p className="text-xs text-muted text-center mt-6">
-            Demo accounts work on local installs only
-          </p>
+          {/* Demo accounts section (shown only when DEMO_MODE is true) */}
+          {demoAccounts && demoAccounts.enabled && demoAccounts.accounts.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-line space-y-4">
+              <div className="relative flex items-center justify-center">
+                <span className="bg-paper px-2 text-xs text-muted uppercase tracking-wider font-medium">
+                  or try a demo account
+                </span>
+              </div>
+
+              {demoError && (
+                <div
+                  role="alert"
+                  className="p-3 rounded bg-coral/10 border border-coral/30 text-coral text-xs"
+                >
+                  {demoError}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {demoAccounts.accounts.map((acc) => (
+                  <button
+                    key={acc.role}
+                    type="button"
+                    onClick={() => handleDemoLogin(acc.role)}
+                    disabled={demoLoading !== null}
+                    className="w-full text-left p-3 rounded border border-line bg-paper2/40 hover:bg-paper2 transition-colors focus:outline-none focus:ring-2 focus:ring-teal flex flex-col gap-1 disabled:opacity-50 cursor-pointer"
+                    aria-label={`Demo sign in as ${acc.name} (${acc.role})`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm text-ink">{acc.name}</span>
+                      <span className="text-[10px] font-mono uppercase tracking-wider font-semibold px-2 py-0.5 rounded border border-line bg-paper text-ink">
+                        {acc.role}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted">{acc.description}</p>
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-xs text-muted text-center pt-1">
+                Demo mode is on. Public demo only: accounts hold sample data.
+              </p>
+            </div>
+          )}
+
+          {(!demoAccounts || !demoAccounts.enabled) && (
+            <p className="text-xs text-muted text-center mt-6">
+              Demo accounts work on local installs only
+            </p>
+          )}
         </div>
       </div>
     </div>
