@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     AI_ASSIST_MODEL: str = "llama3.1:8b"
     AI_ASSIST_TIMEOUT_SECONDS: float = 60.0
 
+    # Demo mode (exposes one-click demo login, public demo only)
+    DEMO_MODE: bool = False
+
+    # Login rate limiting (in-memory sliding window for failed password logins)
+    LOGIN_RATE_LIMIT_MAX_ATTEMPTS: int = 5
+    LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = 300
+    LOGIN_LOCKOUT_SECONDS: int = 300
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
