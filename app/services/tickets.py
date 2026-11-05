@@ -462,7 +462,13 @@ def assign_ticket(
             detail="Assignee user not found",
         )
 
-    if assignee.role != UserRole.AGENT or not assignee.is_active:
+    if not assignee.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Cannot assign ticket to an inactive user",
+        )
+
+    if assignee.role != UserRole.AGENT:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Assignee must be an active agent",

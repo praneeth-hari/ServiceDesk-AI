@@ -10,6 +10,7 @@ import { TicketDetailPage } from './features/tickets/TicketDetailPage';
 import { ReportsPage } from './features/reports/ReportsPage';
 import { AIQualityPage } from './features/ai-quality/AIQualityPage';
 import { HolidaysPage } from './features/holidays/HolidaysPage';
+import { UsersPage } from './features/users/UsersPage';
 
 export function App() {
   return (
@@ -30,6 +31,7 @@ export function App() {
               </Route>
 
               <Route element={<RoleRoute adminOnly />}>
+                <Route path="/users" element={<UsersPage />} />
                 <Route path="/holidays" element={<HolidaysPage />} />
               </Route>
             </Route>
