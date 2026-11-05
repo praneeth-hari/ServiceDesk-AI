@@ -75,6 +75,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(profile);
   };
 
+  const demoLogin = async (role: 'requester' | 'agent' | 'admin') => {
+    const tokenData = await apiFetch<TokenResponse>('/auth/demo-login', {
+      method: 'POST',
+      body: JSON.stringify({ role }),
+      skipAuth: true,
+    });
+
+    sessionStorage.setItem('access_token', tokenData.access_token);
+    setToken(tokenData.access_token);
+
+    const profile = await apiFetch<User>('/users/me');
+    sessionStorage.setItem('user', JSON.stringify(profile));
+    setUser(profile);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -83,6 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isLoading,
         login,
+        demoLogin,
         logout,
       }}
     >
