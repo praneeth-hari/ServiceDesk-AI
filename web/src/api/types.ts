@@ -275,3 +275,31 @@ export interface RateLimitErrorData {
   detail?: string;
   retry_after_seconds?: number;
 }
+
+
+export interface UserAdmin extends User {
+  open_assigned_count: number;
+}
+
+export interface UserListResponse {
+  rows: UserAdmin[];
+  users: UserAdmin[];
+  total: number;
+  active_count: number;
+  active: number;
+}
+
+export interface UserCreateInput {
+  full_name: string;
+  email: string;
+  role: UserRole;
+  password: string;
+}
+
+export interface UserRoleUpdateInput {
+  role: UserRole;
+}
+
+export interface UserStatusUpdateInput {
+  is_active: boolean;
+}
