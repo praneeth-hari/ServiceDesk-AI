@@ -1,9 +1,26 @@
 import React, { useState, useEffect, useCallback, useId } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
-import { getAIQualityReport } from '../../api/client';
-import type { AIQualityReportResponse } from '../../api/types';
+import { getAIQualityReport, getAIHealthReport } from '../../api/client';
+import type { AIQualityReportResponse, AIHealthReportResponse } from '../../api/types';
 import { ReportCard } from '../reports/components/ReportCard';
+
+function formatFallbackReason(reason: string): string {
+  switch (reason) {
+    case 'possible_prompt_injection':
+      return 'Prompt injection suspected';
+    case 'timeout':
+      return 'Model timed out';
+    case 'unreachable':
+      return 'Model unreachable';
+    case 'invalid_output':
+      return 'Invalid model output';
+    case 'other':
+      return 'Other error';
+    default:
+      return reason;
+  }
+}
 
 export const AIQualityPage: React.FC = () => {
   const { role } = useAuth();
@@ -16,6 +33,56 @@ export const AIQualityPage: React.FC = () => {
   const [chartViewMode, setChartViewMode] = useState<'chart' | 'table'>('chart');
 
   const filterId = useId();
+
+  type HealthRange = '24h' | '7d' | '30d';
+  const [healthRange, setHealthRange] = useState<HealthRange>('7d');
+  const [healthData, setHealthData] = useState<AIHealthReportResponse | null>(null);
+  const [healthLoading, setHealthLoading] = useState<boolean>(true);
+  const [healthError, setHealthError] = useState<string | null>(null);
+  const [healthReloadKey, setHealthReloadKey] = useState<number>(0);
+
+  const handleHealthRangeChange = useCallback((newRange: HealthRange) => {
+    setHealthRange(newRange);
+    setHealthLoading(true);
+    setHealthReloadKey((k) => k + 1);
+  }, []);
+
+  const handleHealthRetry = useCallback(() => {
+    setHealthLoading(true);
+    setHealthReloadKey((k) => k + 1);
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+
+    if (role === 'requester') {
+      return;
+    }
+
+    const loadHealth = async () => {
+      try {
+        const report = await getAIHealthReport(healthRange);
+        if (!ignore) {
+          setHealthData(report);
+          setHealthError(null);
+        }
+      } catch {
+        if (!ignore) {
+          setHealthError('Failed to load model health report');
+        }
+      } finally {
+        if (!ignore) {
+          setHealthLoading(false);
+        }
+      }
+    };
+
+    loadHealth();
+
+    return () => {
+      ignore = true;
+    };
+  }, [healthRange, healthReloadKey, role]);
 
   const handleDaysChange = useCallback((newDays: number) => {
     setDays(newDays);
@@ -88,6 +155,27 @@ export const AIQualityPage: React.FC = () => {
     </div>
   );
 
+
+  // Health time range selector buttons
+  const healthRangeControls = (
+    <div className="flex items-center gap-1 bg-paper2 rounded p-0.5 border border-line">
+      {(['24h', '7d', '30d'] as const).map((opt) => (
+        <button
+          key={opt}
+          type="button"
+          onClick={() => handleHealthRangeChange(opt)}
+          className={`px-2 py-0.5 text-xs font-medium rounded transition-colors focus:outline-none focus:ring-1 focus:ring-teal ${
+            healthRange === opt
+              ? 'bg-teal text-paper shadow-xs font-semibold'
+              : 'text-muted hover:text-ink'
+          }`}
+          aria-label={`Show ${opt} health`}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  );
   // SVG Chart Geometry
   const width = 560;
   const height = 220;
@@ -573,6 +661,268 @@ export const AIQualityPage: React.FC = () => {
           </div>
         </>
       )}
+
+      {/* Model Health Section */}
+      <section className="space-y-6 pt-6 border-t border-line" aria-label="Model health section">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-line pb-4 gap-4">
+          <div>
+            <h2 className="font-serif text-2xl font-semibold text-ink">Model health</h2>
+            <p className="text-muted text-xs sm:text-sm mt-1">
+              Measured from real triage requests. Stored: timing and outcome only, never ticket text.
+            </p>
+          </div>
+          <div className="self-start sm:self-auto">{healthRangeControls}</div>
+        </div>
+
+        {/* Loading state skeleton */}
+        {healthLoading && (
+          <div className="space-y-6 animate-pulse" data-testid="model-health-loading">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-paper border border-line rounded-lg p-4 h-28" />
+              ))}
+            </div>
+            <div className="bg-paper border border-line rounded-lg p-6 h-48" />
+          </div>
+        )}
+
+        {/* Error state */}
+        {healthError && !healthLoading && (
+          <div className="py-8 px-4 text-center rounded-lg bg-paper border border-line shadow-sm flex flex-col items-center justify-center">
+            <p className="text-sm text-muted mb-4 font-medium">{healthError}</p>
+            <button
+              type="button"
+              onClick={handleHealthRetry}
+              className="px-4 py-2 rounded bg-teal text-paper text-xs font-medium hover:bg-teal/90 transition-colors shadow-xs focus:outline-none focus:ring-1 focus:ring-teal"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* LLM Disabled state */}
+        {!healthLoading && !healthError && healthData && !healthData.llm_enabled && (
+          <div
+            role="status"
+            className="bg-paper border border-line rounded-lg p-8 text-center shadow-sm flex flex-col items-center justify-center gap-2"
+          >
+            <span className="font-serif text-base font-semibold text-ink">
+              Local LLM is turned off
+            </span>
+            <p className="text-xs sm:text-sm text-muted max-w-md">
+              Health metrics only collect when LLM triage is enabled (AI_TRIAGE_MODE=llm).
+            </p>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!healthLoading && !healthError && healthData && healthData.llm_enabled && healthData.total_requests === 0 && (
+          <div
+            role="status"
+            className="bg-paper border border-line rounded-lg p-8 text-center shadow-sm flex flex-col items-center justify-center gap-2"
+          >
+            <span className="font-serif text-base font-semibold text-ink">
+              No triage requests in this period
+            </span>
+            <p className="text-xs sm:text-sm text-muted max-w-md">
+              Health metrics only collect when LLM triage is enabled (AI_TRIAGE_MODE=llm).
+            </p>
+          </div>
+        )}
+
+        {/* Data Loaded */}
+        {!healthLoading && !healthError && healthData && healthData.llm_enabled && healthData.total_requests > 0 && (
+          <>
+            {/* Four Stat Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Card 1: Median LLM latency */}
+              <div className="bg-paper border border-line rounded-lg p-4 shadow-sm flex flex-col justify-between">
+                <span className="text-muted text-xs uppercase tracking-wider font-medium">
+                  Median LLM latency
+                </span>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl sm:text-3xl font-serif font-bold text-ink">
+                    {healthData.median_latency_ms !== null
+                      ? `${healthData.median_latency_ms.toLocaleString()} ms`
+                      : 'No data yet'}
+                  </span>
+                </div>
+                {healthData.small_sample && (
+                  <span className="text-[11px] text-muted italic mt-0.5">
+                    Small sample, treat as indicative only
+                  </span>
+                )}
+                <span className="text-muted text-xs mt-1">
+                  {healthData.llm_answered > 0
+                    ? `Over ${healthData.llm_answered} LLM requests`
+                    : 'No LLM-answered requests'}
+                </span>
+              </div>
+
+              {/* Card 2: Slowest 5% */}
+              <div className="bg-paper border border-line rounded-lg p-4 shadow-sm flex flex-col justify-between">
+                <span className="text-muted text-xs uppercase tracking-wider font-medium">
+                  Slowest 5%
+                </span>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl sm:text-3xl font-serif font-bold text-ink">
+                    {healthData.p95_latency_ms !== null
+                      ? `${healthData.p95_latency_ms.toLocaleString()} ms`
+                      : 'No data yet'}
+                  </span>
+                </div>
+                {healthData.small_sample && (
+                  <span className="text-[11px] text-muted italic mt-0.5">
+                    Small sample, treat as indicative only
+                  </span>
+                )}
+                <span className="text-muted text-xs mt-1">
+                  p95 nearest-rank
+                </span>
+              </div>
+
+              {/* Card 3: Fallback rate */}
+              <div className="bg-paper border border-line rounded-lg p-4 shadow-sm flex flex-col justify-between">
+                <span className="text-muted text-xs uppercase tracking-wider font-medium">
+                  Fallback rate
+                </span>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl sm:text-3xl font-serif font-bold text-ink">
+                    {(healthData.fallback_rate * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <span className="text-muted text-xs mt-1">
+                  {healthData.knn_fallbacks} of {healthData.total_requests} requests
+                </span>
+              </div>
+
+              {/* Card 4: Requests */}
+              <div className="bg-paper border border-line rounded-lg p-4 shadow-sm flex flex-col justify-between">
+                <span className="text-muted text-xs uppercase tracking-wider font-medium">
+                  Requests
+                </span>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl sm:text-3xl font-serif font-bold text-ink">
+                    {healthData.total_requests}
+                  </span>
+                </div>
+                <span className="text-muted text-xs mt-1">
+                  LLM: {healthData.llm_answered} · kNN fallback: {healthData.knn_fallbacks}
+                </span>
+              </div>
+            </div>
+
+            {/* Which method answered & Why it fell back */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Method breakdown / stacked bar */}
+              <div className="bg-paper border border-line rounded-lg p-5 shadow-sm flex flex-col gap-4">
+                <div>
+                  <h3 className="font-serif text-lg font-semibold text-ink">Which method answered</h3>
+                  <p className="text-muted text-xs mt-0.5">
+                    Share of requests answered by LLM vs kNN fallback
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {(() => {
+                    const llmPct = healthData.total_requests > 0
+                      ? (healthData.llm_answered / healthData.total_requests) * 100
+                      : 0;
+                    const knnPct = healthData.total_requests > 0
+                      ? (healthData.knn_fallbacks / healthData.total_requests) * 100
+                      : 0;
+                    return (
+                      <>
+                        <div className="w-full bg-paper3 rounded-full h-3 flex overflow-hidden">
+                          {healthData.llm_answered > 0 && (
+                            <div
+                              className="bg-teal h-full transition-all"
+                              style={{ width: `${llmPct}%` }}
+                              aria-label={`LLM answered: ${llmPct.toFixed(1)}%`}
+                            />
+                          )}
+                          {healthData.knn_fallbacks > 0 && (
+                            <div
+                              className="bg-amber-500 h-full transition-all"
+                              style={{ width: `${knnPct}%` }}
+                              aria-label={`kNN fallback: ${knnPct.toFixed(1)}%`}
+                            />
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-4 text-xs pt-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-teal shrink-0" />
+                            <span className="font-medium text-ink">LLM:</span>
+                            <span className="text-muted">
+                              {healthData.llm_answered} ({llmPct.toFixed(1)}%)
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+                            <span className="font-medium text-ink">kNN fallback:</span>
+                            <span className="text-muted">
+                              {healthData.knn_fallbacks} ({knnPct.toFixed(1)}%)
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Why it fell back */}
+              <div className="bg-paper border border-line rounded-lg p-5 shadow-sm flex flex-col gap-4">
+                <div>
+                  <h3 className="font-serif text-lg font-semibold text-ink">Why it fell back</h3>
+                  <p className="text-muted text-xs mt-0.5">
+                    Breakdown of fallback triggers when LLM could not answer
+                  </p>
+                </div>
+
+                {healthData.knn_fallbacks === 0 ? (
+                  <div className="py-6 px-4 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium text-center">
+                    No fallbacks in this period
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse" aria-label="Why it fell back table">
+                      <thead>
+                        <tr className="border-b border-line text-muted font-medium bg-paper2/50">
+                          <th className="py-2 px-3">Reason</th>
+                          <th className="py-2 px-3 text-right">Count</th>
+                          <th className="py-2 px-3 text-right">Share</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {healthData.fallback_reasons.map((item) => {
+                          const share = healthData.knn_fallbacks > 0
+                            ? ((item.count / healthData.knn_fallbacks) * 100).toFixed(1)
+                            : '0.0';
+                          return (
+                            <tr key={item.reason} className="border-b border-line/60 hover:bg-paper2/30">
+                              <td className="py-2 px-3 font-medium text-ink">
+                                {formatFallbackReason(item.reason)}
+                              </td>
+                              <td className="py-2 px-3 text-right font-mono text-ink">
+                                {item.count}
+                              </td>
+                              <td className="py-2 px-3 text-right font-mono text-muted">
+                                {share}%
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 };
