@@ -46,25 +46,43 @@ async def lifespan(app: FastAPI):
                 "SECURITY WARNING: SECRET_KEY is set to a placeholder. "
                 "Please generate and set a strong, random SECRET_KEY in your .env file for production."
             )
+
+    if settings.DEMO_MODE:
+        logger.warning(
+            "SECURITY WARNING: DEMO_MODE is enabled. Demo accounts allow passwordless sign-in "
+            "(including admin) and must never be enabled on a real deployment."
+        )
+
     yield
 
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     """
     Standardize all HTTP error responses into {"error": {"message": "..."}} format.
-    Supports structured error dictionaries with error codes.
+    Supports structured error dictionaries with error codes, rate limit responses, and preserves headers.
     """
+    headers = getattr(exc, "headers", None)
     if isinstance(exc.detail, dict):
+        if "retry_after_seconds" in exc.detail:
+            detail_msg = str(exc.detail.get("detail", "Too many requests"))
+            content: dict[str, Any] = {
+                "detail": detail_msg,
+                "retry_after_seconds": exc.detail.get("retry_after_seconds"),
+                "error": {"message": detail_msg},
+            }
+            return JSONResponse(status_code=exc.status_code, content=content, headers=headers)
+
         message = str(exc.detail.get("message", ""))
         code = exc.detail.get("code") or exc.detail.get("error")
-        content: dict[str, Any] = {"error": {"message": message}}
+        content = {"error": {"message": message}}
         if code:
             content["code"] = code
             content["error"]["code"] = code
-        return JSONResponse(status_code=exc.status_code, content=content)
+        return JSONResponse(status_code=exc.status_code, content=content, headers=headers)
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": {"message": str(exc.detail)}},
+        headers=headers,
     )
 
 

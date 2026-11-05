@@ -515,6 +515,43 @@ python -m app.scripts.seed_demo --wipe-tickets --yes
 > [!WARNING]
 > **Local Development Security Warning**: These demo accounts and default passwords in `.env.example` and `docker-compose.yml` are strictly intended for local development, demonstration, and automated test environments. **Never deploy these default passwords in production.**
 
+### One-Click Demo Mode (`DEMO_MODE`)
+
+To enable one-click demo login on the sign-in page:
+1. Set `DEMO_MODE=true` in your `.env` file (or pass `-e DEMO_MODE=true` in Docker).
+2. Seed the database demo accounts: `python -m app.scripts.seed_demo --yes`.
+3. Open the sign-in page: a demo accounts section will appear with one-click sign-in buttons for `System Admin`, `Asha Agent`, and `Ravi Requester`.
+
+> [!CAUTION]
+> **Production Security Warning**: `DEMO_MODE` bypasses password authentication for fixed seeded accounts. **DEMO_MODE must NEVER be enabled on a real production deployment.** It is strictly designed for local review and public demo sandboxes holding synthetic sample data.
+
+---
+
+## Sign-In Rate Limiting
+
+ServiceDesk-AI includes an in-memory sliding-window rate limiter on the password login endpoint (`POST /api/v1/auth/login`) to protect against credential stuffing and brute-force attacks.
+
+### Configuration Settings
+
+| Setting | Default | Description |
+| :--- | :--- | :--- |
+| `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` | `5` | Maximum failed attempts allowed within the sliding window before lockout |
+| `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `300` (5 min) | Duration of the sliding window for tracking failed attempts |
+| `LOGIN_LOCKOUT_SECONDS` | `300` (5 min) | Duration of the lockout period once the threshold is exceeded |
+
+### Behavior & Security Rules
+- **Sliding Window of Failures**: Only failed login attempts are recorded. A successful login immediately clears any failure counter for that key.
+- **Anti-Enumeration**: Unknown emails and invalid passwords fail identically (HTTP 401 `"Invalid email or password"`) and both count toward the rate limit. Attackers cannot enumerate valid users.
+- **Lockout Enforcement**: After reaching the failure threshold within the window, further attempts for that key return HTTP 429 with a `Retry-After` header and `{"detail": "...", "retry_after_seconds": ...}`, **even if the correct password is provided**.
+- **Audit Logging**: When an account reaches the lockout threshold, a security warning is logged with the client IP and a masked email (passwords are never logged).
+- **Demo Login Exemption**: One-click demo logins (`POST /api/v1/auth/demo-login`) are not subject to password rate limiting lockout.
+
+### Architecture & Known Limitations
+- **In-Memory & Per-Process**: The limiter is in-memory and per process; it resets on restart; and it is not shared across workers or clustered server processes. For distributed multi-worker production deployments, an external shared store (such as Redis) would be required.
+- **Keyed by Email + IP (No Per-IP Cap)**: The limiter is keyed strictly by normalized email plus client IP `(email, IP)`. This means one IP address can still try many different emails without locking (there is no aggregate per-IP cap), while protecting individual accounts from targeted credential guessing from a given host.
+- **Untrusted Headers**: `X-Forwarded-For` is not trusted. The limiter strictly evaluates direct connection IP via `request.client.host` to prevent header-spoofing bypasses. Behind reverse proxies, trusted proxy middleware must configure client IP safely.
+- **Bounded Memory**: State entries are pruned on each request window, and expired keys can be evicted via `purge_stale()`.
+
 ---
 
 ## Testing & Quality
