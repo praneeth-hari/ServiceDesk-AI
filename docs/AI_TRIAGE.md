@@ -201,3 +201,13 @@ The defense was benchmarked across three separate evaluation datasets:
 - **Human-in-the-Loop Review**: Triage suggestions are strictly automated aids; service desk agents always verify and review tickets before taking operational action.
 
 For detailed attack-type breakdowns, confusion tables, and empirical benchmark numbers, see [benchmarks/INJECTION.md](../benchmarks/INJECTION.md).
+
+
+---
+
+## Operational Telemetry & Model Health
+
+When `AI_TRIAGE_MODE="llm"`, operational triage metrics are logged to table `llm_triage_log` (`id`, `created_at`, `method`, `latency_ms`, `fallback_reason`).
+- **Privacy Guarantee**: The table strictly excludes ticket text, titles, descriptions, user IDs, and emails, logging outcome and latency only.
+- **Percentile Calculation**: Median and p95 latencies are calculated over LLM-answered requests only using the nearest-rank percentile method ($k = \lceil \frac{P}{100} \times N \rceil$).
+- **Data Retention**: Telemetry rows older than 90 days are deleted opportunistically during each health report execution.

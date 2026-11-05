@@ -99,7 +99,6 @@ class TicketsByCategoryItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-
 class RequesterAcceptance(BaseModel):
     category_pct: Optional[float] = None
     priority_pct: Optional[float] = None
@@ -152,5 +151,27 @@ class AIQualityReportResponse(BaseModel):
     weekly: list[WeeklyAIQualityItem]
     top_corrections: list[CategoryCorrectionItem]
     by_method: list[ByMethodItem] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FallbackReasonCount(BaseModel):
+    reason: str
+    count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AIHealthReportResponse(BaseModel):
+    range: str
+    llm_enabled: bool = True
+    total_requests: int
+    llm_answered: int
+    knn_fallbacks: int
+    fallback_rate: float
+    median_latency_ms: Optional[int] = None
+    p95_latency_ms: Optional[int] = None
+    small_sample: bool
+    fallback_reasons: list[FallbackReasonCount]
 
     model_config = ConfigDict(from_attributes=True)

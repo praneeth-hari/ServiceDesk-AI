@@ -6,6 +6,7 @@ from app.api.deps import require_roles
 from app.db.session import get_db
 from app.models.enums import UserRole
 from app.schemas.report import (
+    AIHealthReportResponse,
     AIQualityReportResponse,
     AgentRankingItem,
     AgentWorkloadItem,
@@ -18,6 +19,7 @@ from app.schemas.report import (
     TicketsByStatusItem,
 )
 from app.services.reports import (
+    get_ai_health_report,
     get_ai_quality_report,
     get_agent_ranking,
     get_agent_workload,
@@ -159,7 +161,6 @@ def report_tickets_by_category(
     return get_tickets_by_category(db=db, breakdown_by_status=breakdown_by_status)
 
 
-
 @router.get(
     "/ai-quality",
     response_model=AIQualityReportResponse,
@@ -172,3 +173,17 @@ def report_ai_quality(
 ) -> AIQualityReportResponse:
     """Report measuring AI triage suggestion acceptance, agent review agreement, and weekly trend."""
     return get_ai_quality_report(db=db, days=days)
+
+
+@router.get(
+    "/ai-health",
+    response_model=AIHealthReportResponse,
+    status_code=status.HTTP_200_OK,
+    summary="AI triage operational health and latency report",
+)
+def report_ai_health(
+    range: str = Query(default="7d", pattern="^(24h|7d|30d)$", description="Time window (24h, 7d, 30d)"),
+    db: Session = Depends(get_db),
+) -> AIHealthReportResponse:
+    """Report measuring AI triage operational metrics, latencies, and fallback rates."""
+    return get_ai_health_report(db=db, range_str=range)
