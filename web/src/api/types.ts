@@ -258,3 +258,20 @@ export interface AIHealthReportResponse {
   small_sample: boolean;
   fallback_reasons: FallbackReasonCount[];
 }
+
+
+export interface DemoAccount {
+  role: 'requester' | 'agent' | 'admin';
+  name: string;
+  description: string;
+}
+
+export interface DemoAccountsResponse {
+  enabled: boolean;
+  accounts: DemoAccount[];
+}
+
+export interface RateLimitErrorData {
+  detail?: string;
+  retry_after_seconds?: number;
+}

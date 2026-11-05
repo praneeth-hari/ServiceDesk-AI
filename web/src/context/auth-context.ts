@@ -7,8 +7,8 @@ export interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  demoLogin?: (role: 'requester' | 'agent' | 'admin') => Promise<void>;
   logout: () => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
