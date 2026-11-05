@@ -720,6 +720,73 @@ it('shows "No similar tickets yet" when similarTickets list is empty for staff',
     expect(internalCheckbox.checked).toBe(true);
     expect(ticketsApi.addComment).not.toHaveBeenCalled();
   });
+
+  it('assignee dropdown excludes deactivated agents and renders tickets assigned to deactivated agents', async () => {
+    vi.mocked(authHook.useAuth).mockReturnValue({
+      user: mockAdminUser,
+      role: mockAdminUser.role,
+      token: 'fake-token',
+      isLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+    });
+
+    const ticketWithDeactivatedAssignee = {
+      ...baseTicket,
+      assignee_id: 99,
+      assignee_name: 'Former Deactivated Agent',
+    };
+    vi.mocked(ticketsApi.getTicket).mockResolvedValue(ticketWithDeactivatedAssignee);
+    // listAgents returns only active agents (mockAgentUser)
+    vi.mocked(ticketsApi.listAgents).mockResolvedValue([mockAgentUser]);
+
+    renderTicketDetail(1);
+    await waitFor(() => {
+      expect(screen.getByText('VPN connection issue')).toBeInTheDocument();
+    });
+
+    // 1. Existing ticket retains deactivated agent's name in assignee card
+    expect(screen.getByText('Former Deactivated Agent')).toBeInTheDocument();
+
+    // 2. Select dropdown includes active agent Bob Agent, but does NOT include Former Deactivated Agent
+    const select = screen.getByLabelText(/Select active agent/i);
+    expect(select).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Bob Agent' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Former Deactivated Agent' })).not.toBeInTheDocument();
+  });
+
+  it('displays 422 error alert when assigning to an inactive user fails', async () => {
+    vi.mocked(authHook.useAuth).mockReturnValue({
+      user: mockAdminUser,
+      role: mockAdminUser.role,
+      token: 'fake-token',
+      isLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+    });
+
+    vi.mocked(ticketsApi.getTicket).mockResolvedValue(baseTicket);
+    vi.mocked(ticketsApi.listAgents).mockResolvedValue([mockAgentUser]);
+    vi.mocked(ticketsApi.assignTicket).mockRejectedValue(
+      new clientApi.ApiError(422, 'Cannot assign ticket to an inactive user')
+    );
+
+    renderTicketDetail(1);
+    await waitFor(() => {
+      expect(screen.getByText('VPN connection issue')).toBeInTheDocument();
+    });
+
+    // Select agent and click assign
+    const select = screen.getByLabelText(/Select active agent/i);
+    fireEvent.change(select, { target: { value: String(mockAgentUser.id) } });
+
+    const assignBtn = screen.getByRole('button', { name: 'Assign' });
+    fireEvent.click(assignBtn);
+
+    // Alert rendered with 422 error message
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Cannot assign ticket to an inactive user');
+  });
 });
 
 

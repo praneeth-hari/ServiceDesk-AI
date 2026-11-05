@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { apiFetch, ApiError } from '../client';
+import { listAgents } from '../tickets';
 
 describe('api client', () => {
   const originalFetch = globalThis.fetch;
@@ -74,5 +75,26 @@ describe('api client', () => {
       expect(apiErr.status).toBe(404);
       expect(apiErr.message).toBe('Entity not found');
     }
+  });
+
+  it('listAgents filters out inactive agents and non-agents from /users response', async () => {
+    const mockUsers = [
+      { id: 1, full_name: 'Active Agent', role: 'agent', is_active: true },
+      { id: 2, full_name: 'Inactive Agent', role: 'agent', is_active: false },
+      { id: 3, full_name: 'Active Admin', role: 'admin', is_active: true },
+      { id: 4, full_name: 'Active Requester', role: 'requester', is_active: true },
+    ];
+
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(mockUsers), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    const agents = await listAgents();
+    expect(agents).toHaveLength(1);
+    expect(agents[0].id).toBe(1);
+    expect(agents[0].full_name).toBe('Active Agent');
   });
 });

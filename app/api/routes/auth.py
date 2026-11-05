@@ -150,5 +150,17 @@ def demo_login(
             ),
         )
 
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Demo account '{user.email}' is inactive and cannot be signed into.",
+        )
+
+    if user.role != payload.role:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Demo account '{user.email}' role has changed from '{payload.role.value}' to '{user.role.value}'.",
+        )
+
     access_token = create_access_token(data={"sub": str(user.id)})
     return Token(access_token=access_token, token_type="bearer")
