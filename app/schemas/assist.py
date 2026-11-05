@@ -25,6 +25,7 @@ class AIAssistSummaryResponse(BaseModel):
     task: Literal["summary"] = "summary"
     summary: str = Field(..., max_length=600)
     facts: list[AIAssistFact] = Field(default_factory=list, max_length=4)
+    dropped_fact_count: int = 0
     model: str
     latency_ms: int
 

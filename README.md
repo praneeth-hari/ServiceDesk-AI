@@ -278,7 +278,17 @@ While ServiceDesk-AI defaults to instant lexical kNN triage, you can optionally 
 - **Resilience & Graceful Fallback**: If Ollama is unreachable, times out, the target model is not installed, or the LLM returns malformed JSON or labels outside the allowed taxonomy, the triage service silently and instantly falls back to lexical kNN. The triage API endpoint never fails (never returns 5xx) because the local LLM is down. The response marks `method: "knn"` and includes `fallback_reason`.
 - **Hosted Demo vs. Local Mode**: In the hosted demo and standard container deployment, triage runs in pure kNN mode (zero GPU, zero external network calls, <10ms response time).
 - **Benchmark Performance**: On the ServiceDesk-600 test split (120 tickets), the exact production pipeline (`llm-rag-hashing`: native hashing retrieval + Llama 3.1 8B 5-shot RAG) achieves **85.8%** category accuracy (64.2% priority accuracy, 96.7% within one level); paired McNemar exact test against dense MiniLM retrieval ($b=7$ where `llm-rag` is correct and `llm-rag-hashing` is wrong, $c=5$ where `llm-rag-hashing` is correct and `llm-rag` is wrong, $p = 0.774$): no difference was detected (12 discordant pairs; the test cannot show equivalence).
-
+- **Prompt Injection Defense**: When LLM triage is enabled, incoming ticket text is protected by a two-tier defense:
+  1. *Deterministic Heuristic Guard (`app/ai/injection_guard.py`)*: Detects instruction overrides, role impersonation, and format breaks. On detection, bypasses the LLM and falls back to kNN similarity (`fallback_reason = "possible_prompt_injection"`). Verified **0.0%** false positives across 220 clean benchmark tickets (95% CI: [0.0%, 1.7%]).
+  2. *Prompt Boundary Isolation (`app/ai/llm_triage.py` v2)*: Wraps ticket text in `<ticket_data>` tags and escapes angle brackets (`<` -> `&lt;`, `>` -> `&gt;`). A paired exact McNemar test on the 120 clean test tickets shows **no statistically significant difference** in category accuracy between Prompt V1 and V2 (p = 0.0923 for zero-shot, p = 1.000 for RAG).
+  - *Empirical Robustness*:
+    - **Independent held-out set v2 ($N=30$, authored independently outside workflow, run once)**:
+      - Heuristic guard detection was **11/30 (36.7%)** [21.9%, 54.5%], missing 19 novel attacks due to phrasing variance and leetspeak.
+      - Full-defense attack success was **2/30 (6.7%)** [1.8%, 21.3%] vs. kNN **4/30 (13.3%)** [5.3%, 29.7%], with overlapping intervals (**comparable to kNN**).
+      - kNN keyword-stuffing weakness: Under lexical keyword stuffing (`lexical_stuffing`), pure `hashing-knn` succumbed with **4/5 (80.0%)** attack success rate, while the full LLM defense resisted completely (**0/5, 0.0%**).
+    - **In-workflow held-out set v1 ($N=30$, frozen by process, not independent)**: Attacked ASR drops from **63.3%** to **13.3%** (4/30 [5.3%, 29.7%]), which is **comparable to kNN** at **20.0%** (6/30 [9.5%, 37.3%]) with overlapping intervals.
+    - **Development set ($N=40$, tuned on this set)**: Attacked Attack Success Rate (ASR) drops from **55.0%** (22/40) to **2.5%** (1/40) with full defense.
+  - *Limits*: Small samples ($N=30, 40$), heuristic regex detection can be evaded by paraphrasing and other languages, benchmarked on local 8B model only, lexical keyword stuffing against kNN is not addressed by the guard, and all triage outputs are advisory suggestions that a human reviews. See [benchmarks/INJECTION.md](benchmarks/INJECTION.md).
 ---
 
 ## API Overview
