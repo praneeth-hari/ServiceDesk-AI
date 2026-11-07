@@ -94,6 +94,31 @@ def test_hashing_embedder_empty_list():
     assert embedder.embed([]) == []
 
 
+def test_hashing_embedder_cap_none_bit_identical():
+    """Verify cap=None gives vectors bit-identical (np.array_equal) to default HashingEmbedder."""
+    emb_default = HashingEmbedder()
+    emb_cap_none = HashingEmbedder(cap=None)
+    texts = [
+        "Wi-Fi disconnected on the 4th floor conference room",
+        "urgent urgent urgent password reset required immediately",
+        "payroll database error 500 in finance module",
+    ]
+    vecs_default = emb_default.embed(texts)
+    vecs_cap_none = emb_cap_none.embed(texts)
+    for v1, v2 in zip(vecs_default, vecs_cap_none):
+        assert np.array_equal(v1, v2)
+
+
+def test_hashing_embedder_cap_effect():
+    """Verify cap limits term count influence on repeated tokens."""
+    emb_uncapped = HashingEmbedder()
+    emb_capped1 = HashingEmbedder(cap=1)
+    text_stuffed = "database error " + " urgent" * 50
+    vec_uncapped = emb_uncapped.embed([text_stuffed])[0]
+    vec_capped = emb_capped1.embed([text_stuffed])[0]
+    assert not np.array_equal(vec_uncapped, vec_capped)
+
+
 def test_embedder_factory():
     h = get_embedder("hashing")
     assert isinstance(h, HashingEmbedder)

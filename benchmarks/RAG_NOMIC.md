@@ -75,6 +75,7 @@ The baseline `llm-rag-hashing` was re-run on the same 120 test tickets with iden
 - Across the 120 tickets, **17/120 tickets changed outputs** between Run 1 and Run 2 (4 category, 13 priority).
 - The priority accuracy difference between nomic and hashing ($b=15, c=8$, 23 discordant pairs) is of the same order as this run-to-run noise.
 - The cause of the non-determinism was not investigated.
+- The run-2 per-ticket file was reconstructed from the saved run log (task log), not written by the benchmark itself.
 
 ---
 

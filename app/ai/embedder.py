@@ -48,8 +48,9 @@ class HashingEmbedder:
     Fast, deterministic, requires no downloads or fitting.
     """
 
-    def __init__(self, n_features: int = 2048) -> None:
+    def __init__(self, n_features: int = 2048, cap: int | None = None) -> None:
         self._name = "hashing-v2"
+        self._cap = cap
         self._dim = n_features * 2
         self._word_vectorizer = HashingVectorizer(
             n_features=n_features,
@@ -69,6 +70,10 @@ class HashingEmbedder:
         )
 
     @property
+    def cap(self) -> int | None:
+        return self._cap
+
+    @property
     def name(self) -> str:
         return self._name
 
@@ -80,6 +85,8 @@ class HashingEmbedder:
         from sklearn.preprocessing import normalize
 
         X = vectorizer.transform(texts)
+        if self._cap is not None and X.nnz > 0:
+            X.data = np.minimum(X.data, float(self._cap))
         if X.nnz > 0:
             # Sublinear TF scaling: 1 + log(tf) for tf > 0
             X.data = 1.0 + np.log(X.data)

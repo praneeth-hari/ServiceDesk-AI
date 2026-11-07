@@ -1,0 +1,93 @@
+{
+  "baseline": {
+    "name": "baseline",
+    "cap_train": null,
+    "cap_query": null,
+    "category_correct": 288,
+    "category_accuracy": 0.6,
+    "priority_correct": 259,
+    "priority_accuracy": 0.5396,
+    "total": 480,
+    "cat_delta_pp": 0.0,
+    "prio_delta_pp": 0.0,
+    "eligible": true
+  },
+  "A1": {
+    "name": "A1",
+    "cap_train": null,
+    "cap_query": 1,
+    "category_correct": 282,
+    "category_accuracy": 0.5875,
+    "priority_correct": 251,
+    "priority_accuracy": 0.5229,
+    "total": 480,
+    "cat_delta_pp": -1.25,
+    "prio_delta_pp": -1.67,
+    "eligible": false
+  },
+  "A2": {
+    "name": "A2",
+    "cap_train": null,
+    "cap_query": 2,
+    "category_correct": 290,
+    "category_accuracy": 0.6042,
+    "priority_correct": 257,
+    "priority_accuracy": 0.5354,
+    "total": 480,
+    "cat_delta_pp": 0.42,
+    "prio_delta_pp": -0.42,
+    "eligible": true
+  },
+  "A3": {
+    "name": "A3",
+    "cap_train": null,
+    "cap_query": 3,
+    "category_correct": 284,
+    "category_accuracy": 0.5917,
+    "priority_correct": 259,
+    "priority_accuracy": 0.5396,
+    "total": 480,
+    "cat_delta_pp": -0.83,
+    "prio_delta_pp": 0.0,
+    "eligible": true
+  },
+  "B1": {
+    "name": "B1",
+    "cap_train": 1,
+    "cap_query": 1,
+    "category_correct": 280,
+    "category_accuracy": 0.5833,
+    "priority_correct": 259,
+    "priority_accuracy": 0.5396,
+    "total": 480,
+    "cat_delta_pp": -1.67,
+    "prio_delta_pp": 0.0,
+    "eligible": false
+  },
+  "B2": {
+    "name": "B2",
+    "cap_train": 2,
+    "cap_query": 2,
+    "category_correct": 292,
+    "category_accuracy": 0.6083,
+    "priority_correct": 251,
+    "priority_accuracy": 0.5229,
+    "total": 480,
+    "cat_delta_pp": 0.83,
+    "prio_delta_pp": -1.67,
+    "eligible": false
+  },
+  "B3": {
+    "name": "B3",
+    "cap_train": 3,
+    "cap_query": 3,
+    "category_correct": 287,
+    "category_accuracy": 0.5979,
+    "priority_correct": 258,
+    "priority_accuracy": 0.5375,
+    "total": 480,
+    "cat_delta_pp": -0.21,
+    "prio_delta_pp": -0.21,
+    "eligible": true
+  }
+}
