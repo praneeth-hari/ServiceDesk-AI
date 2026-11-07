@@ -18,7 +18,7 @@ class TicketEmbedding(Base):
         sa.ForeignKey("tickets.id", ondelete="CASCADE"),
         primary_key=True,
     )
-    model_name: Mapped[str] = mapped_column(sa.String(64), nullable=False, index=True)
+    model_name: Mapped[str] = mapped_column(sa.String(64), primary_key=True, index=True)
     dim: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     vector: Mapped[bytes] = mapped_column(sa.LargeBinary, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
@@ -28,7 +28,7 @@ class TicketEmbedding(Base):
         nullable=False,
     )
 
-    ticket: Mapped["Ticket"] = relationship("Ticket", back_populates="embedding")
+    ticket: Mapped["Ticket"] = relationship("Ticket", back_populates="embeddings")
 
     def get_numpy_vector(self) -> np.ndarray:
         """Decode stored bytes into a 1D float32 numpy vector."""

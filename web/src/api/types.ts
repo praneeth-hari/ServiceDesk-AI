@@ -147,6 +147,7 @@ export interface TriageSuggestResponse {
   evidence: SimilarTicket[];
   possible_duplicates: SimilarTicket[];
   embedder: string;
+  embedder_fallback_reason?: string | null;
   method?: string;
   fallback_reason?: string | null;
 }

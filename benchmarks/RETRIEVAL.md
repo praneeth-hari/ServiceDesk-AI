@@ -175,3 +175,5 @@ python -m app.scripts.benchmark_injection --methods nomic-knn --dataset-path dat
 ## 7. Conclusion
 
 `nomic-knn` is significantly better than `hashing-knn` on category and combined accuracy, statistically indistinguishable from `minilm-knn`, needs only Ollama, and shows fewer keyword-stuffing successes in a small sample.
+
+Overall injection robustness is similar: hashing-knn 11/100 and nomic-knn 9/100 attack successes pooled over the dev, held-out v1 and held-out v2 sets (v1 is not independent). The difference is concentrated in keyword stuffing (held-out sets pooled: hashing 7/8, nomic 1/8; pooled after the fact, small n; Fisher p=0.206 on v2 alone; the dev set has 0 lexical_stuffing tickets, so the pooled figure is post hoc). nomic-knn showed one success each in several instruction-style families (polite_request, fake_label, fake_previous_result, instruction_override), where hashing-knn mostly had none (n tiny). Dense retrieval does not remove the need for the LLM-mode defenses.

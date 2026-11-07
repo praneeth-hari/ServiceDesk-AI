@@ -6,7 +6,7 @@ The AI layer provides automated, advisory category and priority suggestions as w
 
 ## How It Works
 
-1. **Text Representation (Embeddings)**: When a ticket is created or updated, its `title` and `description` are embedded into a fixed-dimensional unit-norm (L2-normalized) numerical vector (`app/ai/embedder.py`).
+1. **Text Representation (Embeddings)**: When a ticket is created or updated, its `title` and `description` are embedded into fixed-dimensional unit-norm (L2-normalized) numerical vectors (`app/ai/embedder.py`).
 2. **Fast Cosine Similarity**: Because all vectors are normalized to unit length (`||u||_2 = ||v||_2 = 1`), the cosine similarity between the query text and historical tickets reduces to an ultra-fast dot product:
 
    ```text
@@ -49,7 +49,8 @@ The AI layer provides automated, advisory category and priority suggestions as w
 
 | Setting | Default | Description |
 | :--- | :--- | :--- |
-| `AI_EMBEDDER` | `"hashing"` | Active embedding backend. Valid values are `"hashing"` (default, stored in the database as model name `"hashing-v2"`) and `"sbert"`. |
+| `AI_EMBEDDER` | `"hashing"` | Active embedding backend. Valid values: `"hashing"` (default, stored as `"hashing-v2"`), `"nomic"` (local Ollama `nomic-embed-text`), and `"sbert"`. |
+| `AI_EMBEDDER_TIMEOUT_SECONDS` | `3.0` | Timeout in seconds for embedding calls (e.g. Ollama nomic embedding). |
 | `AI_DUPLICATE_THRESHOLD` | `0.80` | Minimum cosine similarity to flag an unresolved ticket as a duplicate. |
 | `AI_MIN_SIMILARITY` | `0.12` | Minimum cosine similarity required to participate in kNN voting. |
 | `AI_KNN_K` | `5` | Number of nearest neighbours used for category/priority voting. |
@@ -57,15 +58,40 @@ The AI layer provides automated, advisory category and priority suggestions as w
 
 ---
 
-## Optional Dense Embedder (Sentence-Transformers)
+## Dual-Embedding Architecture & Optional Dense Semantic Embedder (Ollama nomic-embed-text)
 
-The default `hashing-v2` backend requires zero downloads or external model weights. sbert is supported as an optional pluggable embedder (requirements-ai.txt) but has not been measured on this dataset:
+### Architecture
+ServiceDesk-AI uses a composite primary key `(ticket_id, model_name)` in the `ticket_embeddings` table (introduced in migration `0012_composite_embedding_pk`).
+- Every ticket **always** maintains its deterministic, zero-dependency `hashing-v2` vector (dim=4096).
+- When `AI_EMBEDDER="nomic"`, an additional 768-dimensional vector produced by `nomic-embed-text` is stored alongside the hashing vector.
+- **Space Isolation**: Vectors from different embedders are NEVER mixed or compared in cosine similarity calculations. All similarity queries strictly filter by `TicketEmbedding.model_name`.
+- **Duplicate Detection & Similar Tickets**: Duplicate detection (`possible_duplicates`), staff similar tickets (`/tickets/{id}/similar`), and LLM RAG candidate retrieval stay on the `hashing-v2` space for stability, safety, and instant performance.
 
-```powershell
-pip install -r requirements-ai.txt
+### Fallback Semantics
+When `AI_EMBEDDER="nomic"`:
+1. **Empty Index (`nomic_no_embeddings`)**: If zero `nomic-embed-text` vectors exist in `ticket_embeddings`, triage immediately falls back to `hashing-v2`. The API returns `embedder: "hashing-v2"` with `embedder_fallback_reason: "nomic_no_embeddings"`.
+2. **Incomplete Index**: If some nomic vectors exist but fewer than hashing vectors, a warning is logged with counts (`Incomplete nomic embedding index: X nomic vectors vs Y hashing vectors`), and triage proceeds using nomic.
+3. **Unreachable / Timeout (`nomic_unreachable`)**: If Ollama is unreachable, returns an error, or times out (>3.0s via `AI_EMBEDDER_TIMEOUT_SECONDS`), a warning is logged, and triage falls back to `hashing-v2`. The API returns `embedder: "hashing-v2"` with `embedder_fallback_reason: "nomic_unreachable"`. (Note: the first request after Ollama has been idle can exceed `AI_EMBEDDER_TIMEOUT_SECONDS` while the embedding model loads, and triage then falls back to hashing with `embedder_fallback_reason="nomic_unreachable"`; later requests use nomic again.)
+4. **Zero-Downtime Ticket Operations**: Ticket creation and updating generate vectors before writing to the database. If Ollama fails, the hashing vector is still written, and ticket persistence succeeds without failure.
+
+### Reindexing CLI
+To rebuild or populate embeddings:
+```bash
+# Reindex all tickets for both hashing and nomic
+python -m app.scripts.reindex_embeddings --embedder all
+
+# Index only nomic embeddings for tickets missing them
+python -m app.scripts.reindex_embeddings --embedder nomic --missing-only
 ```
+Runs in batches of 32 tickets with progress logging.
 
-To use it, set `AI_EMBEDDER=sbert` in `.env`.
+### Ollama Runtime Recommendation
+When running both dense embeddings (`nomic-embed-text`) and LLM triage (`llama3.1:8b` or `qwen2.5:3b`), Ollama should be configured to allow concurrent model residency so embedding calls do not cause thrashing or unloading of the generation model:
+```bash
+# Recommended environment variables for Ollama server
+export OLLAMA_MAX_LOADED_MODELS=2
+export OLLAMA_KEEP_ALIVE=24h
+```
 
 ---
 

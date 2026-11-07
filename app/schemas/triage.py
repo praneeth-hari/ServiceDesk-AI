@@ -30,5 +30,6 @@ class TriageSuggestResponse(BaseModel):
     evidence: list[SimilarTicket] = Field(default_factory=list)
     possible_duplicates: list[SimilarTicket] = Field(default_factory=list)
     embedder: str
+    embedder_fallback_reason: Optional[str] = None
     method: str = "knn"
     fallback_reason: Optional[str] = None

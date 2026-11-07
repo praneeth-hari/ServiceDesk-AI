@@ -95,12 +95,19 @@ class Ticket(Base):
         cascade="all, delete-orphan",
         order_by="TicketStatusHistory.created_at, TicketStatusHistory.id",
     )
-    embedding: Mapped[Optional["TicketEmbedding"]] = relationship(
+    embeddings: Mapped[List["TicketEmbedding"]] = relationship(
         "TicketEmbedding",
         back_populates="ticket",
         cascade="all, delete-orphan",
-        uselist=False,
     )
+
+    @property
+    def embedding(self) -> Optional["TicketEmbedding"]:
+        """Backwards-compatible accessor returning the hashing-v2 embedding."""
+        for emb in self.embeddings:
+            if emb.model_name == "hashing-v2":
+                return emb
+        return None
     triage_feedback: Mapped[Optional["TriageFeedback"]] = relationship(
         "TriageFeedback",
         back_populates="ticket",
