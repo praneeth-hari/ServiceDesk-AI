@@ -5,6 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import settings
 from app.core.security import create_access_token, hash_password
 from app.db.base import Base
 from app.db.session import get_db
@@ -34,6 +35,15 @@ def setup_test_db():
     Base.metadata.create_all(bind=test_engine)
     yield
     Base.metadata.drop_all(bind=test_engine)
+
+
+@pytest.fixture(autouse=True)
+def isolate_ai_settings(monkeypatch):
+    """Ensure test suite runs against default settings regardless of developer's local .env."""
+    monkeypatch.setattr(settings, "AI_EMBEDDER", "hashing")
+    monkeypatch.setattr(settings, "AI_ASSIST_MODE", "off")
+    monkeypatch.setattr(settings, "AI_TRIAGE_MODE", "knn")
+    monkeypatch.setattr(settings, "DEMO_MODE", False)
 
 
 @pytest.fixture

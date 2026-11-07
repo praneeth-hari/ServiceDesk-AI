@@ -26,7 +26,7 @@ from typing import Any, Sequence
 import numpy as np
 
 from app.ai.dataset import TicketExample, load_split
-from app.ai.embedder import get_embedder
+from app.ai.embedder import OllamaEmbedder, get_embedder
 from app.ai.injection_guard import inspect_ticket
 from app.ai.llm_triage import (
     CATEGORIES,
@@ -683,6 +683,151 @@ def run_llm_rag_hashing(
     return predictions
 
 
+def run_llm_rag_nomic(
+    train_tickets: Sequence[TicketExample],
+    test_tickets: Sequence[InjectionTicket],
+    variant: str,  # 'attacked' or 'clean'
+    output_dir: Path,
+    model_name: str = DEFAULT_MODEL,
+    base_url: str = DEFAULT_OLLAMA_URL,
+    resume: bool = True,
+    k: int = 5,
+    min_similarity: float = 0.12,
+    condition: str = "hardened_prompt_only",
+) -> list[dict[str, Any]]:
+    """
+    Execute LLM RAG triage (with nomic-embed-text retrieval and kNN fallback) on injection tickets.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = output_dir / f"cache_llm-rag-nomic_{condition}_{variant}.jsonl"
+
+    cached: dict[str, dict[str, Any]] = {}
+    if resume and cache_path.exists():
+        with open(cache_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line_str = line.strip()
+                if line_str:
+                    try:
+                        rec = json.loads(line_str)
+                        cached[rec["id"]] = rec
+                    except Exception:
+                        pass
+        if cached:
+            print(f"[llm-rag-nomic:{condition}:{variant}] Resumed {len(cached)} cached predictions")
+
+    embedder = OllamaEmbedder(base_url=base_url, variant="classification", timeout=60.0)
+    train_texts = [t.text for t in train_tickets]
+    train_vecs = np.vstack(embedder.embed(train_texts)).astype(np.float32)
+
+    if variant == "clean":
+        test_texts = [t.get_clean_text() for t in test_tickets]
+    else:
+        test_texts = [t.get_attacked_text() for t in test_tickets]
+
+    test_vecs = np.vstack(embedder.embed(test_texts)).astype(np.float32)
+
+    predictions: list[dict[str, Any]] = []
+
+    for i, ticket in enumerate(test_tickets):
+        if ticket.id in cached:
+            predictions.append(cached[ticket.id])
+            continue
+
+        sims = np.dot(train_vecs, test_vecs[i])
+        top5_indices = np.argsort(sims)[::-1][:5]
+        rag_examples = [train_tickets[idx] for idx in top5_indices]
+
+        # Candidate pool for fallback kNN
+        candidates = [
+            {
+                "category": TicketCategory(train_tickets[j].category),
+                "priority": TicketPriority(train_tickets[j].priority),
+                "similarity": float(sims[j]),
+            }
+            for j in range(len(train_tickets))
+        ]
+
+        # Condition 3: Guard active - skip LLM on detection
+        if condition == "hardened_prompt_with_guard":
+            guard_res = inspect_ticket(test_texts[i])
+            if guard_res.is_injection:
+                knn_cat, knn_prio, conf = predict_knn(candidates, k=k, min_similarity=min_similarity)
+                rec = {
+                    "id": ticket.id,
+                    "predicted_category": knn_cat.value if knn_cat else None,
+                    "predicted_priority": knn_prio.value if knn_prio else None,
+                    "raw_llm_category": None,
+                    "raw_llm_priority": None,
+                    "latency_ms": 1.0,
+                    "invalid": False,
+                    "fallback": True,
+                    "fallback_reason": "possible_prompt_injection",
+                    "guard_flagged": True,
+                    "matched_rules": guard_res.matched_rules,
+                }
+                predictions.append(rec)
+                cached[ticket.id] = rec
+                with open(cache_path, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(rec) + "\n")
+                print(
+                    f"[llm-rag-nomic:{condition}:{variant}] ({i + 1}/{len(test_tickets)}) {ticket.id}: "
+                    f"GUARD FLAGGED ({guard_res.matched_rules}) -> kNN fallback [cat={rec['predicted_category']} prio={rec['predicted_priority']}]"
+                )
+                continue
+
+        if condition == "before":
+            user_prompt = build_rag_prompt_v1(test_texts[i], rag_examples)
+            system_prompt = SYSTEM_PROMPT_V1
+        else:
+            user_prompt = build_rag_prompt(test_texts[i], rag_examples)
+            system_prompt = SYSTEM_PROMPT_V2
+
+        llm_cat, llm_prio, latency_ms, is_invalid = call_ollama_chat(
+            model_name=model_name,
+            user_prompt=user_prompt,
+            system_prompt=system_prompt,
+            base_url=base_url,
+        )
+
+        fallback = False
+        fallback_reason = None
+        final_cat = llm_cat
+        final_prio = llm_prio
+
+        if is_invalid:
+            knn_cat, knn_prio, conf = predict_knn(candidates, k=k, min_similarity=min_similarity)
+            final_cat = knn_cat.value if knn_cat else None
+            final_prio = knn_prio.value if knn_prio else None
+            fallback = True
+            fallback_reason = "json_or_schema_error"
+
+        rec = {
+            "id": ticket.id,
+            "predicted_category": final_cat,
+            "predicted_priority": final_prio,
+            "raw_llm_category": llm_cat,
+            "raw_llm_priority": llm_prio,
+            "latency_ms": latency_ms,
+            "invalid": is_invalid,
+            "fallback": fallback,
+            "fallback_reason": fallback_reason,
+            "guard_flagged": False,
+        }
+        predictions.append(rec)
+        cached[ticket.id] = rec
+        with open(cache_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec) + "\n")
+
+        status_str = "FALLBACK" if fallback else ("INVALID" if is_invalid else "OK")
+        print(
+            f"[llm-rag-nomic:{condition}:{variant}] ({i + 1}/{len(test_tickets)}) {ticket.id}: "
+            f"cat={final_cat or 'none'} prio={final_prio or 'none'} "
+            f"({latency_ms:.0f}ms) [{status_str}]"
+        )
+
+    return predictions
+
+
 # ============================================================================
 # Report Generator
 # ============================================================================
@@ -1082,16 +1227,28 @@ def main() -> None:
                 for variant in ("clean", "attacked"):
                     print(f"\n--- Condition: {method} ({cond}) ({variant}) ---")
                     t0 = time.time()
-                    preds = run_llm_rag_hashing(
-                        train_tickets=train_tickets,
-                        test_tickets=injection_tickets,
-                        variant=variant,
-                        output_dir=output_dir,
-                        model_name=args.model,
-                        base_url=args.base_url,
-                        resume=args.resume,
-                        condition=cond,
-                    )
+                    if "nomic" in method:
+                        preds = run_llm_rag_nomic(
+                            train_tickets=train_tickets,
+                            test_tickets=injection_tickets,
+                            variant=variant,
+                            output_dir=output_dir,
+                            model_name=args.model,
+                            base_url=args.base_url,
+                            resume=args.resume,
+                            condition=cond,
+                        )
+                    else:
+                        preds = run_llm_rag_hashing(
+                            train_tickets=train_tickets,
+                            test_tickets=injection_tickets,
+                            variant=variant,
+                            output_dir=output_dir,
+                            model_name=args.model,
+                            base_url=args.base_url,
+                            resume=args.resume,
+                            condition=cond,
+                        )
                     elapsed = time.time() - t0
                     metrics = evaluate_injection_metrics(injection_tickets, preds)
                     all_results[cond_method_key][variant] = {
