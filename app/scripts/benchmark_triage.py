@@ -31,7 +31,7 @@ import urllib.request
 import numpy as np
 
 from app.ai.dataset import TicketExample, load_split
-from app.ai.embedder import get_embedder
+from app.ai.embedder import OllamaEmbedder, get_embedder
 from app.ai.llm_triage import (
     CATEGORIES,
     DEFAULT_MODEL,
@@ -409,7 +409,16 @@ def run_llm_method(
     # If RAG, pre-retrieve top 5 train tickets for each test ticket
     rag_retrieved_examples: list[list[TicketExample]] = []
     if "rag" in method_name:
-        if "hashing" in method_name:
+        if "nomic" in method_name:
+            print(f"[{method_name}] Indexing train split with nomic-embed-text for RAG retrieval...")
+            embedder = OllamaEmbedder(base_url=base_url, variant="classification", timeout=60.0)
+            train_vecs = np.vstack(embedder.embed([t.text for t in train_tickets])).astype(np.float32)
+            test_vecs = np.vstack(embedder.embed([t.text for t in test_tickets])).astype(np.float32)
+            for i in range(len(test_tickets)):
+                sims = np.dot(train_vecs, test_vecs[i])
+                top5_indices = np.argsort(sims)[::-1][:5]
+                rag_retrieved_examples.append([train_tickets[idx] for idx in top5_indices])
+        elif "hashing" in method_name or method_name == "llm-rag":
             print(f"[{method_name}] Indexing train split with hashing-v2 for RAG retrieval...")
             embedder = get_embedder("hashing-v2")
             train_vecs = np.vstack(embedder.embed([t.text for t in train_tickets])).astype(np.float32)
