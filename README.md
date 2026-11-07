@@ -214,6 +214,28 @@ The service exposes `POST /api/v1/triage/suggest` (advisory triage and duplicate
 On the earlier small evaluation set (`data/triage_eval.csv`, 24 test tickets), category accuracy reached 58.33% vs 16.67% random chance (see [AI triage evaluation](#ai-triage-evaluation) below for the current benchmark on ServiceDesk-600).
 Full details: [docs/AI_TRIAGE.md](docs/AI_TRIAGE.md).
 
+### Optional Dense Semantic Embeddings (nomic-embed-text)
+
+While ServiceDesk-AI defaults to deterministic lexical embeddings (`hashing-v2`), you can optionally use local dense semantic embeddings via Ollama (`nomic-embed-text`):
+
+1. Pull the embedding model:
+   ```bash
+   ollama pull nomic-embed-text
+   ```
+2. Set in `.env`:
+   ```bash
+   AI_EMBEDDER=nomic
+   AI_EMBEDDER_TIMEOUT_SECONDS=3.0
+   ```
+3. Reindex existing tickets:
+   ```bash
+   python -m app.scripts.reindex_embeddings --embedder nomic
+   ```
+
+- **Dual Embeddings**: Under migration `0012`, `ticket_embeddings` uses composite primary key `(ticket_id, model_name)`. Every ticket always keeps its `hashing-v2` vector; when nomic is enabled, the 768-dim nomic vector is stored in addition.
+- **Resilience & Fallback**: If Ollama is unreachable, times out, or has zero nomic embeddings, kNN triage seamlessly falls back to `hashing-v2` (`embedder_fallback_reason: "nomic_unreachable"` or `"nomic_no_embeddings"`). Note that the first request after Ollama has been idle can exceed `AI_EMBEDDER_TIMEOUT_SECONDS` while the embedding model loads, and triage then falls back to hashing with `embedder_fallback_reason="nomic_unreachable"`; later requests use nomic again. Ticket creation and updates never fail if Ollama is down.
+- **Scope**: Similar tickets (`GET /api/v1/tickets/{id}/similar`) and duplicate detection (`possible_duplicates`) stay on `hashing-v2`.
+
 ### AI Ticket Assist (Summary & Draft Reply)
 
 On the ticket detail page, support staff (`agent` and `admin` roles) can optionally invoke on-demand AI assist powered by local Ollama (`AI_ASSIST_MODE=ollama`, off by default):

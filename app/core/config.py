@@ -39,6 +39,7 @@ class Settings(BaseSettings):
 
     # AI Triage and Duplicate Detection Settings
     AI_EMBEDDER: str = "hashing"
+    AI_EMBEDDER_TIMEOUT_SECONDS: float = 3.0
     AI_DUPLICATE_THRESHOLD: float = 0.80
     AI_MIN_SIMILARITY: float = 0.12
     AI_KNN_K: int = 5
@@ -113,9 +114,13 @@ class Settings(BaseSettings):
             )
 
         # 4. AI Triage Settings validation
-        if self.AI_EMBEDDER not in ("hashing", "hashing-v2", "sbert"):
+        if self.AI_EMBEDDER not in ("hashing", "hashing-v2", "sbert", "nomic", "nomic-embed-text"):
             raise ValueError(
-                f"AI_EMBEDDER must be 'hashing', 'hashing-v2', or 'sbert', got '{self.AI_EMBEDDER}'"
+                f"AI_EMBEDDER must be 'hashing', 'hashing-v2', 'sbert', or 'nomic', got '{self.AI_EMBEDDER}'"
+            )
+        if self.AI_EMBEDDER_TIMEOUT_SECONDS <= 0:
+            raise ValueError(
+                f"AI_EMBEDDER_TIMEOUT_SECONDS must be positive, got {self.AI_EMBEDDER_TIMEOUT_SECONDS}"
             )
 
         # 5. LLM Triage Settings validation

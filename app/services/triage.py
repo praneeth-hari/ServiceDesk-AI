@@ -154,37 +154,104 @@ def sync_ticket_embedding(
     embedder: Optional[Embedder] = None,
 ) -> None:
     """
-    Generate and upsert embedding for the given ticket using the active embedder.
-    Catches all exceptions, logs a warning, and carries on so ticket operations never fail.
+    Generate and upsert embedding for the given ticket.
+    - Always generates and stores the hashing-v2 vector.
+    - If AI_EMBEDDER is nomic (or embedder passed is nomic), ALSO generates and stores
+      the nomic vector.
+    - Embeddings are computed BEFORE entering the database write section to ensure no
+      external Ollama calls occur inside an open DB write transaction.
+    - Clean upsert on composite primary key (ticket_id, model_name).
+    - If nomic generation fails (Ollama unreachable, times out at 3.0s, or returns empty),
+      logs a warning and continues so the hashing-v2 vector is always written and ticket
+      operations never fail.
     """
+    vectors_to_write: list[tuple[str, np.ndarray]] = []
+    text = get_text_to_embed(ticket.title, ticket.description)
+    if not text:
+        return
+
+    # 1. Always compute hashing-v2 vector
     try:
-        active_embedder = embedder or get_embedder()
-        text = get_text_to_embed(ticket.title, ticket.description)
-        vectors = active_embedder.embed([text])
-        if not vectors:
-            return
+        hashing_embedder = get_embedder("hashing")
+        h_vecs = hashing_embedder.embed([text])
+        if h_vecs:
+            vectors_to_write.append((hashing_embedder.name, h_vecs[0].astype(np.float32)))
+    except Exception as exc:
+        logger.warning(
+            "Failed to compute hashing-v2 embedding for ticket %s: %s",
+            getattr(ticket, "id", None),
+            exc,
+            exc_info=True,
+        )
 
-        vec = vectors[0].astype(np.float32)
-        existing = db.get(TicketEmbedding, ticket.id)
-        now = datetime.now(timezone.utc)
+    # 2. Check if nomic is active or requested
+    is_nomic = False
+    nomic_embedder = None
+    if embedder is not None and getattr(embedder, "name", "") == "nomic-embed-text":
+        is_nomic = True
+        nomic_embedder = embedder
+    elif embedder is None and getattr(settings, "AI_EMBEDDER", "hashing") in ("nomic", "nomic-embed-text"):
+        is_nomic = True
+        try:
+            nomic_embedder = get_embedder("nomic")
+        except Exception as exc:
+            logger.warning("Could not initialize nomic embedder: %s", exc)
 
-        if existing:
-            existing.model_name = active_embedder.name
-            existing.dim = int(vec.shape[0])
-            existing.vector = vec.tobytes()
-            existing.updated_at = now
-        else:
-            emb = TicketEmbedding.from_numpy(
-                ticket_id=ticket.id,
-                model_name=active_embedder.name,
-                vec=vec,
-                updated_at=now,
+    if is_nomic and nomic_embedder is not None:
+        try:
+            if hasattr(nomic_embedder, "embed_documents"):
+                n_vecs = nomic_embedder.embed_documents([text])
+            else:
+                n_vecs = nomic_embedder.embed([text])
+            if n_vecs:
+                vectors_to_write.append((nomic_embedder.name, n_vecs[0].astype(np.float32)))
+            else:
+                logger.warning("Nomic embedder returned empty vectors for ticket %s", getattr(ticket, "id", None))
+        except Exception as exc:
+            logger.warning(
+                "Failed to compute nomic embedding for ticket %s: %s",
+                getattr(ticket, "id", None),
+                exc,
             )
-            db.add(emb)
+
+    # 3. If an explicit custom embedder was passed (e.g. sbert) that is neither hashing nor nomic
+    if embedder is not None and getattr(embedder, "name", "") not in ("hashing-v2", "nomic-embed-text"):
+        try:
+            c_vecs = embedder.embed([text])
+            if c_vecs:
+                vectors_to_write.append((embedder.name, c_vecs[0].astype(np.float32)))
+        except Exception as exc:
+            logger.warning(
+                "Failed to compute %s embedding for ticket %s: %s",
+                getattr(embedder, "name", "custom"),
+                getattr(ticket, "id", None),
+                exc,
+            )
+
+    if not vectors_to_write:
+        return
+
+    # Write to database (clean upsert on (ticket_id, model_name))
+    try:
+        now = datetime.now(timezone.utc)
+        for model_name, vec in vectors_to_write:
+            existing = db.get(TicketEmbedding, (ticket.id, model_name))
+            if existing:
+                existing.dim = int(vec.shape[0])
+                existing.vector = vec.tobytes()
+                existing.updated_at = now
+            else:
+                emb = TicketEmbedding.from_numpy(
+                    ticket_id=ticket.id,
+                    model_name=model_name,
+                    vec=vec,
+                    updated_at=now,
+                )
+                db.add(emb)
         db.flush()
     except Exception as exc:
         logger.warning(
-            "Failed to sync embedding for ticket %s: %s",
+            "Failed to save embeddings for ticket %s: %s",
             getattr(ticket, "id", None),
             exc,
             exc_info=True,
@@ -211,6 +278,14 @@ def _compute_cosine_similarities(
     metadata = []
     for emb, ticket in candidate_records:
         vec = emb.get_numpy_vector()
+        if vec.shape[0] != query_vector.shape[0]:
+            logger.warning(
+                "Skipping embedding for ticket %s: vector dim %d does not match query dim %d",
+                getattr(ticket, "id", None),
+                vec.shape[0],
+                query_vector.shape[0],
+            )
+            continue
         vectors.append(vec)
         metadata.append(ticket)
 
@@ -250,17 +325,22 @@ def find_similar(
 ) -> list[dict[str, Any]]:
     """
     Find stored tickets most similar to the given text using cosine similarity.
+    - Default to hashing-v2. If someone explicitly passes an embedder, use that embedder
+      and its matching model_name rows.
     - Limits candidate search to the most recent AI_MAX_CANDIDATES with matching model_name.
     - Privacy rule: Requesters only receive their own tickets. Agents and admins see all.
     - Excludes exclude_ticket_id if specified.
     """
-    active_embedder = embedder or get_embedder()
-    vectors = active_embedder.embed([text])
+    active_embedder = embedder if embedder is not None else get_embedder("hashing")
+    if hasattr(active_embedder, "embed_query"):
+        vectors = active_embedder.embed_query([text])
+    else:
+        vectors = active_embedder.embed([text])
     if not vectors:
         return []
     query_vec = vectors[0]
 
-    # Query embeddings with tickets
+    # Query embeddings with tickets matching the active embedder's model_name
     stmt = (
         sa.select(TicketEmbedding, Ticket)
         .join(Ticket, TicketEmbedding.ticket_id == Ticket.id)
@@ -294,18 +374,25 @@ def suggest(
     Advisory AI triage suggestions and duplicate detection.
 
     1. Category & Priority Suggestion:
-       - Similarity-weighted vote over top AI_KNN_K neighbours among resolved or closed tickets
-         with similarity >= AI_MIN_SIMILARITY.
-       - The vote uses all resolved/closed tickets (aggregated only).
-       - The returned evidence list strictly respects privacy (requester sees only their own tickets).
+       - Uses nomic-embed-text if AI_EMBEDDER == "nomic" (or embedder passed is nomic) and
+         nomic index is non-empty and Ollama is reachable within timeout (3.0s).
+       - Falls back to hashing-v2 if nomic has zero vectors in DB (embedder_fallback_reason="nomic_no_embeddings")
+         or if Ollama is unreachable/times out (embedder_fallback_reason="nomic_unreachable").
+       - Predicts via similarity-weighted vote over top AI_KNN_K neighbours among resolved or closed
+         tickets with similarity >= AI_MIN_SIMILARITY in the active embedder's space.
     2. Duplicate Detection:
+       - Always evaluated in the hashing-v2 space with hashing-v2 query vector.
        - Open, in_progress, or waiting_on_requester tickets with similarity >= AI_DUPLICATE_THRESHOLD.
-       - Privacy rule strictly applies: requesters only see their own potential duplicates.
+    3. LLM-Assisted Triage:
+       - RAG examples stay on the hashing-v2 space.
     """
-    active_embedder = embedder or get_embedder()
+    requested_embedder = embedder or get_embedder()
+    is_nomic_requested = (requested_embedder.name == "nomic-embed-text") or (
+        embedder is None and getattr(settings, "AI_EMBEDDER", "hashing") in ("nomic", "nomic-embed-text")
+    )
+
     text = get_text_to_embed(title, description)
-    vectors = active_embedder.embed([text])
-    if not vectors:
+    if not text:
         if settings.AI_TRIAGE_MODE == "llm" and log_telemetry:
             _log_llm_triage_telemetry(
                 db=db,
@@ -319,27 +406,109 @@ def suggest(
             "confidence": 0.0,
             "evidence": [],
             "possible_duplicates": [],
-            "embedder": active_embedder.name,
+            "embedder": requested_embedder.name,
+            "embedder_fallback_reason": None,
             "method": "knn",
             "fallback_reason": ("No text to embed" if settings.AI_TRIAGE_MODE == "llm" else None),
         }
-    query_vec = vectors[0]
 
-    # Fetch candidate pool (up to AI_MAX_CANDIDATES) for active embedder
-    stmt = (
+    # Hashing space is always computed for duplicate detection, LLM RAG examples, and kNN fallback
+    hashing_embedder = get_embedder("hashing")
+    hashing_vectors = hashing_embedder.embed([text])
+    hashing_query_vec = hashing_vectors[0] if hashing_vectors else None
+
+    hashing_stmt = (
         sa.select(TicketEmbedding, Ticket)
         .join(Ticket, TicketEmbedding.ticket_id == Ticket.id)
-        .where(TicketEmbedding.model_name == active_embedder.name)
+        .where(TicketEmbedding.model_name == "hashing-v2")
         .order_by(Ticket.id.desc())
         .limit(settings.AI_MAX_CANDIDATES)
     )
-    records = db.execute(stmt).all()
-    all_scored = _compute_cosine_similarities(query_vec, records)
+    hashing_records = db.execute(hashing_stmt).all()
+    hashing_scored = (
+        _compute_cosine_similarities(hashing_query_vec, hashing_records)
+        if hashing_query_vec is not None
+        else []
+    )
+
+    embedder_fallback_reason: Optional[str] = None
+    knn_scored = hashing_scored
+    active_embedder_name = "hashing-v2"
+
+    if is_nomic_requested:
+        hashing_count = db.scalar(
+            sa.select(sa.func.count(TicketEmbedding.ticket_id)).where(TicketEmbedding.model_name == "hashing-v2")
+        ) or 0
+        nomic_count = db.scalar(
+            sa.select(sa.func.count(TicketEmbedding.ticket_id)).where(TicketEmbedding.model_name == "nomic-embed-text")
+        ) or 0
+
+        if nomic_count == 0:
+            logger.warning(
+                "No nomic-embed-text embeddings found in database (%d hashing exist); falling back to hashing-v2",
+                hashing_count,
+            )
+            embedder_fallback_reason = "nomic_no_embeddings"
+            active_embedder_name = "hashing-v2"
+            knn_scored = hashing_scored
+        else:
+            if nomic_count < hashing_count:
+                logger.warning(
+                    "Incomplete nomic embedding index: %d nomic vectors vs %d hashing vectors",
+                    nomic_count,
+                    hashing_count,
+                )
+            try:
+                nomic_embedder = (
+                    requested_embedder
+                    if requested_embedder.name == "nomic-embed-text"
+                    else get_embedder("nomic")
+                )
+                if hasattr(nomic_embedder, "embed_query"):
+                    n_vectors = nomic_embedder.embed_query([text])
+                else:
+                    n_vectors = nomic_embedder.embed([text])
+                if not n_vectors:
+                    raise RuntimeError("Empty vector returned by nomic embedder")
+                nomic_query_vec = n_vectors[0]
+
+                nomic_stmt = (
+                    sa.select(TicketEmbedding, Ticket)
+                    .join(Ticket, TicketEmbedding.ticket_id == Ticket.id)
+                    .where(TicketEmbedding.model_name == "nomic-embed-text")
+                    .order_by(Ticket.id.desc())
+                    .limit(settings.AI_MAX_CANDIDATES)
+                )
+                nomic_records = db.execute(nomic_stmt).all()
+                knn_scored = _compute_cosine_similarities(nomic_query_vec, nomic_records)
+                active_embedder_name = "nomic-embed-text"
+                embedder_fallback_reason = None
+            except Exception as exc:
+                logger.warning(
+                    "Nomic embedder failed (%s); falling back to hashing-v2",
+                    exc,
+                )
+                embedder_fallback_reason = "nomic_unreachable"
+                active_embedder_name = "hashing-v2"
+                knn_scored = hashing_scored
+    elif requested_embedder.name != "hashing-v2":
+        custom_vectors = requested_embedder.embed([text])
+        if custom_vectors:
+            c_stmt = (
+                sa.select(TicketEmbedding, Ticket)
+                .join(Ticket, TicketEmbedding.ticket_id == Ticket.id)
+                .where(TicketEmbedding.model_name == requested_embedder.name)
+                .order_by(Ticket.id.desc())
+                .limit(settings.AI_MAX_CANDIDATES)
+            )
+            c_records = db.execute(c_stmt).all()
+            knn_scored = _compute_cosine_similarities(custom_vectors[0], c_records)
+            active_embedder_name = requested_embedder.name
 
     # 1. kNN Suggestion Candidates: resolved or closed tickets
     resolved_candidates = [
         c
-        for c in all_scored
+        for c in knn_scored
         if c["status"] in (TicketStatus.RESOLVED, TicketStatus.CLOSED)
         and c["similarity"] >= settings.AI_MIN_SIMILARITY
     ]
@@ -359,14 +528,21 @@ def suggest(
         evidence = top_neighbours
 
     # 2. Duplicate Detection: open, in_progress, or waiting_on_requester
+    # Defaults to hashing-v2 space (nomic never used for duplicates).
+    # If a custom embedder (e.g. FakeEmbedder in tests) was explicitly passed, uses its scored pool.
     unresolved_statuses = (
         TicketStatus.OPEN,
         TicketStatus.IN_PROGRESS,
         TicketStatus.WAITING_ON_REQUESTER,
     )
+    dup_pool = (
+        knn_scored
+        if requested_embedder.name not in ("hashing-v2", "nomic-embed-text")
+        else hashing_scored
+    )
     duplicate_candidates = [
         c
-        for c in all_scored
+        for c in dup_pool
         if c["status"] in unresolved_statuses
         and c["similarity"] >= settings.AI_DUPLICATE_THRESHOLD
     ]
@@ -402,7 +578,15 @@ def suggest(
             )
         else:
             try:
-                rag_examples = resolved_candidates[: settings.AI_LLM_EXAMPLES]
+                # LLM RAG examples stay on the hashing-v2 candidate pool
+                hashing_resolved = [
+                    c
+                    for c in hashing_scored
+                    if c["status"] in (TicketStatus.RESOLVED, TicketStatus.CLOSED)
+                    and c["similarity"] >= settings.AI_MIN_SIMILARITY
+                ]
+                hashing_resolved.sort(key=lambda c: c["similarity"], reverse=True)
+                rag_examples = hashing_resolved[: settings.AI_LLM_EXAMPLES]
 
                 llm_cat, llm_prio, latency_ms, error_reason = triage_with_llm(
                     ticket_text=ticket_text,
@@ -449,7 +633,8 @@ def suggest(
         "confidence": confidence,
         "evidence": evidence,
         "possible_duplicates": duplicates,
-        "embedder": active_embedder.name,
+        "embedder": active_embedder_name,
+        "embedder_fallback_reason": embedder_fallback_reason,
         "method": method,
         "fallback_reason": fallback_reason,
     }

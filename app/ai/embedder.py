@@ -171,6 +171,7 @@ class OllamaEmbedder:
         batch_size: int = 32,
         digest: Optional[str] = None,
         version: Optional[str] = None,
+        timeout: Optional[float] = None,
     ) -> None:
         self._name = "nomic-embed-text"
         self._model_name = model_name
@@ -187,6 +188,7 @@ class OllamaEmbedder:
         self._dim = 768
         self._digest = digest
         self._version = version
+        self._timeout = float(timeout if timeout is not None else getattr(settings, 'AI_EMBEDDER_TIMEOUT_SECONDS', 3.0))
         self._cache_dir = Path(cache_dir) if cache_dir is not None else Path(".cache") / "embeddings"
         self._cache_db_path = self._cache_dir / "cache.sqlite3"
         self._db_initialized = False
@@ -232,7 +234,7 @@ class OllamaEmbedder:
     def _fetch_model_metadata(self) -> None:
         try:
             req_v = urllib.request.Request(f"{self._base_url}/api/version")
-            with urllib.request.urlopen(req_v, timeout=5) as resp:
+            with urllib.request.urlopen(req_v, timeout=self._timeout) as resp:
                 v_data = json.loads(resp.read().decode("utf-8"))
                 self._version = v_data.get("version", "unknown")
         except urllib.error.URLError as exc:
@@ -244,7 +246,7 @@ class OllamaEmbedder:
 
         try:
             req_t = urllib.request.Request(f"{self._base_url}/api/tags")
-            with urllib.request.urlopen(req_t, timeout=5) as resp:
+            with urllib.request.urlopen(req_t, timeout=self._timeout) as resp:
                 t_data = json.loads(resp.read().decode("utf-8"))
                 models = t_data.get("models", [])
                 match = None
@@ -356,7 +358,7 @@ class OllamaEmbedder:
             headers={"Content-Type": "application/json"},
         )
         try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 return data.get("embeddings", [])
         except urllib.error.HTTPError as exc:

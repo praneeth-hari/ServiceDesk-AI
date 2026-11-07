@@ -138,7 +138,7 @@ def test_config_ai_settings_validation():
     assert s.AI_EMBEDDER == "hashing"
 
     # Invalid embedder
-    with pytest.raises(ValueError, match="AI_EMBEDDER must be 'hashing', 'hashing-v2', or 'sbert'"):
+    with pytest.raises(ValueError, match=r"AI_EMBEDDER must be 'hashing', 'hashing-v2', 'sbert', or 'nomic'"):
         Settings(AI_EMBEDDER="word2vec")
 
     # Invalid min similarity
@@ -411,7 +411,7 @@ def test_ticket_creation_and_update_embedding_sync(db_session: Session, admin_us
         priority=TicketPriority.MEDIUM,
     )
     ticket = create_ticket(db_session, ticket_in, admin_user)
-    emb = db_session.get(TicketEmbedding, ticket.id)
+    emb = db_session.get(TicketEmbedding, (ticket.id, get_embedder().name))
     assert emb is not None
     assert emb.model_name == get_embedder().name
     original_vector = emb.vector
@@ -419,13 +419,13 @@ def test_ticket_creation_and_update_embedding_sync(db_session: Session, admin_us
     # 1. Update only priority or category -> text did not change, embedding unchanged
     update_cat = TicketUpdate(category=TicketCategory.OTHER)
     update_ticket(db_session, ticket.id, update_cat, admin_user)
-    emb_after_cat = db_session.get(TicketEmbedding, ticket.id)
+    emb_after_cat = db_session.get(TicketEmbedding, (ticket.id, get_embedder().name))
     assert emb_after_cat.vector == original_vector
 
     # 2. Update title -> embedding is refreshed
     update_title = TicketUpdate(title="Updated Title Printer Paper Jam")
     update_ticket(db_session, ticket.id, update_title, admin_user)
-    emb_after_title = db_session.get(TicketEmbedding, ticket.id)
+    emb_after_title = db_session.get(TicketEmbedding, (ticket.id, get_embedder().name))
     assert emb_after_title.vector != original_vector
 
 
@@ -478,7 +478,7 @@ def test_reindex_embeddings_script(db_session: Session, agent_user: User):
     with patch("app.scripts.reindex_embeddings.SessionLocal", side_effect=mock_session_local):
         exit_code = reindex_embeddings()
         assert exit_code == 0
-        emb = db_session.get(TicketEmbedding, target_id)
+        emb = db_session.get(TicketEmbedding, (target_id, "hashing-v2"))
         assert emb is not None
 
 

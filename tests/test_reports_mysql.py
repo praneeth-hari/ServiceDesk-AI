@@ -1,9 +1,11 @@
+import numpy as np
 from datetime import datetime, timedelta, timezone
 import os
 import pytest
 import sqlalchemy as sa
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.models.embedding import TicketEmbedding
 from app.models.enums import TicketCategory, TicketPriority, TicketStatus, UserRole
 from app.models.history import TicketStatusHistory
 from app.models.ticket import Ticket
@@ -339,7 +341,7 @@ def test_mysql_ai_triage_and_embeddings(mysql_session: Session):
     sync_ticket_embedding(mysql_session, ticket)
     mysql_session.flush()
 
-    emb = mysql_session.get(TicketEmbedding, ticket.id)
+    emb = mysql_session.get(TicketEmbedding, (ticket.id, "hashing-v2"))
     assert emb is not None
     active_embedder = get_embedder()
     assert emb.model_name == active_embedder.name
@@ -360,7 +362,7 @@ def test_mysql_ai_triage_and_embeddings(mysql_session: Session):
     # 3. Test ON DELETE CASCADE from Ticket to TicketEmbedding in MySQL 8
     mysql_session.delete(ticket)
     mysql_session.flush()
-    emb_after_del = mysql_session.get(TicketEmbedding, ticket.id)
+    emb_after_del = mysql_session.get(TicketEmbedding, (ticket.id, "hashing-v2"))
     assert emb_after_del is None
 
 
@@ -453,3 +455,109 @@ def test_mysql_ai_quality_report(mysql_session: Session):
         sa.select(TriageFeedback).where(TriageFeedback.ticket_id == ticket.id)
     ).first()
     assert fb_after is None
+
+def test_mysql_composite_embeddings(mysql_session: Session):
+    """
+    Integration test verifying MySQL composite primary key (ticket_id, model_name) on ticket_embeddings.
+    Asserts two embeddings with different model_names can coexist for one ticket,
+    and deleting the ticket cascades cleanly in MySQL.
+    """
+    now = datetime.now(timezone.utc)
+    user = User(
+        email="mysql_emb_user@example.com",
+        full_name="MySQL Emb User",
+        hashed_password="hash",
+        role=UserRole.REQUESTER,
+        is_active=True,
+        created_at=now,
+    )
+    mysql_session.add(user)
+    mysql_session.flush()
+
+    ticket = Ticket(
+        title="MySQL Embedding Test Ticket",
+        description="Testing composite PK in MySQL",
+        status=TicketStatus.OPEN,
+        priority=TicketPriority.MEDIUM,
+        category=TicketCategory.NETWORK,
+        requester_id=user.id,
+        created_at=now,
+        updated_at=now,
+    )
+    mysql_session.add(ticket)
+    mysql_session.flush()
+
+    v_h = np.ones(4096, dtype=np.float32) / np.sqrt(4096)
+    v_n = np.ones(768, dtype=np.float32) / np.sqrt(768)
+
+    emb_h = TicketEmbedding.from_numpy(
+        ticket_id=ticket.id,
+        model_name="hashing-v2",
+        vec=v_h,
+        updated_at=now,
+    )
+    emb_n = TicketEmbedding.from_numpy(
+        ticket_id=ticket.id,
+        model_name="nomic-embed-text",
+        vec=v_n,
+        updated_at=now,
+    )
+    mysql_session.add(emb_h)
+    mysql_session.add(emb_n)
+    mysql_session.flush()
+
+    # Query both back
+    h_db = mysql_session.get(TicketEmbedding, (ticket.id, "hashing-v2"))
+    n_db = mysql_session.get(TicketEmbedding, (ticket.id, "nomic-embed-text"))
+
+    assert h_db is not None
+    assert h_db.dim == 4096
+    assert n_db is not None
+    assert n_db.dim == 768
+
+    all_embs = mysql_session.scalars(
+        sa.select(TicketEmbedding).where(TicketEmbedding.ticket_id == ticket.id)
+    ).all()
+    assert len(all_embs) == 2
+
+    # Verify CASCADE delete in MySQL
+    mysql_session.delete(ticket)
+    mysql_session.flush()
+    embs_after = mysql_session.scalars(
+        sa.select(TicketEmbedding).where(TicketEmbedding.ticket_id == ticket.id)
+    ).all()
+    assert len(embs_after) == 0
+
+
+def test_mysql_migration_0012_up_down(monkeypatch):
+    """
+    Verify Alembic migration 0012 upgrade and downgrade against real MySQL.
+    """
+    import alembic.config
+    import alembic.command
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATABASE_URL", TEST_MYSQL_URL)
+    cfg = alembic.config.Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", TEST_MYSQL_URL)
+
+    # 1. Downgrade to 0011
+    alembic.command.downgrade(cfg, "0011")
+
+    engine = sa.create_engine(TEST_MYSQL_URL)
+    with engine.connect() as conn:
+        res = conn.execute(sa.text("DESCRIBE ticket_embeddings")).fetchall()
+        col_keys = {row[0]: row[3] for row in res}
+        assert col_keys["ticket_id"] == "PRI"
+        assert col_keys["model_name"] != "PRI"
+
+    # 2. Upgrade to head (0012)
+    alembic.command.upgrade(cfg, "head")
+
+    with engine.connect() as conn:
+        res = conn.execute(sa.text("DESCRIBE ticket_embeddings")).fetchall()
+        col_keys = {row[0]: row[3] for row in res}
+        assert col_keys["ticket_id"] == "PRI"
+        assert col_keys["model_name"] == "PRI"
+
+
