@@ -249,6 +249,7 @@ def main() -> None:
         f"- Across the 120 tickets, **{diff_any_12}/120 tickets changed outputs** between Run 1 and Run 2 ({diff_cat_12} category, {diff_prio_12} priority).",
         f"- The priority accuracy difference between nomic and hashing ($b={b_prio}, c={c_prio}$, {b_prio+c_prio} discordant pairs) is of the same order as this run-to-run noise.",
         "- The cause of the non-determinism was not investigated.",
+        "- The run-2 per-ticket file was reconstructed from the saved run log (task log), not written by the benchmark itself.",
         "",
         "---",
         "",

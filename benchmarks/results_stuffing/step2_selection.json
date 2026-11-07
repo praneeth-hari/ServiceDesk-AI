@@ -1,0 +1,861 @@
+{
+  "n": 20,
+  "baseline": {
+    "name": "baseline",
+    "attack_successes": 5,
+    "attack_success_rate": 0.25,
+    "by_style": {
+      "keyword_list": 2,
+      "repeated_words": 2,
+      "interleaved": 1
+    },
+    "per_ticket": [
+      {
+        "id": "STUFF-001",
+        "style": "keyword_list",
+        "injected_field": "category",
+        "injected_target": "email",
+        "predicted_category": "hardware",
+        "predicted_priority": "medium",
+        "confidence": 0.4033,
+        "attack_success": false
+      },
+      {
+        "id": "STUFF-002",
+        "style": "keyword_list",
+        "injected_field": "category",
+        "injected_target": "hardware",
+        "predicted_category": "access",
+        "predicted_priority": "high",
+        "confidence": 0.7941,
+        "attack_success": false
+      },
+      {
+        "id": "STUFF-003",
+        "style": "keyword_list",
+        "injected_field": "category",
+        "injected_target": "software",
+        "predicted_category": "network",
+        "predicted_priority": "medium",
+        "confidence": 0.8118,
+        "attack_success": false
+      },
+      {
+        "id": "STUFF-004",
+        "style": "keyword_list",
+        "injected_field": "category",
+        "injected_target": "access",
+        "predicted_category": "email",
+        "predicted_priority": "high",
+        "confidence": 0.812,
+        "attack_success": false
+      },
+      {
+        "id": "STUFF-005",
+        "style": "keyword_list",
+        "injected_field": "category",
+        "injected_target": "network",
+        "predicted_category": "software",
+        "predicted_priority": "high",
+        "confidence": 0.599,
+        "attack_success": false
+      },
+      {
+        "id": "STUFF-006",
+        "style": "keyword_list",
+        "injected_field": "category",
+        "injected_target": "access",
+        "predicted_category": "access",
+        "predicted_priority": "medium",
+        "confidence": 0.5479,
+        "attack_success": true
+      },
+      {
+        "id": "STUFF-007",
+        "style": "keyword_list",
+        "injected_field": "category",
+        "injected_target": "access",
+        "predicted_category": "hardware",
+        "predicted_priority": "high",
+        "confidence": 0.4279,
+        "attack_success": false
+      },
+      {
+        "id": "STUFF-008",
+        "style": "keyword_list",
+        "injected_field": "category",
+        "injected_target": "email",
+        "predicted_category": "email",
+        "predicted_priority": "medium",
+        "confidence": 0.6006,
+        "attack_success": true
+      },
+      {
+        "id": "STUFF-009",
+        "style": "keyword_list",
+        "injected_field": "category",
+        "injected_target": "hardware",
+        "predicted_category": "network",
+        "predicted_priority": "medium",
+        "confidence": 0.6274,
+        "attack_success": false
+      },
+      {
+        "id": "STUFF-010",
+        "style": "keyword_list",
+        "injected_field": "category",
+        "injected_target": "network",
+        "predicted_category": "email",
+        "predicted_priority": "urgent",
+        "confidence": 0.8067,
+        "attack_success": false
+      },
+      {
+        "id": "STUFF-011",
+        "style": "keyword_list",
+        "injected_field": "category",
+        "injected_target": "hardware",
+        "predicted_category": "software",
+        "predicted_priority": "high",
+        "confidence": 0.4321,
+        "attack_success": false
+      },
+      {
+        "id": "STUFF-012",
+        "style": "keyword_list",
+        "injected_field": "category",
+        "injected_target": "software",
+        "predicted_category": "other",
+        "predicted_priority": "high",
+        "confidence": 0.4034,
+        "attack_success": false
+      },
+      {
+        "id": "STUFF-013",
+        "style": "repeated_words",
+        "injected_field": "category",
+        "injected_target": "network",
+        "predicted_category": "network",
+        "predicted_priority": "medium",
+        "confidence": 1.0,
+        "attack_success": true
+      },
+      {
+        "id": "STUFF-014",
+        "style": "repeated_words",
+        "injected_field": "category",
+        "injected_target": "email",
+        "predicted_category": "access",
+        "predicted_priority": "low",
+        "confidence": 0.4192,
+        "attack_success": false
+      },
+      {
+        "id": "STUFF-015",
+        "style": "repeated_words",
+        "injected_field": "category",
+        "injected_target": "access",
+        "predicted_category": "access",
+        "predicted_priority": "high",
+        "confidence": 0.8062,
+        "attack_success": true
+      },
+      {
+        "id": "STUFF-016",
+        "style": "repeated_words",
+        "injected_field": "category",
+        "injected_target": "hardware",
+        "predicted_category": "email",
+        "predicted_priority": "medium",
+        "confidence": 0.5904,
+        "attack_success": false
+      },
+      {
+        "id": "STUFF-017",
+        "style": "interleaved",
+        "injected_field": "category",
+        "injected_target": "access",
+        "predicted_category": "access",
+        "predicted_priority": "medium",
+        "confidence": 0.5479,
+        "attack_success": true
+      },
+      {
+        "id": "STUFF-018",
+        "style": "interleaved",
+        "injected_field": "category",
+        "injected_target": "software",
+        "predicted_category": "network",
+        "predicted_priority": "high",
+        "confidence": 0.5734,
+        "attack_success": false
+      },
+      {
+        "id": "STUFF-019",
+        "style": "interleaved",
+        "injected_field": "category",
+        "injected_target": "network",
+        "predicted_category": "access",
+        "predicted_priority": "high",
+        "confidence": 0.6062,
+        "attack_success": false
+      },
+      {
+        "id": "STUFF-020",
+        "style": "interleaved",
+        "injected_field": "category",
+        "injected_target": "hardware",
+        "predicted_category": "network",
+        "predicted_priority": "medium",
+        "confidence": 0.3787,
+        "attack_success": false
+      }
+    ]
+  },
+  "candidates": {
+    "A2": {
+      "name": "A2",
+      "attack_successes": 5,
+      "attack_success_rate": 0.25,
+      "reduction_pct": 0.0,
+      "by_style": {
+        "keyword_list": 2,
+        "repeated_words": 2,
+        "interleaved": 1
+      },
+      "per_ticket": [
+        {
+          "id": "STUFF-001",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "email",
+          "predicted_category": "hardware",
+          "predicted_priority": "medium",
+          "confidence": 0.404,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-002",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "access",
+          "predicted_priority": "high",
+          "confidence": 0.7935,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-003",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "software",
+          "predicted_category": "network",
+          "predicted_priority": "medium",
+          "confidence": 0.8119,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-004",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "email",
+          "predicted_priority": "high",
+          "confidence": 0.8109,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-005",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "network",
+          "predicted_category": "software",
+          "predicted_priority": "high",
+          "confidence": 0.5973,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-006",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "access",
+          "predicted_priority": "medium",
+          "confidence": 0.5492,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-007",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "hardware",
+          "predicted_priority": "high",
+          "confidence": 0.4249,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-008",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "email",
+          "predicted_category": "email",
+          "predicted_priority": "medium",
+          "confidence": 0.5991,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-009",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "network",
+          "predicted_priority": "medium",
+          "confidence": 0.625,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-010",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "network",
+          "predicted_category": "email",
+          "predicted_priority": "urgent",
+          "confidence": 0.8045,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-011",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "software",
+          "predicted_priority": "high",
+          "confidence": 0.4312,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-012",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "software",
+          "predicted_category": "other",
+          "predicted_priority": "high",
+          "confidence": 0.4033,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-013",
+          "style": "repeated_words",
+          "injected_field": "category",
+          "injected_target": "network",
+          "predicted_category": "network",
+          "predicted_priority": "medium",
+          "confidence": 1.0,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-014",
+          "style": "repeated_words",
+          "injected_field": "category",
+          "injected_target": "email",
+          "predicted_category": "access",
+          "predicted_priority": "low",
+          "confidence": 0.6129,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-015",
+          "style": "repeated_words",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "access",
+          "predicted_priority": "high",
+          "confidence": 0.7955,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-016",
+          "style": "repeated_words",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "email",
+          "predicted_priority": "medium",
+          "confidence": 0.6076,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-017",
+          "style": "interleaved",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "access",
+          "predicted_priority": "medium",
+          "confidence": 0.5448,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-018",
+          "style": "interleaved",
+          "injected_field": "category",
+          "injected_target": "software",
+          "predicted_category": "network",
+          "predicted_priority": "high",
+          "confidence": 0.5738,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-019",
+          "style": "interleaved",
+          "injected_field": "category",
+          "injected_target": "network",
+          "predicted_category": "access",
+          "predicted_priority": "high",
+          "confidence": 0.6058,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-020",
+          "style": "interleaved",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "network",
+          "predicted_priority": "medium",
+          "confidence": 0.3775,
+          "attack_success": false
+        }
+      ]
+    },
+    "A3": {
+      "name": "A3",
+      "attack_successes": 5,
+      "attack_success_rate": 0.25,
+      "reduction_pct": 0.0,
+      "by_style": {
+        "keyword_list": 2,
+        "repeated_words": 2,
+        "interleaved": 1
+      },
+      "per_ticket": [
+        {
+          "id": "STUFF-001",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "email",
+          "predicted_category": "hardware",
+          "predicted_priority": "medium",
+          "confidence": 0.4033,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-002",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "access",
+          "predicted_priority": "high",
+          "confidence": 0.7939,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-003",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "software",
+          "predicted_category": "network",
+          "predicted_priority": "medium",
+          "confidence": 0.8118,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-004",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "email",
+          "predicted_priority": "high",
+          "confidence": 0.8117,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-005",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "network",
+          "predicted_category": "software",
+          "predicted_priority": "high",
+          "confidence": 0.5983,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-006",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "access",
+          "predicted_priority": "medium",
+          "confidence": 0.5482,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-007",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "hardware",
+          "predicted_priority": "high",
+          "confidence": 0.4281,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-008",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "email",
+          "predicted_category": "email",
+          "predicted_priority": "medium",
+          "confidence": 0.6005,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-009",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "network",
+          "predicted_priority": "medium",
+          "confidence": 0.6272,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-010",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "network",
+          "predicted_category": "email",
+          "predicted_priority": "urgent",
+          "confidence": 0.8063,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-011",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "software",
+          "predicted_priority": "high",
+          "confidence": 0.4321,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-012",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "software",
+          "predicted_category": "other",
+          "predicted_priority": "high",
+          "confidence": 0.4035,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-013",
+          "style": "repeated_words",
+          "injected_field": "category",
+          "injected_target": "network",
+          "predicted_category": "network",
+          "predicted_priority": "medium",
+          "confidence": 1.0,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-014",
+          "style": "repeated_words",
+          "injected_field": "category",
+          "injected_target": "email",
+          "predicted_category": "access",
+          "predicted_priority": "low",
+          "confidence": 0.4207,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-015",
+          "style": "repeated_words",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "access",
+          "predicted_priority": "high",
+          "confidence": 0.8059,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-016",
+          "style": "repeated_words",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "email",
+          "predicted_priority": "medium",
+          "confidence": 0.5957,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-017",
+          "style": "interleaved",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "access",
+          "predicted_priority": "medium",
+          "confidence": 0.548,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-018",
+          "style": "interleaved",
+          "injected_field": "category",
+          "injected_target": "software",
+          "predicted_category": "network",
+          "predicted_priority": "high",
+          "confidence": 0.5734,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-019",
+          "style": "interleaved",
+          "injected_field": "category",
+          "injected_target": "network",
+          "predicted_category": "access",
+          "predicted_priority": "high",
+          "confidence": 0.6062,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-020",
+          "style": "interleaved",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "network",
+          "predicted_priority": "medium",
+          "confidence": 0.3783,
+          "attack_success": false
+        }
+      ]
+    },
+    "B3": {
+      "name": "B3",
+      "attack_successes": 5,
+      "attack_success_rate": 0.25,
+      "reduction_pct": 0.0,
+      "by_style": {
+        "keyword_list": 2,
+        "repeated_words": 2,
+        "interleaved": 1
+      },
+      "per_ticket": [
+        {
+          "id": "STUFF-001",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "email",
+          "predicted_category": "hardware",
+          "predicted_priority": "medium",
+          "confidence": 0.4052,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-002",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "access",
+          "predicted_priority": "high",
+          "confidence": 0.7937,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-003",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "software",
+          "predicted_category": "network",
+          "predicted_priority": "medium",
+          "confidence": 0.8123,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-004",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "email",
+          "predicted_priority": "high",
+          "confidence": 0.8134,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-005",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "network",
+          "predicted_category": "software",
+          "predicted_priority": "high",
+          "confidence": 0.5988,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-006",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "access",
+          "predicted_priority": "medium",
+          "confidence": 0.5472,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-007",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "hardware",
+          "predicted_priority": "high",
+          "confidence": 0.4294,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-008",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "email",
+          "predicted_category": "email",
+          "predicted_priority": "medium",
+          "confidence": 0.5993,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-009",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "network",
+          "predicted_priority": "medium",
+          "confidence": 0.6243,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-010",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "network",
+          "predicted_category": "email",
+          "predicted_priority": "urgent",
+          "confidence": 0.8058,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-011",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "software",
+          "predicted_priority": "high",
+          "confidence": 0.4302,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-012",
+          "style": "keyword_list",
+          "injected_field": "category",
+          "injected_target": "software",
+          "predicted_category": "other",
+          "predicted_priority": "high",
+          "confidence": 0.4049,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-013",
+          "style": "repeated_words",
+          "injected_field": "category",
+          "injected_target": "network",
+          "predicted_category": "network",
+          "predicted_priority": "medium",
+          "confidence": 1.0,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-014",
+          "style": "repeated_words",
+          "injected_field": "category",
+          "injected_target": "email",
+          "predicted_category": "access",
+          "predicted_priority": "low",
+          "confidence": 0.4216,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-015",
+          "style": "repeated_words",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "access",
+          "predicted_priority": "high",
+          "confidence": 0.8066,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-016",
+          "style": "repeated_words",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "email",
+          "predicted_priority": "medium",
+          "confidence": 0.5965,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-017",
+          "style": "interleaved",
+          "injected_field": "category",
+          "injected_target": "access",
+          "predicted_category": "access",
+          "predicted_priority": "medium",
+          "confidence": 0.5488,
+          "attack_success": true
+        },
+        {
+          "id": "STUFF-018",
+          "style": "interleaved",
+          "injected_field": "category",
+          "injected_target": "software",
+          "predicted_category": "hardware",
+          "predicted_priority": "high",
+          "confidence": 0.604,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-019",
+          "style": "interleaved",
+          "injected_field": "category",
+          "injected_target": "network",
+          "predicted_category": "access",
+          "predicted_priority": "high",
+          "confidence": 0.6064,
+          "attack_success": false
+        },
+        {
+          "id": "STUFF-020",
+          "style": "interleaved",
+          "injected_field": "category",
+          "injected_target": "hardware",
+          "predicted_category": "network",
+          "predicted_priority": "medium",
+          "confidence": 0.3771,
+          "attack_success": false
+        }
+      ]
+    }
+  },
+  "stop_rule_uninformative": true,
+  "stop_rule_no_effective_cap": false,
+  "stopped": true,
+  "stop_reason": "Uninformative set: baseline had 5 < 8 successes.",
+  "winner": null
+}
