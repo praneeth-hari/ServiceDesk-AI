@@ -2,9 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { NewTicketPage } from '../NewTicketPage';
+import { formatRelativeTime } from '../ticketDetailHelpers';
 import * as triageApi from '../../../api/triage';
 import * as ticketsApi from '../../../api/tickets';
 import { ApiError } from '../../../api/client';
+import { AuthContext } from '../../../context/auth-context';
+import type { AuthContextType } from '../../../context/auth-context';
 import type { TriageSuggestResponse, Ticket } from '../../../api/types';
 
 vi.mock('../../../api/triage');
@@ -49,6 +52,7 @@ const mockTriageResponse: TriageSuggestResponse = {
       category: 'network',
       priority: 'urgent',
       similarity: 0.86,
+      created_at: '2026-11-01T10:00:00Z',
     },
   ],
   embedder: 'hashing-v2',
@@ -258,7 +262,7 @@ describe('NewTicketPage', () => {
     expect(screen.getByText(/suggestion applied — you can still change both/i)).toBeInTheDocument();
   });
 
-  it('renders duplicate banner with Open and Not a duplicate buttons, toggling submit label', async () => {
+  it('renders duplicate warning card directly under description with matches, links, and no percentages', async () => {
     render(
       <MemoryRouter>
         <NewTicketPage />
@@ -273,19 +277,371 @@ describe('NewTicketPage', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('status')).toBeInTheDocument();
-      expect(screen.getByText(/possible duplicate of ticket #99/i)).toBeInTheDocument();
-      expect(screen.getByText('86% similar')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /open #99/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /not a duplicate/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /create anyway/i })).toBeInTheDocument();
+      expect(screen.getByText('!')).toHaveAttribute('aria-hidden', 'true');
+      expect(screen.getByRole('heading', { level: 3, name: /possible duplicate/i })).toBeInTheDocument();
+      expect(
+        screen.getByText(/1 open ticket uses very similar wording\. Take a quick look before you submit\./i)
+      ).toBeInTheDocument();
+      expect(screen.getByText('#99')).toBeInTheDocument();
+      expect(screen.getByText('VPN drops continuously on macOS')).toBeInTheDocument();
+      expect(screen.getByText(/very similar wording · opened/i)).toBeInTheDocument();
+      expect(screen.getByText('You can still submit. This is a text match, not a guarantee.')).toBeInTheDocument();
     });
 
-    // Dismiss duplicate candidate
-    fireEvent.click(screen.getByRole('button', { name: /not a duplicate/i }));
+    // Check link attributes
+    const openLink = screen.getByRole('link', { name: /open ticket #99/i });
+    expect(openLink).toHaveAttribute('href', '/tickets/99');
+    expect(openLink).toHaveAttribute('target', '_blank');
+    expect(openLink).toHaveAttribute('rel', 'noopener noreferrer');
+
+    // NEVER show a percentage or numeric score anywhere in the card
+    const card = screen.getByRole('status');
+    expect(card.textContent).not.toContain('%');
+    expect(card.textContent).not.toContain('0.86');
+
+    // Create ticket button is always enabled and says "Create ticket"
+    expect(screen.getByRole('button', { name: /^create ticket$/i })).toBeInTheDocument();
+  });
+
+  it('correctly parses naive UTC timestamps for relative time under fake timers regardless of machine timezone', () => {
+    vi.useFakeTimers();
+    try {
+      // Fixed "now" in UTC: 2026-11-07T16:50:01Z
+      const fixedNow = new Date('2026-11-07T16:50:01Z');
+      vi.setSystemTime(fixedNow);
+
+      // Naive timestamp (no Z) exactly 6 minutes before now
+      const naive6MinAgo = '2026-11-07T16:44:01';
+      expect(formatRelativeTime(naive6MinAgo)).toBe('6 minutes ago');
+
+      // Naive timestamp 15 seconds before now
+      const naiveJustNow = '2026-11-07T16:49:46';
+      expect(formatRelativeTime(naiveJustNow)).toBe('just now');
+
+      // 2 hours ago
+      const naive2HoursAgo = '2026-11-07T14:50:01';
+      expect(formatRelativeTime(naive2HoursAgo)).toBe('2 hours ago');
+
+      // 3 days ago
+      const naive3DaysAgo = '2026-11-04T16:50:01';
+      expect(formatRelativeTime(naive3DaysAgo)).toBe('3 days ago');
+
+      // Future or same second
+      expect(formatRelativeTime('2026-11-07T16:50:01')).toBe('just now');
+      expect(formatRelativeTime('2026-11-07T16:50:05')).toBe('just now');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('hides duplicate card when possible_duplicates is empty', async () => {
+    vi.mocked(triageApi.suggestTriage).mockResolvedValueOnce({
+      ...mockTriageResponse,
+      possible_duplicates: [],
+    });
+
+    render(
+      <MemoryRouter>
+        <NewTicketPage />
+      </MemoryRouter>
+    );
+
+    const titleInput = screen.getByLabelText(/title/i);
+    const descInput = screen.getByLabelText(/description/i);
+
+    fireEvent.change(titleInput, { target: { value: 'Brand new unique ticket title' } });
+    fireEvent.change(descInput, { target: { value: 'Unique description that matches no existing ticket' } });
 
     await waitFor(() => {
-      expect(screen.queryByRole('status')).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /create ticket/i })).toBeInTheDocument();
+      expect(screen.getByText(/suggested category/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('heading', { level: 3, name: /possible duplicate/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 3, name: /you already have a similar ticket/i })).not.toBeInTheDocument();
+  });
+
+  it('renders heading text for requester vs agent', async () => {
+    const mockAuthContext: AuthContextType = {
+      user: {
+        id: 42,
+        email: 'requester@example.com',
+        full_name: 'Jane Requester',
+        role: 'requester',
+        is_active: true,
+        created_at: '2026-01-01T00:00:00Z',
+      },
+      token: 'fake-token',
+      role: 'requester',
+      isLoading: false,
+      login: vi.fn(),
+      demoLogin: vi.fn(),
+      logout: vi.fn(),
+    };
+
+    render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter>
+          <NewTicketPage />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    const titleInput = screen.getByLabelText(/title/i);
+    const descInput = screen.getByLabelText(/description/i);
+
+    fireEvent.change(titleInput, { target: { value: 'VPN drops continuously' } });
+    fireEvent.change(descInput, { target: { value: 'Home WiFi connection drops every hour' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('!')).toHaveAttribute('aria-hidden', 'true');
+      expect(screen.getByRole('heading', { level: 3, name: /you already have a similar ticket/i })).toBeInTheDocument();
+      expect(screen.getByText('1 open ticket uses very similar wording')).toBeInTheDocument();
+    });
+  });
+
+  it('correctly pluralizes requester duplicate card text for 1 candidate vs several candidates', async () => {
+    const mockAuthContext: AuthContextType = {
+      user: {
+        id: 42,
+        email: 'requester@example.com',
+        full_name: 'Jane Requester',
+        role: 'requester',
+        is_active: true,
+        created_at: '2026-01-01T00:00:00Z',
+      },
+      token: 'fake-token',
+      role: 'requester',
+      isLoading: false,
+      login: vi.fn(),
+      demoLogin: vi.fn(),
+      logout: vi.fn(),
+    };
+
+    // Case 1: Exactly 1 candidate
+    vi.mocked(triageApi.suggestTriage).mockResolvedValueOnce({
+      ...mockTriageResponse,
+      possible_duplicates: [
+        {
+          id: 101,
+          title: 'VPN single duplicate',
+          status: 'open',
+          category: 'network',
+          priority: 'high',
+          similarity: 0.95,
+          created_at: '2026-11-01T10:00:00Z',
+        },
+      ],
+    });
+
+    const { unmount } = render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter>
+          <NewTicketPage />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    let titleInput = screen.getByLabelText(/title/i);
+    let descInput = screen.getByLabelText(/description/i);
+
+    fireEvent.change(titleInput, { target: { value: 'VPN drops continuously' } });
+    fireEvent.change(descInput, { target: { value: 'Home WiFi connection drops every hour' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('1 open ticket uses very similar wording')).toBeInTheDocument();
+      expect(screen.getByText('!')).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    unmount();
+
+    // Case 2: Several candidates (e.g. 2 candidates)
+    vi.mocked(triageApi.suggestTriage).mockResolvedValueOnce({
+      ...mockTriageResponse,
+      possible_duplicates: [
+        {
+          id: 101,
+          title: 'VPN single duplicate',
+          status: 'open',
+          category: 'network',
+          priority: 'high',
+          similarity: 0.95,
+          created_at: '2026-11-01T10:00:00Z',
+        },
+        {
+          id: 102,
+          title: 'VPN second duplicate',
+          status: 'in_progress',
+          category: 'network',
+          priority: 'urgent',
+          similarity: 0.91,
+          created_at: '2026-11-02T10:00:00Z',
+        },
+      ],
+    });
+
+    render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter>
+          <NewTicketPage />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    titleInput = screen.getByLabelText(/title/i);
+    descInput = screen.getByLabelText(/description/i);
+
+    fireEvent.change(titleInput, { target: { value: 'VPN drops continuously' } });
+    fireEvent.change(descInput, { target: { value: 'Home WiFi connection drops every hour' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('2 open tickets use very similar wording')).toBeInTheDocument();
+      expect(screen.getByText('!')).toHaveAttribute('aria-hidden', 'true');
+    });
+  });
+
+  it('dismissing duplicate card hides it and shows Undo note, and Undo restores the card', async () => {
+    render(
+      <MemoryRouter>
+        <NewTicketPage />
+      </MemoryRouter>
+    );
+
+    const titleInput = screen.getByLabelText(/title/i);
+    const descInput = screen.getByLabelText(/description/i);
+
+    fireEvent.change(titleInput, { target: { value: 'VPN drops continuously' } });
+    fireEvent.change(descInput, { target: { value: 'Home WiFi connection drops every hour' } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /not a duplicate, continue/i })).toBeInTheDocument();
+    });
+
+    // Dismiss the card
+    fireEvent.click(screen.getByRole('button', { name: /not a duplicate, continue/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { level: 3, name: /possible duplicate/i })).not.toBeInTheDocument();
+      expect(screen.getByText('Marked as not a duplicate. Warning hidden for this draft.')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /undo/i })).toBeInTheDocument();
+    });
+
+    // Click Undo
+    fireEvent.click(screen.getByRole('button', { name: /undo/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 3, name: /possible duplicate/i })).toBeInTheDocument();
+      expect(screen.queryByText('Marked as not a duplicate. Warning hidden for this draft.')).not.toBeInTheDocument();
+    });
+  });
+
+  it('re-shows the card when a new non-dismissed candidate id appears', async () => {
+    render(
+      <MemoryRouter>
+        <NewTicketPage />
+      </MemoryRouter>
+    );
+
+    const titleInput = screen.getByLabelText(/title/i);
+    const descInput = screen.getByLabelText(/description/i);
+
+    fireEvent.change(titleInput, { target: { value: 'VPN drops continuously' } });
+    fireEvent.change(descInput, { target: { value: 'Home WiFi connection drops every hour' } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /not a duplicate, continue/i })).toBeInTheDocument();
+    });
+
+    // Dismiss ticket #99
+    fireEvent.click(screen.getByRole('button', { name: /not a duplicate, continue/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Marked as not a duplicate. Warning hidden for this draft.')).toBeInTheDocument();
+    });
+
+    // Mock suggest returning ticket #100 in possible_duplicates
+    vi.mocked(triageApi.suggestTriage).mockResolvedValueOnce({
+      ...mockTriageResponse,
+      possible_duplicates: [
+        {
+          id: 100,
+          title: 'Brand new duplicate ticket appearing',
+          status: 'open',
+          category: 'network',
+          priority: 'high',
+          similarity: 0.91,
+          created_at: '2026-11-02T10:00:00Z',
+        },
+      ],
+    });
+
+    // Type more into description to trigger another suggest call
+    fireEvent.change(descInput, { target: { value: 'Home WiFi connection drops every hour and resets adapter' } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 3, name: /possible duplicate/i })).toBeInTheDocument();
+      expect(screen.getByText('#100')).toBeInTheDocument();
+      expect(screen.getByText('Brand new duplicate ticket appearing')).toBeInTheDocument();
+    });
+  });
+
+  it('does not call suggest API when title or description is empty', async () => {
+    vi.mocked(triageApi.suggestTriage).mockClear();
+
+    render(
+      <MemoryRouter>
+        <NewTicketPage />
+      </MemoryRouter>
+    );
+
+    const titleInput = screen.getByLabelText(/title/i);
+    const descInput = screen.getByLabelText(/description/i);
+
+    // Type long title with empty description
+    fireEvent.change(titleInput, { target: { value: 'This is a sufficiently long ticket title' } });
+
+    // Wait past debounce
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(triageApi.suggestTriage).not.toHaveBeenCalled();
+
+    // Clear title and type long description
+    fireEvent.change(titleInput, { target: { value: '' } });
+    fireEvent.change(descInput, { target: { value: 'This is a sufficiently long problem description with details' } });
+
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(triageApi.suggestTriage).not.toHaveBeenCalled();
+
+    // Now set title as well
+    fireEvent.change(titleInput, { target: { value: 'Valid Title' } });
+
+    await waitFor(() => {
+      expect(triageApi.suggestTriage).toHaveBeenCalled();
+    });
+  });
+
+  it('renders fallback banner and duplicate warning card independently', async () => {
+    vi.mocked(triageApi.suggestTriage).mockResolvedValueOnce({
+      ...mockTriageResponse,
+      fallback_reason: 'possible_prompt_injection',
+      embedder_fallback_reason: 'nomic_unreachable',
+    });
+
+    render(
+      <MemoryRouter>
+        <NewTicketPage />
+      </MemoryRouter>
+    );
+
+    const titleInput = screen.getByLabelText(/title/i);
+    const descInput = screen.getByLabelText(/description/i);
+
+    fireEvent.change(titleInput, { target: { value: 'VPN drops continuously' } });
+    fireEvent.change(descInput, { target: { value: 'Home WiFi connection drops every hour' } });
+
+    await waitFor(() => {
+      // Both injection notice and duplicate warning card are displayed
+      expect(screen.getByText(/possible prompt injection detected/i)).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 3, name: /possible duplicate/i })).toBeInTheDocument();
+      expect(screen.getByText('#99')).toBeInTheDocument();
     });
   });
 

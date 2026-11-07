@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,6 +13,7 @@ class SimilarTicket(BaseModel):
     category: TicketCategory
     priority: TicketPriority
     similarity: float
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 

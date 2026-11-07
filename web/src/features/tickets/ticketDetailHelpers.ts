@@ -146,3 +146,35 @@ export function getAllowedActions(currentStatus: TicketStatus): AllowedAction[] 
       return [];
   }
 }
+
+/**
+ * Formats a timestamp into a human-friendly relative time string (e.g., "6 minutes ago", "just now").
+ * Parses input with parseToUtcDate so naive UTC timestamps from the backend are normalized regardless of local browser timezone.
+ */
+export function formatRelativeTime(dateStr?: string): string {
+  if (!dateStr) return 'recently';
+  const date = parseToUtcDate(dateStr);
+  if (isNaN(date.getTime())) return 'recently';
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  if (diffMs < 0) return 'just now';
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHours = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffDays > 30) {
+    const months = Math.floor(diffDays / 30);
+    return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+  }
+  if (diffDays > 0) {
+    return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+  }
+  if (diffHours > 0) {
+    return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+  }
+  if (diffMin > 0) {
+    return `${diffMin} ${diffMin === 1 ? 'minute' : 'minutes'} ago`;
+  }
+  return 'just now';
+}

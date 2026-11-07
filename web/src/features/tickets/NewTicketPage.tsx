@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useId } from 'react';
+import React, { useState, useEffect, useRef, useId, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { createTicket } from '../../api/tickets';
 import { suggestTriage } from '../../api/triage';
@@ -6,10 +6,11 @@ import type {
   TicketCategory,
   TicketPriority,
   TriageSuggestResponse,
-  SimilarTicket,
 } from '../../api/types';
 import { ApiError } from '../../api/client';
-import { StatusBadge } from './components/Badges';
+import { AuthContext } from '../../context/auth-context';
+import { StatusBadge, PriorityBadge } from './components/Badges';
+import { formatRelativeTime } from './ticketDetailHelpers';
 import {
   TRIAGE_BENCHMARKS,
   TRIAGE_HONESTY_SUMMARY,
@@ -64,16 +65,28 @@ export const NewTicketPage: React.FC = () => {
   const catInputId = useId();
   const prioInputId = useId();
 
-  // Active duplicate candidate (first non-dismissed possible duplicate)
-  const activeDuplicate: SimilarTicket | undefined = triageResult?.possible_duplicates?.find(
+  const authContext = useContext(AuthContext);
+  const isRequester = authContext?.user?.role === 'requester';
+
+  const possibleDuplicates = triageResult?.possible_duplicates ?? [];
+  const activeDuplicates = possibleDuplicates.filter(
     (dup) => !dismissedDuplicateIds.includes(dup.id)
   );
+  const isDuplicateDismissed =
+    possibleDuplicates.length > 0 && activeDuplicates.length === 0;
 
   // Debounced Triage Suggestion Effect
   useEffect(() => {
-    const combinedLength = title.trim().length + description.trim().length;
+    const trimmedTitle = title.trim();
+    const trimmedDesc = description.trim();
+    const combinedLength = trimmedTitle.length + trimmedDesc.length;
 
-    if (combinedLength < TRIAGE_BENCHMARKS.minTextLength) {
+    // Do not call suggest API until BOTH title and description are non-empty
+    if (
+      trimmedTitle.length === 0 ||
+      trimmedDesc.length === 0 ||
+      combinedLength < TRIAGE_BENCHMARKS.minTextLength
+    ) {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
@@ -101,8 +114,8 @@ export const NewTicketPage: React.FC = () => {
       try {
         const response = await suggestTriage(
           {
-            title: title.trim(),
-            description: description.trim(),
+            title: trimmedTitle,
+            description: trimmedDesc,
           },
           controller.signal
         );
@@ -142,10 +155,6 @@ export const NewTicketPage: React.FC = () => {
   const handleApplyPriority = (prio: TicketPriority) => {
     setPriority(prio);
     setAppliedPriority(true);
-  };
-
-  const handleDismissDuplicate = (id: number) => {
-    setDismissedDuplicateIds((prev) => [...prev, id]);
   };
 
   // Form submit handler
@@ -239,46 +248,6 @@ export const NewTicketPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Duplicate Warning Banner */}
-      {activeDuplicate && (
-        <div
-          role="status"
-          aria-label="Duplicate ticket warning"
-          className="bg-amber/10 border border-amber/30 rounded-lg p-4 transition-all"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-serif font-semibold text-ink text-sm sm:text-base">
-                  Possible duplicate of ticket #{activeDuplicate.id}
-                </span>
-                <StatusBadge status={activeDuplicate.status} />
-                <span className="text-xs font-mono font-medium text-amber bg-amber/15 px-1.5 py-0.5 rounded border border-amber/30">
-                  {Math.round(activeDuplicate.similarity * 100)}% similar
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-ink/80">{activeDuplicate.title}</p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => navigate(`/tickets/${activeDuplicate.id}`)}
-                className="px-3 py-1.5 rounded bg-paper border border-line text-xs font-medium text-ink hover:border-teal transition-colors focus:outline-none focus:ring-2 focus:ring-teal"
-              >
-                Open #{activeDuplicate.id}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDismissDuplicate(activeDuplicate.id)}
-                className="px-3 py-1.5 rounded bg-paper border border-line text-xs font-medium text-muted hover:text-ink hover:border-line transition-colors focus:outline-none focus:ring-2 focus:ring-teal"
-              >
-                Not a duplicate
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Form Level Error Alert */}
       {formError && (
         <div
@@ -358,6 +327,118 @@ export const NewTicketPage: React.FC = () => {
             )}
           </div>
 
+          {/* Duplicate Ticket Warning Card (directly under Description) */}
+          {activeDuplicates.length > 0 && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-lg border border-amber/30 bg-amber/10 p-4 sm:p-5 space-y-4"
+            >
+              <div>
+                <div className="flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber text-paper text-xs font-bold shrink-0"
+                  >
+                    !
+                  </span>
+                  <h3 className="font-serif font-semibold text-ink text-sm sm:text-base">
+                    {isRequester
+                      ? 'You already have a similar ticket'
+                      : 'Possible duplicate'}
+                  </h3>
+                </div>
+                <p className="text-xs sm:text-sm text-ink/80 mt-1">
+                  {isRequester
+                    ? activeDuplicates.length === 1
+                      ? '1 open ticket uses very similar wording'
+                      : `${activeDuplicates.length} open tickets use very similar wording`
+                    : activeDuplicates.length === 1
+                    ? '1 open ticket uses very similar wording. Take a quick look before you submit.'
+                    : `${activeDuplicates.length} open tickets use very similar wording. Take a quick look before you submit.`}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {activeDuplicates.map((dup) => (
+                  <div
+                    key={dup.id}
+                    className="p-3 bg-paper border border-line rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-xs font-semibold text-ink/70">
+                          #{dup.id}
+                        </span>
+                        <span className="font-medium text-xs sm:text-sm text-ink truncate">
+                          {dup.title}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                        <StatusBadge status={dup.status} />
+                        <PriorityBadge priority={dup.priority} />
+                        <span>·</span>
+                        <span>
+                          Very similar wording · opened {formatRelativeTime(dup.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="shrink-0 flex items-center">
+                      <a
+                        href={`/tickets/${dup.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Open ticket #${dup.id}`}
+                        className="text-xs font-medium text-teal hover:underline px-2.5 py-1.5 rounded bg-tealLight/20 hover:bg-tealLight/40 transition-colors inline-flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-teal"
+                      >
+                        Open ticket
+                        <span aria-hidden="true">↗</span>
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-2 border-t border-amber/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDismissedDuplicateIds((prev) => [
+                      ...prev,
+                      ...activeDuplicates.map((d) => d.id),
+                    ]);
+                  }}
+                  className="px-3 py-1.5 rounded bg-paper border border-line text-xs font-medium text-ink hover:bg-paper2 transition-colors focus:outline-none focus:ring-2 focus:ring-teal self-start sm:self-auto"
+                >
+                  Not a duplicate, continue
+                </button>
+                <span className="text-[11px] sm:text-xs text-muted">
+                  You can still submit. This is a text match, not a guarantee.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Dismissed Duplicate Notice */}
+          {isDuplicateDismissed && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-lg border border-dashed border-line bg-paper2/50 px-4 py-2.5 text-xs text-muted flex items-center justify-between gap-2"
+            >
+              <span>Marked as not a duplicate. Warning hidden for this draft.</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setDismissedDuplicateIds([]);
+                }}
+                className="text-teal font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-teal rounded"
+              >
+                Undo
+              </button>
+            </div>
+          )}
+
           {/* Two-column row: Category & Priority */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Category Select */}
@@ -436,11 +517,7 @@ export const NewTicketPage: React.FC = () => {
               disabled={submitting}
               className="px-5 py-2.5 rounded bg-teal text-paper text-xs sm:text-sm font-medium hover:bg-teal/90 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-teal focus:ring-offset-2"
             >
-              {submitting
-                ? 'Creating ticket...'
-                : activeDuplicate
-                ? 'Create anyway'
-                : 'Create ticket'}
+              {submitting ? 'Creating ticket...' : 'Create ticket'}
             </button>
           </div>
         </form>

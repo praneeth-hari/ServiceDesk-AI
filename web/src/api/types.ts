@@ -133,6 +133,7 @@ export interface SimilarTicket {
   category: TicketCategory;
   priority: TicketPriority;
   similarity: number;
+  created_at?: string;
 }
 
 export interface TriageSuggestRequest {
