@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.ai.embedder import Embedder, HashingEmbedder, SbertEmbedder, get_embedder, get_text_to_embed
-from app.core.config import Settings
+from app.core.config import Settings, settings
 from app.models.embedding import TicketEmbedding
 from app.models.enums import TicketCategory, TicketPriority, TicketStatus, UserRole
 from app.models.ticket import Ticket
@@ -580,3 +580,283 @@ def test_predict_knn_zero_weight_edge_case():
         {"category": TicketCategory.NETWORK, "priority": TicketPriority.HIGH, "similarity": 0.0},
     ]
     assert predict_knn(candidates, k=1, min_similarity=0.0) == (None, None, 0.0)
+
+
+def test_duplicate_detection_contract(
+    db_session: Session,
+    agent_user: User,
+    requester_user: User,
+    second_requester_user: User,
+):
+    """
+    Test duplicate detection contract:
+    - Requester sees only their own tickets in possible_duplicates and evidence.
+    - Agent sees all.
+    - Resolved and closed tickets are excluded from possible_duplicates.
+    - Below threshold (< 0.80) tickets are excluded.
+    - Max 3 sorted by similarity descending.
+    - Fields present: id, title, status, priority, created_at, similarity.
+    - Embedder=nomic active does not change duplicates (still hashing-v2).
+    """
+    now = datetime.now(timezone.utc)
+    v_base = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+
+    v_95 = np.array([0.95, np.sqrt(1 - 0.95**2), 0.0, 0.0], dtype=np.float32)
+    v_92 = np.array([0.92, np.sqrt(1 - 0.92**2), 0.0, 0.0], dtype=np.float32)
+    v_90 = np.array([0.90, np.sqrt(1 - 0.90**2), 0.0, 0.0], dtype=np.float32)
+    v_88 = np.array([0.88, np.sqrt(1 - 0.88**2), 0.0, 0.0], dtype=np.float32)
+    v_85 = np.array([0.85, np.sqrt(1 - 0.85**2), 0.0, 0.0], dtype=np.float32)
+    v_75 = np.array([0.75, np.sqrt(1 - 0.75**2), 0.0, 0.0], dtype=np.float32)
+
+    # 4 open tickets owned by second_requester (sim: 0.95, 0.92, 0.90, 0.88)
+    t1 = Ticket(title="T1", description="D1", status=TicketStatus.OPEN, category=TicketCategory.NETWORK, priority=TicketPriority.URGENT, requester_id=second_requester_user.id, created_at=now, updated_at=now)
+    t2 = Ticket(title="T2", description="D2", status=TicketStatus.OPEN, category=TicketCategory.NETWORK, priority=TicketPriority.HIGH, requester_id=second_requester_user.id, created_at=now, updated_at=now)
+    t3 = Ticket(title="T3", description="D3", status=TicketStatus.IN_PROGRESS, category=TicketCategory.NETWORK, priority=TicketPriority.MEDIUM, requester_id=second_requester_user.id, created_at=now, updated_at=now)
+    t4 = Ticket(title="T4", description="D4", status=TicketStatus.WAITING_ON_REQUESTER, category=TicketCategory.NETWORK, priority=TicketPriority.LOW, requester_id=second_requester_user.id, created_at=now, updated_at=now)
+
+    # 1 open ticket owned by requester_user (sim: 0.85)
+    t_req = Ticket(title="T_Req", description="D_Req", status=TicketStatus.OPEN, category=TicketCategory.NETWORK, priority=TicketPriority.HIGH, requester_id=requester_user.id, created_at=now, updated_at=now)
+
+    # 1 resolved ticket (sim: 1.0) - should be in evidence, excluded from duplicates
+    t_res = Ticket(title="T_Res", description="D_Res", status=TicketStatus.RESOLVED, category=TicketCategory.NETWORK, priority=TicketPriority.HIGH, requester_id=second_requester_user.id, created_at=now, updated_at=now)
+
+    # 1 closed ticket (sim: 1.0) - excluded from duplicates
+    t_closed = Ticket(title="T_Closed", description="D_Closed", status=TicketStatus.CLOSED, category=TicketCategory.NETWORK, priority=TicketPriority.HIGH, requester_id=second_requester_user.id, created_at=now, updated_at=now)
+
+    # 1 open ticket below threshold (sim: 0.75) - excluded from duplicates (< 0.80)
+    t_low = Ticket(title="T_Low", description="D_Low", status=TicketStatus.OPEN, category=TicketCategory.NETWORK, priority=TicketPriority.LOW, requester_id=second_requester_user.id, created_at=now, updated_at=now)
+
+    tickets = [t1, t2, t3, t4, t_req, t_res, t_closed, t_low]
+    db_session.add_all(tickets)
+    db_session.flush()
+
+    embs = [
+        TicketEmbedding.from_numpy(t1.id, "hashing-v2", v_95),
+        TicketEmbedding.from_numpy(t2.id, "hashing-v2", v_92),
+        TicketEmbedding.from_numpy(t3.id, "hashing-v2", v_90),
+        TicketEmbedding.from_numpy(t4.id, "hashing-v2", v_88),
+        TicketEmbedding.from_numpy(t_req.id, "hashing-v2", v_85),
+        TicketEmbedding.from_numpy(t_res.id, "hashing-v2", v_base),
+        TicketEmbedding.from_numpy(t_closed.id, "hashing-v2", v_base),
+        TicketEmbedding.from_numpy(t_low.id, "hashing-v2", v_75),
+    ]
+    db_session.add_all(embs)
+    db_session.commit()
+
+    mock_hash = MagicMock()
+    mock_hash.name = "hashing-v2"
+    mock_hash.embed.return_value = [v_base]
+
+    with patch("app.services.triage.get_embedder", return_value=mock_hash):
+        # 1. Agent call: sees all, max 3 sorted, resolved/closed and low-sim excluded
+        agent_res = suggest(db=db_session, title="Q", description="Q", current_user=agent_user)
+        dups_agent = agent_res["possible_duplicates"]
+        assert len(dups_agent) == 3
+        assert [d["id"] for d in dups_agent] == [t1.id, t2.id, t3.id]
+        assert dups_agent[0]["similarity"] == 0.95
+        assert dups_agent[1]["similarity"] == 0.92
+        assert dups_agent[2]["similarity"] == 0.90
+        for d in dups_agent:
+            assert "id" in d
+            assert "title" in d
+            assert "status" in d
+            assert "priority" in d
+            assert "created_at" in d
+            assert "similarity" in d
+            assert d["created_at"] is not None
+
+        # 2. Requester call: privacy filtering (only sees their own ticket t_req)
+        req_res = suggest(db=db_session, title="Q", description="Q", current_user=requester_user)
+        dups_req = req_res["possible_duplicates"]
+        assert len(dups_req) == 1
+        assert dups_req[0]["id"] == t_req.id
+        assert dups_req[0]["similarity"] == 0.85
+        assert len(req_res["evidence"]) == 0
+
+        # Agent sees resolved/closed tickets in evidence
+        assert len(agent_res["evidence"]) == 2
+        assert set(e["id"] for e in agent_res["evidence"]) == {t_res.id, t_closed.id}
+
+    # 3. nomic active: suggest() with nomic embedder still evaluates duplicates in hashing-v2 space
+    mock_nomic = MagicMock()
+    mock_nomic.name = "nomic-embed-text"
+    mock_nomic.embed_query.return_value = [np.array([0.0, 0.0, 1.0], dtype=np.float32)]
+
+    with patch("app.services.triage.get_embedder", side_effect=lambda name=None: mock_nomic if name in ("nomic", "nomic-embed-text") else mock_hash):
+        with patch.object(settings, "AI_EMBEDDER", "nomic"):
+            nomic_res = suggest(db=db_session, title="Q", description="Q", current_user=agent_user, embedder=mock_nomic)
+            dups_nomic = nomic_res["possible_duplicates"]
+            assert len(dups_nomic) == 3
+            assert [d["id"] for d in dups_nomic] == [t1.id, t2.id, t3.id]
+
+
+def test_evidence_privacy_requester_vs_agent(db_session: Session):
+    """
+    Privacy test for "closest resolved tickets" (evidence):
+    - creates two requesters, A and B
+    - creates a RESOLVED ticket owned by B with text very similar to a new ticket from A
+    - calls suggest as requester A
+    - asserts B's ticket id is NOT in A's evidence list
+    - also asserts an agent calling suggest DOES see B's ticket in evidence
+    - verifies filtering for requesters happens BEFORE taking the top K, so requester A's
+      own resolved ticket is included in evidence even if 5 higher-similarity tickets belong to B.
+    """
+    now = datetime.now(timezone.utc)
+    # Create two requesters, A and B, plus an agent
+    req_a = User(
+        email="req_privacy_a@example.com",
+        full_name="Requester A",
+        hashed_password="hashed_pw_a",
+        role=UserRole.REQUESTER,
+        is_active=True,
+    )
+    req_b = User(
+        email="req_privacy_b@example.com",
+        full_name="Requester B",
+        hashed_password="hashed_pw_b",
+        role=UserRole.REQUESTER,
+        is_active=True,
+    )
+    agent = User(
+        email="agent_privacy@example.com",
+        full_name="Agent User",
+        hashed_password="hashed_pw_agent",
+        role=UserRole.AGENT,
+        is_active=True,
+    )
+    db_session.add_all([req_a, req_b, agent])
+    db_session.flush()
+
+    # Create a RESOLVED ticket owned by B with text very similar to new ticket from A
+    ticket_b = Ticket(
+        title="VPN connection drops on MacOS Sequoia",
+        description="GlobalProtect VPN disconnects every few minutes on MacOS Sequoia after waking from sleep.",
+        status=TicketStatus.RESOLVED,
+        category=TicketCategory.NETWORK,
+        priority=TicketPriority.HIGH,
+        requester_id=req_b.id,
+        created_at=now,
+        updated_at=now,
+    )
+    # Create an older RESOLVED ticket owned by A
+    ticket_a = Ticket(
+        title="VPN drops intermittently at home",
+        description="GlobalProtect VPN disconnects occasionally at home office.",
+        status=TicketStatus.RESOLVED,
+        category=TicketCategory.NETWORK,
+        priority=TicketPriority.MEDIUM,
+        requester_id=req_a.id,
+        created_at=now,
+        updated_at=now,
+    )
+    db_session.add_all([ticket_b, ticket_a])
+    db_session.flush()
+
+    sync_ticket_embedding(db_session, ticket_b)
+    sync_ticket_embedding(db_session, ticket_a)
+    db_session.commit()
+
+    # Caller text from Requester A: very similar wording to ticket_b
+    title_query = "VPN connection drops on MacOS Sequoia"
+    desc_query = "GlobalProtect VPN disconnects every few minutes on MacOS Sequoia after waking."
+
+    # Call suggest as Requester A
+    res_a = suggest(db=db_session, title=title_query, description=desc_query, current_user=req_a)
+    evidence_ids_a = [e["id"] for e in res_a["evidence"]]
+
+    # Assert B's ticket id is NOT in A's evidence list
+    assert ticket_b.id not in evidence_ids_a
+    # Assert A sees their own ticket in evidence
+    assert ticket_a.id in evidence_ids_a
+
+    # Call suggest as Agent
+    res_agent = suggest(db=db_session, title=title_query, description=desc_query, current_user=agent)
+    evidence_ids_agent = [e["id"] for e in res_agent["evidence"]]
+
+    # Assert an agent calling suggest DOES see B's ticket in evidence
+    assert ticket_b.id in evidence_ids_agent
+
+
+def test_evidence_privacy_requester_top_k_regression(db_session: Session):
+    """
+    Regression test for top-K evidence privacy fix:
+    Requester A has 1 resolved ticket with moderate similarity to the query.
+    Requester B has at least 6 resolved tickets that are MORE similar to the query than A's.
+    Call suggest as A and assert A's ticket IS in evidence and none of B's are.
+    """
+    now = datetime.now(timezone.utc)
+    req_a = User(
+        email="req_topk_a@example.com",
+        full_name="Requester TopK A",
+        hashed_password="pw_a",
+        role=UserRole.REQUESTER,
+        is_active=True,
+    )
+    req_b = User(
+        email="req_topk_b@example.com",
+        full_name="Requester TopK B",
+        hashed_password="pw_b",
+        role=UserRole.REQUESTER,
+        is_active=True,
+    )
+    db_session.add_all([req_a, req_b])
+    db_session.flush()
+
+    # Query vector: [1.0, 0.0, 0.0, 0.0]
+    v_base = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+
+    # Requester A: 1 resolved ticket with moderate similarity (0.85)
+    v_a = np.array([0.85, np.sqrt(1 - 0.85**2), 0.0, 0.0], dtype=np.float32)
+    ticket_a = Ticket(
+        title="Ticket A",
+        description="Ticket A desc",
+        status=TicketStatus.RESOLVED,
+        category=TicketCategory.NETWORK,
+        priority=TicketPriority.MEDIUM,
+        requester_id=req_a.id,
+        created_at=now,
+        updated_at=now,
+    )
+    db_session.add(ticket_a)
+    db_session.flush()
+
+    # Requester B: 6 resolved tickets that are MORE similar to query than A's
+    # Similarities: 0.99, 0.98, 0.97, 0.96, 0.95, 0.94 (all > 0.85)
+    b_sims = [0.99, 0.98, 0.97, 0.96, 0.95, 0.94]
+    b_tickets = []
+    b_embeddings = []
+    for i, s in enumerate(b_sims, start=1):
+        tb = Ticket(
+            title=f"Ticket B{i}",
+            description=f"Ticket B{i} desc",
+            status=TicketStatus.RESOLVED,
+            category=TicketCategory.NETWORK,
+            priority=TicketPriority.HIGH,
+            requester_id=req_b.id,
+            created_at=now,
+            updated_at=now,
+        )
+        db_session.add(tb)
+        db_session.flush()
+        b_tickets.append(tb)
+
+        vb = np.array([s, np.sqrt(1 - s**2), 0.0, 0.0], dtype=np.float32)
+        b_embeddings.append(TicketEmbedding.from_numpy(tb.id, "hashing-v2", vb))
+
+    emb_a = TicketEmbedding.from_numpy(ticket_a.id, "hashing-v2", v_a)
+    db_session.add_all([emb_a, *b_embeddings])
+    db_session.commit()
+
+    mock_hash = MagicMock()
+    mock_hash.name = "hashing-v2"
+    mock_hash.embed.return_value = [v_base]
+
+    with patch("app.services.triage.get_embedder", return_value=mock_hash):
+        res_a = suggest(db=db_session, title="Query", description="Query", current_user=req_a)
+        evidence_ids = [e["id"] for e in res_a["evidence"]]
+
+        # Assert A's ticket IS in evidence
+        assert ticket_a.id in evidence_ids, f"Expected {ticket_a.id} in evidence, got {evidence_ids}"
+        # Assert none of B's are in evidence
+        b_ids = {tb.id for tb in b_tickets}
+        assert not any(bid in evidence_ids for bid in b_ids), "Leaked B tickets to A"

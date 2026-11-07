@@ -308,6 +308,7 @@ def _compute_cosine_similarities(
                 "status": ticket.status,
                 "category": ticket.category,
                 "priority": ticket.priority,
+                "created_at": ticket.created_at,
                 "requester_id": ticket.requester_id,
                 "similarity": round(sim, 4),
             }
@@ -521,9 +522,12 @@ def suggest(
         min_similarity=settings.AI_MIN_SIMILARITY,
     )
 
-    # Evidence list: filter by user privacy
+    # Evidence list: filter by user privacy (filter before taking top K, not after)
     if current_user.role == UserRole.REQUESTER:
-        evidence = [c for c in top_neighbours if c["requester_id"] == current_user.id]
+        requester_resolved = [
+            c for c in resolved_candidates if c.get("requester_id") == current_user.id
+        ]
+        evidence = requester_resolved[: settings.AI_KNN_K]
     else:
         evidence = top_neighbours
 
@@ -548,11 +552,12 @@ def suggest(
     ]
     duplicate_candidates.sort(key=lambda c: c["similarity"], reverse=True)
 
-    # Filter duplicates by privacy
+    # Filter duplicates by privacy and cap at 3
     if current_user.role == UserRole.REQUESTER:
         duplicates = [c for c in duplicate_candidates if c["requester_id"] == current_user.id]
     else:
         duplicates = duplicate_candidates
+    duplicates = duplicates[:3]
 
     # 3. LLM-Assisted Triage (when AI_TRIAGE_MODE == "llm")
     method = "knn"
