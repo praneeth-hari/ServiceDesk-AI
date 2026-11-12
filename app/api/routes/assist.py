@@ -10,7 +10,7 @@ from app.ai.assist import (
     extract_assist_source_texts,
     ground_key_facts,
 )
-from app.api.deps import get_current_user
+from app.api.deps import require_roles
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.comment import TicketComment
@@ -36,19 +36,13 @@ router = APIRouter(tags=["ai-assist"])
     summary="Get AI assist configuration status",
 )
 def get_ai_assist_status(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles([UserRole.AGENT, UserRole.ADMIN])),
 ) -> AIAssistStatusResponse:
     """
     Get AI assist status (enabled, mode, model).
     Agent and admin only (403 for requesters).
     Does NOT contact Ollama.
     """
-    if current_user.role not in (UserRole.AGENT, UserRole.ADMIN):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only agents and admins can access AI assist status",
-        )
-
     is_enabled = settings.AI_ASSIST_MODE == "ollama"
     model = settings.AI_ASSIST_MODEL if is_enabled else None
     return AIAssistStatusResponse(
@@ -68,7 +62,7 @@ def run_ai_assist(
     ticket_id: int,
     payload: AIAssistRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles([UserRole.AGENT, UserRole.ADMIN])),
 ) -> Union[AIAssistSummaryResponse, AIAssistReplyResponse]:
     """
     Generate an AI summary or draft reply for a ticket.
@@ -76,12 +70,6 @@ def run_ai_assist(
     Returns 503 if AI assist is disabled.
     Returns 502 if Ollama fails or output is invalid.
     """
-    if current_user.role not in (UserRole.AGENT, UserRole.ADMIN):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only agents and admins can use AI assist",
-        )
-
     ticket = db.get(Ticket, ticket_id)
     if not ticket:
         raise HTTPException(
