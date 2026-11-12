@@ -71,6 +71,18 @@ class Settings(BaseSettings):
     TRIAGE_RATE_LIMIT_MAX_REQUESTS: int = 30
     TRIAGE_RATE_LIMIT_WINDOW_SECONDS: int = 60
 
+    # Optional Redis URL (redis:// or rediss://) to share rate limits across workers and servers
+    REDIS_URL: str | None = None
+
+    # Prometheus metrics at /metrics (off by default). If METRICS_TOKEN is set, requests must send
+    # 'Authorization: Bearer <token>'.
+    METRICS_ENABLED: bool = False
+    METRICS_TOKEN: str | None = None
+
+    # Optional Sentry error tracking (needs `pip install -r requirements-optional.txt`)
+    SENTRY_DSN: str | None = None
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -138,6 +150,9 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"AI_LLM_EXAMPLES must be non-negative, got {self.AI_LLM_EXAMPLES}"
             )
+
+        if self.REDIS_URL and not self.REDIS_URL.lower().startswith(("redis://", "rediss://")):
+            raise ValueError("REDIS_URL must start with redis:// or rediss://")
 
         if not self.OLLAMA_BASE_URL.lower().startswith(("http://", "https://")):
             raise ValueError(

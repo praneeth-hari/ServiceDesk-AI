@@ -11,6 +11,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.routes import assist, auth, health, holidays, reports, tickets, triage, users
 from app.core.config import settings
 from app.core.logging import RequestIDLoggingMiddleware, setup_logging
+from app.core.metrics import metrics_endpoint, metrics_middleware
+from app.core.observability import init_sentry
 
 # Configure logging using standard library
 setup_logging(settings.LOG_LEVEL)
@@ -202,6 +204,7 @@ async def security_headers_middleware(request: Request, call_next):
 
 def create_app(web_dist_dir: str | None = None) -> FastAPI:
     """Create and configure the FastAPI application."""
+    init_sentry()
     application = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
@@ -211,6 +214,9 @@ def create_app(web_dist_dir: str | None = None) -> FastAPI:
     # Add Request ID and logging middleware
     application.add_middleware(RequestIDLoggingMiddleware)
     application.middleware("http")(security_headers_middleware)
+    if settings.METRICS_ENABLED:
+        application.middleware("http")(metrics_middleware)
+        application.add_api_route("/metrics", metrics_endpoint, include_in_schema=False)
 
     # Exception handlers
     application.add_exception_handler(StarletteHTTPException, http_exception_handler)

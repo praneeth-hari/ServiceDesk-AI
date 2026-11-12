@@ -10,6 +10,12 @@ jobs:
   tests:
     name: Run Pytest & Coverage
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=3s --health-retries=10
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -26,6 +32,9 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Run tests with coverage
+        env:
+          # Runs the Redis rate-limiter tests against a real Redis (they use fakeredis if unset)
+          TEST_REDIS_URL: redis://127.0.0.1:6379/15
         run: |
           pytest --cov=app --cov-report=term-missing --cov-fail-under=85
 
