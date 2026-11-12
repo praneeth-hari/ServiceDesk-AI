@@ -29,3 +29,7 @@ UTCDateTime = Annotated[
     PlainSerializer(serialize_utc_datetime, return_type=str),
 ]
 
+
+
+# Upper bound for free-text ticket descriptions (also bounds regex/embedding work).
+MAX_DESCRIPTION_LENGTH = 10_000

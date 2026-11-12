@@ -204,3 +204,18 @@ def test_database_connect_args_sqlite_with_ca_set():
     )
     assert args_memory == {}
 
+
+
+def test_demo_mode_refused_in_production():
+    """DEMO_MODE (passwordless admin sign-in) must prevent startup in production."""
+    from app.core.config import settings
+    orig = (settings.APP_ENV, settings.SECRET_KEY, settings.DEMO_MODE)
+    try:
+        settings.APP_ENV = "production"
+        settings.SECRET_KEY = "x" * 48
+        settings.DEMO_MODE = True
+        with pytest.raises(ValueError, match="DEMO_MODE cannot be enabled"):
+            with TestClient(app):
+                pass
+    finally:
+        settings.APP_ENV, settings.SECRET_KEY, settings.DEMO_MODE = orig
