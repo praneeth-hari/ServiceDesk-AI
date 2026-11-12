@@ -1,6 +1,7 @@
 from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.common import MAX_DESCRIPTION_LENGTH
 from app.models.enums import TicketCategory, TicketPriority, TicketStatus
 
 
@@ -19,7 +20,7 @@ class SimilarTicket(BaseModel):
 class TriageSuggestRequest(BaseModel):
     """Request payload for AI triage suggestions."""
     title: str = Field(..., min_length=1, max_length=255, description="Ticket title")
-    description: str = Field(..., min_length=1, description="Ticket problem description")
+    description: str = Field(..., min_length=1, max_length=MAX_DESCRIPTION_LENGTH, description="Ticket problem description")
 
 
 class TriageSuggestResponse(BaseModel):

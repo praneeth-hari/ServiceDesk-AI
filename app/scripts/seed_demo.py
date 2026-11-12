@@ -8,6 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.demo import DEMO_USERS
 from app.core.security import hash_password
 from app.core.sla import (
     add_business_minutes,
@@ -25,27 +26,6 @@ from app.models.user import User
 from app.services.holidays import get_holiday_dates
 from app.services.triage import sync_ticket_embedding
 from app.services.users import get_user_by_email
-
-DEMO_USERS = [
-    {
-        "email": "admin@example.com",
-        "full_name": "System Admin",
-        "password": "AdminPassword123!",
-        "role": UserRole.ADMIN,
-    },
-    {
-        "email": "agent@example.com",
-        "full_name": "Asha Agent",
-        "password": "AgentPassword123!",
-        "role": UserRole.AGENT,
-    },
-    {
-        "email": "requester@example.com",
-        "full_name": "Ravi Requester",
-        "password": "RequesterPassword123!",
-        "role": UserRole.REQUESTER,
-    },
-]
 
 
 def _get_time_from_str(t_str: str) -> time:
