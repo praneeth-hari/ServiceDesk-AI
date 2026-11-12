@@ -41,6 +41,7 @@ def get_current_user(
                 headers={"WWW-Authenticate": "Bearer"},
             )
         user_id = int(user_id_str)
+        token_version = int(payload.get("tv", 0))
     except (jwt.PyJWTError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -53,6 +54,14 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Tokens issued before the user's last logout are no longer valid
+    if token_version != user.token_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

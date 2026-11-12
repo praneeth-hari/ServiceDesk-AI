@@ -31,12 +31,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // JavaScript (vulnerable to XSS if malicious scripts execute), but it restricts the token lifetime
   // strictly to the current browser tab, prevents cross-tab leakage, clears automatically when the tab
   // closes, and eliminates CSRF attack vectors since the browser does not attach it automatically like cookies.
-  const logout = useCallback(() => {
+  // Clears the local session only (used when the server has already rejected the token)
+  const clearSession = useCallback(() => {
     sessionStorage.removeItem('access_token');
     sessionStorage.removeItem('user');
     setToken(null);
     setUser(null);
   }, []);
+
+  // User-initiated sign-out: also asks the server to invalidate the user's tokens.
+  // The local session is cleared first, so sign-out works even if the request fails.
+  const logout = useCallback(() => {
+    const currentToken = sessionStorage.getItem('access_token');
+    clearSession();
+    if (currentToken) {
+      apiFetch<null>('/auth/logout', {
+        method: 'POST',
+        skipAuth: true,
+        headers: { Authorization: `Bearer ${currentToken}` },
+      }).catch(() => {
+        // Best effort: the token still expires on its own
+      });
+    }
+  }, [clearSession]);
 
   useEffect(() => {
     // Always re-fetch the profile when a token exists, so a role change or deactivation
@@ -56,12 +73,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(profile);
           sessionStorage.setItem('user', JSON.stringify(profile));
         } else if (sessionStorage.getItem('user') === null) {
-          logout();
+          clearSession();
         }
       } catch (err) {
         const hasCachedUser = sessionStorage.getItem('user') !== null;
         if (!hasCachedUser || (err instanceof ApiError && err.status === 401)) {
-          logout();
+          clearSession();
         }
       } finally {
         setIsLoading(false);
@@ -69,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     initAuth();
-  }, [logout]);
+  }, [clearSession]);
 
   const login = async (email: string, password: string) => {
     const tokenData = await apiFetch<TokenResponse>('/auth/login', {
