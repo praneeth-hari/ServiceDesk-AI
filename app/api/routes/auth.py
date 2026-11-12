@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.demo import DEMO_USERS
 from app.core.rate_limit import login_rate_limiter
 from app.core.security import create_access_token
 from app.db.session import get_db
@@ -15,7 +16,6 @@ from app.schemas.token import (
     Token,
 )
 from app.schemas.user import UserCreate, UserLogin, UserRead
-from app.scripts.seed_demo import DEMO_USERS
 from app.services.users import authenticate_user, get_user_by_email, register_user
 
 logger = logging.getLogger("helpdesk_api")
