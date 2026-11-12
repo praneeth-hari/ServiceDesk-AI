@@ -16,6 +16,10 @@ def hash_password(password: str) -> str:
     return hashed.decode("utf-8")
 
 
+# Valid bcrypt hash of a random value, used to spend equal time when the user is unknown.
+_DUMMY_HASH = hash_password("timing-equalisation-placeholder")
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verify a plain text password against a stored bcrypt hash.
