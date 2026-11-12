@@ -19,7 +19,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import re
-from typing import Sequence
 import unicodedata
 
 from app.ai.llm_triage import CATEGORIES, PRIORITIES

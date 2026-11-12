@@ -21,8 +21,6 @@ import urllib.request
 from app.core.config import settings
 from app.schemas.assist import (
     AIAssistFact,
-    AIAssistReplyResponse,
-    AIAssistSummaryResponse,
 )
 
 logger = logging.getLogger("helpdesk_api")
@@ -392,7 +390,7 @@ def call_ollama_assist(
                 headers={"Content-Type": "application/json", "User-Agent": "ServiceDesk-AI/1.0"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
+            with urllib.request.urlopen(req, timeout=timeout_sec) as resp:  # nosec B310 - URL is validated as http(s) in Settings
                 raw_bytes = resp.read()
                 resp_json = json.loads(raw_bytes.decode("utf-8"))
         except (urllib.error.URLError, TimeoutError) as exc:

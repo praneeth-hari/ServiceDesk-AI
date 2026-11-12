@@ -1,0 +1,19 @@
+# Focused lint rules: real bugs (pyflakes, bugbear) and import errors, not style churn.
+target-version = "py311"
+line-length = 120
+extend-exclude = ["alembic/versions", "web", "benchmarks", "data"]
+
+[lint]
+select = ["E4", "E7", "E9", "F", "B"]
+ignore = [
+    "B008",  # FastAPI uses Depends()/Query() in argument defaults by design
+    "B905",  # zip() without strict=: lengths are equal by construction here
+    "B007",  # unused loop variable: harmless naming, not a bug
+    "E712",  # SQLAlchemy needs `== True/False` to build SQL expressions
+    "E402",  # a few modules deliberately import after setup code
+]
+
+[lint.per-file-ignores]
+# Tests and scripts re-export and patch names through other modules, so unused-import cleanup is unsafe there
+"tests/*" = ["B011", "B017", "F841", "B023", "F401", "F541"]
+"app/scripts/*" = ["F841", "B023", "F401", "F541"]

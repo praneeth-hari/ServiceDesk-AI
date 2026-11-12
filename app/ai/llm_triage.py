@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 import time
 from typing import Any, Sequence
 import urllib.error
@@ -193,7 +192,7 @@ def check_ollama_status(
     tags_url = f"{base_url.rstrip('/')}/api/tags"
     try:
         req = urllib.request.Request(tags_url, headers={"User-Agent": "ServiceDesk-AI/1.0"})
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - URL is validated as http(s) in Settings
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.URLError as exc:
         return False, f"Could not reach Ollama at {tags_url}: {exc.reason}", ""
@@ -298,7 +297,7 @@ def call_ollama_chat(
                 headers={"Content-Type": "application/json", "User-Agent": "ServiceDesk-AI/1.0"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - URL is validated as http(s) in Settings
                 raw_bytes = resp.read()
                 resp_json = json.loads(raw_bytes.decode("utf-8"))
         except Exception:
@@ -379,7 +378,7 @@ def triage_with_llm(
                 headers={"Content-Type": "application/json", "User-Agent": "ServiceDesk-AI/1.0"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - URL is validated as http(s) in Settings
                 raw_bytes = resp.read()
                 resp_json = json.loads(raw_bytes.decode("utf-8"))
         except urllib.error.HTTPError as exc:
