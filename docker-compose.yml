@@ -9,7 +9,7 @@ services:
       MYSQL_USER: ${MYSQL_USER:-helpdesk}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-helpdesk_password}
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -27,6 +27,8 @@ services:
     ports:
       - "8000:8000"
     environment:
+      APP_ENV: ${APP_ENV:-development}
+      SECRET_KEY: ${SECRET_KEY:-change-me}
       DATABASE_URL: mysql+pymysql://${MYSQL_USER:-helpdesk}:${MYSQL_PASSWORD:-helpdesk_password}@db:3306/${MYSQL_DATABASE:-helpdesk_db}
     depends_on:
       db:

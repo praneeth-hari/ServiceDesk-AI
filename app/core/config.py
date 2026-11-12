@@ -64,6 +64,13 @@ class Settings(BaseSettings):
     LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = 300
     LOGIN_LOCKOUT_SECONDS: int = 300
 
+    # Per-IP limit on public registration, per-user limit on AI triage suggestions
+    # (in-memory sliding window; set max to 0 to disable)
+    REGISTER_RATE_LIMIT_MAX_REQUESTS: int = 10
+    REGISTER_RATE_LIMIT_WINDOW_SECONDS: int = 3600
+    TRIAGE_RATE_LIMIT_MAX_REQUESTS: int = 30
+    TRIAGE_RATE_LIMIT_WINDOW_SECONDS: int = 60
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
