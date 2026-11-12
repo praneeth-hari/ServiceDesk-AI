@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { apiFetch } from '../api/client';
+import { ApiError, apiFetch } from '../api/client';
 import { User, TokenResponse } from '../api/types';
 import { AuthContext } from './auth-context';
 
@@ -39,20 +39,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
+    // Always re-fetch the profile when a token exists, so a role change or deactivation
+    // made by an admin is reflected without waiting for the token to expire. A cached
+    // profile is shown immediately; if the refresh fails for a non-auth reason (for example
+    // the network is down) the cached profile is kept.
     const initAuth = async () => {
       const storedToken = sessionStorage.getItem('access_token');
-      const storedUser = sessionStorage.getItem('user');
-      if (storedToken && !storedUser) {
-        try {
-          const profile = await apiFetch<User>('/users/me');
+      if (!storedToken) {
+        setIsLoading(false);
+        return;
+      }
+      try {
+        const profile = await apiFetch<User>('/users/me');
+        // Only accept something that looks like a user profile
+        if (profile && typeof profile === 'object' && typeof profile.role === 'string') {
           setUser(profile);
           sessionStorage.setItem('user', JSON.stringify(profile));
-        } catch {
+        } else if (sessionStorage.getItem('user') === null) {
           logout();
-        } finally {
-          setIsLoading(false);
         }
-      } else {
+      } catch (err) {
+        const hasCachedUser = sessionStorage.getItem('user') !== null;
+        if (!hasCachedUser || (err instanceof ApiError && err.status === 401)) {
+          logout();
+        }
+      } finally {
         setIsLoading(false);
       }
     };

@@ -16,6 +16,25 @@ import {
   TRIAGE_EXPLANATION,
 } from './triageConstants';
 
+const MAX_DESCRIPTION_LENGTH = 10000;
+const DRAFT_STORAGE_KEY = 'new_ticket_draft';
+
+interface TicketDraft {
+  title: string;
+  description: string;
+  category: TicketCategory | '';
+  priority: TicketPriority;
+}
+
+function loadDraft(): TicketDraft | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as TicketDraft) : null;
+  } catch {
+    return null;
+  }
+}
+
 const CATEGORY_OPTIONS: { value: TicketCategory; label: string }[] = [
   { value: 'network', label: 'Network' },
   { value: 'hardware', label: 'Hardware' },
@@ -35,11 +54,12 @@ const PRIORITY_OPTIONS: { value: TicketPriority; label: string }[] = [
 export const NewTicketPage: React.FC = () => {
   const navigate = useNavigate();
 
-  // Form State
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<TicketCategory | ''>('');
-  const [priority, setPriority] = useState<TicketPriority>('medium');
+  // Form State (restored from a saved draft, so an expired sign-in doesn't lose the text)
+  const [initialDraft] = useState<TicketDraft | null>(loadDraft);
+  const [title, setTitle] = useState(initialDraft?.title ?? '');
+  const [description, setDescription] = useState(initialDraft?.description ?? '');
+  const [category, setCategory] = useState<TicketCategory | ''>(initialDraft?.category ?? '');
+  const [priority, setPriority] = useState<TicketPriority>(initialDraft?.priority ?? 'medium');
 
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -49,6 +69,7 @@ export const NewTicketPage: React.FC = () => {
   const [triageResult, setTriageResult] = useState<TriageSuggestResponse | null>(null);
   const [triageLoading, setTriageLoading] = useState(false);
   const [triageUnavailable, setTriageUnavailable] = useState(false);
+  const [triagePausedSeconds, setTriagePausedSeconds] = useState<number | null>(null);
   const [appliedCategory, setAppliedCategory] = useState(false);
   const [appliedPriority, setAppliedPriority] = useState(false);
 
@@ -68,6 +89,22 @@ export const NewTicketPage: React.FC = () => {
   const activeDuplicate: SimilarTicket | undefined = triageResult?.possible_duplicates?.find(
     (dup) => !dismissedDuplicateIds.includes(dup.id)
   );
+
+  // Save the draft as the user types; remove it when the form is empty
+  useEffect(() => {
+    try {
+      if (!title && !description) {
+        sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      } else {
+        sessionStorage.setItem(
+          DRAFT_STORAGE_KEY,
+          JSON.stringify({ title, description, category, priority })
+        );
+      }
+    } catch {
+      // Storage unavailable; the draft just isn't saved
+    }
+  }, [title, description, category, priority]);
 
   // Debounced Triage Suggestion Effect
   useEffect(() => {
@@ -111,6 +148,7 @@ export const NewTicketPage: React.FC = () => {
           setTriageResult(response);
           setTriageLoading(false);
           setTriageUnavailable(false);
+          setTriagePausedSeconds(null);
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === 'AbortError') {
@@ -118,7 +156,13 @@ export const NewTicketPage: React.FC = () => {
         }
         if (!controller.signal.aborted) {
           setTriageLoading(false);
-          setTriageUnavailable(true);
+          if (err instanceof ApiError && err.status === 429) {
+            const data = err.data as { retry_after_seconds?: number } | undefined;
+            setTriageUnavailable(false);
+            setTriagePausedSeconds(data?.retry_after_seconds ?? 60);
+          } else {
+            setTriageUnavailable(true);
+          }
         }
       }
     }, TRIAGE_BENCHMARKS.debounceMs);
@@ -163,6 +207,8 @@ export const NewTicketPage: React.FC = () => {
 
     if (!description.trim()) {
       errors.description = 'Description is required.';
+    } else if (description.trim().length > MAX_DESCRIPTION_LENGTH) {
+      errors.description = `Description must be ${MAX_DESCRIPTION_LENGTH.toLocaleString()} characters or fewer.`;
     }
 
     if (!category) {
@@ -195,6 +241,11 @@ export const NewTicketPage: React.FC = () => {
         priority,
         ...(triage_suggestion ? { triage_suggestion } : {}),
       });
+      try {
+        sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      } catch {
+        // ignore
+      }
       navigate(`/tickets/${created.id}`);
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 422) {
@@ -337,6 +388,7 @@ export const NewTicketPage: React.FC = () => {
             <textarea
               id={descInputId}
               rows={6}
+              maxLength={MAX_DESCRIPTION_LENGTH}
               value={description}
               onChange={(e) => {
                 setDescription(e.target.value);
@@ -356,6 +408,9 @@ export const NewTicketPage: React.FC = () => {
             {fieldErrors.description && (
               <p className="text-coral text-xs mt-1.5">{fieldErrors.description}</p>
             )}
+            <p className="text-muted text-xs mt-1.5 text-right">
+              {description.length.toLocaleString()} / {MAX_DESCRIPTION_LENGTH.toLocaleString()}
+            </p>
           </div>
 
           {/* Two-column row: Category & Priority */}
@@ -463,7 +518,11 @@ export const NewTicketPage: React.FC = () => {
           </div>
 
           {/* Card Body */}
-          {triageUnavailable ? (
+          {triagePausedSeconds !== null ? (
+            <p className="text-xs text-muted italic py-2">
+              Suggestions paused: too many requests. Try again in about {triagePausedSeconds} seconds.
+            </p>
+          ) : triageUnavailable ? (
             <p className="text-xs text-muted italic py-2">Suggestions unavailable</p>
           ) : combinedLen < TRIAGE_BENCHMARKS.minTextLength ? (
             <p className="text-xs text-muted py-2">

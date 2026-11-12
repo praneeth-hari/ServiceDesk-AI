@@ -508,4 +508,56 @@ describe('NewTicketPage', () => {
       expect(screen.getByText('hardware')).toBeInTheDocument();
     });
   });
+
+  it('limits the description to 10,000 characters and shows a counter', () => {
+    render(
+      <MemoryRouter>
+        <NewTicketPage />
+      </MemoryRouter>
+    );
+    const descInput = screen.getByLabelText(/description/i) as HTMLTextAreaElement;
+    expect(descInput.maxLength).toBe(10000);
+    fireEvent.change(descInput, { target: { value: 'hello' } });
+    expect(screen.getByText('5 / 10,000')).toBeInTheDocument();
+  });
+
+  it('shows a "paused" message (not "unavailable") when triage is rate limited', async () => {
+    vi.mocked(triageApi.suggestTriage).mockRejectedValue(
+      new ApiError(429, 'Too many requests', { retry_after_seconds: 42 })
+    );
+    vi.useFakeTimers();
+    render(
+      <MemoryRouter>
+        <NewTicketPage />
+      </MemoryRouter>
+    );
+    fireEvent.change(screen.getByLabelText(/title/i), { target: { value: 'VPN issue' } });
+    fireEvent.change(screen.getByLabelText(/description/i), {
+      target: { value: 'Cannot connect from home' },
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(700);
+    });
+    expect(screen.getByText(/Suggestions paused/i)).toHaveTextContent('42 seconds');
+    expect(screen.queryByText('Suggestions unavailable')).not.toBeInTheDocument();
+  });
+
+  it('saves a draft while typing and restores it on the next visit', () => {
+    const { unmount } = render(
+      <MemoryRouter>
+        <NewTicketPage />
+      </MemoryRouter>
+    );
+    fireEvent.change(screen.getByLabelText(/title/i), { target: { value: 'Printer jam' } });
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'Tray 2 jams' } });
+    unmount();
+
+    render(
+      <MemoryRouter>
+        <NewTicketPage />
+      </MemoryRouter>
+    );
+    expect((screen.getByLabelText(/title/i) as HTMLInputElement).value).toBe('Printer jam');
+    expect((screen.getByLabelText(/description/i) as HTMLTextAreaElement).value).toBe('Tray 2 jams');
+  });
 });
