@@ -9,8 +9,8 @@ Role-based IT helpdesk ticketing application with business-hours SLA tracking, r
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg)
 ![TailwindCSS](https://img.shields.io/badge/Tailwind-4.0-38B2AC.svg)
 ![MySQL 8](https://img.shields.io/badge/mysql-8.0-4479A1.svg)
-![Tests](https://img.shields.io/badge/tests-166%20collected-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)
+![Tests](https://img.shields.io/badge/tests-418%20collected-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ---
@@ -19,11 +19,11 @@ Role-based IT helpdesk ticketing application with business-hours SLA tracking, r
 
 | Metric / Dimension | Specification |
 | :--- | :--- |
-| **API Endpoints** | 29 REST endpoints (`/api/v1`) |
+| **API Endpoints** | 30 REST endpoints (`/api/v1`) |
 | **Frontend UI** | Modern single-page app (React 19, TypeScript, Tailwind CSS, Vite) |
 | **Serving Mode** | Unified service: FastAPI serves both the JSON REST API and the built SPA bundle |
 | **Business Hours SLA** | 09:00–18:00 IST Monday–Friday, calendar-aware with holiday pauses |
-| **Database Migrations** | 11 Alembic schema migration versions |
+| **Database Migrations** | 12 Alembic schema migration versions |
 | **SQL Reports** | 9 raw SQL analytical reports (CTEs, `RANK()` window functions) |
 | **CI Jobs** | 3 GitHub Actions jobs (Pytest & Coverage, MySQL 8 Migrations, Web Frontend) |
 
@@ -93,7 +93,7 @@ flowchart TD
 
     subgraph Data ["Data & CI"]
         DB[("MySQL 8 Database")]
-        Alembic["Alembic Migrations (11 Versions)"]
+        Alembic["Alembic Migrations (12 Versions)"]
         CI["GitHub Actions CI"]
     end
 
@@ -127,11 +127,15 @@ stateDiagram-v2
 
 Any invalid or out-of-order state transition is rejected with an HTTP 409 Conflict status. Tickets in `waiting_on_requester` freeze the SLA clock and are never flagged as overdue while paused.
 
+**SLA rules for edge cases**
+- Reopening a resolved ticket (`resolved` to `in_progress`) does not restart the clock: `due_at` stays as it was, so a ticket reopened after its due date is overdue again straight away.
+- Changing a ticket's priority recalculates `due_at` from its creation time and re-applies the business minutes it has already spent in `waiting_on_requester`, so earlier pauses are not lost.
+
 ---
 
 ## Database Schema
 
-The database consists of 6 tables managed via Alembic migrations.
+The database consists of 8 tables managed via Alembic migrations.
 
 ```mermaid
 erDiagram
@@ -142,6 +146,7 @@ erDiagram
         string hashed_password
         enum role
         boolean is_active
+        int token_version
         datetime created_at
     }
 
@@ -295,15 +300,16 @@ While ServiceDesk-AI defaults to instant lexical kNN triage, you can optionally 
 
 ## API Overview
 
-All routes are prefixed with `/api/v1`. Interactive documentation is available at `/docs` (Swagger UI) and `/redoc` (ReDoc). The API exposes **29 REST endpoints**:
+All routes are prefixed with `/api/v1`. Interactive documentation is available at `/docs` (Swagger UI) and `/redoc` (ReDoc). The API exposes **30 REST endpoints**:
 
 <details>
-<summary>All 29 endpoints (click to expand)</summary>
+<summary>All 30 endpoints (click to expand)</summary>
 
 | Method | Endpoint | Description | Access |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/auth/register` | Register a new user account (defaults to requester role) | Public |
 | `POST` | `/api/v1/auth/login` | Authenticate with email and password, returning JWT access token | Public |
+| `POST` | `/api/v1/auth/logout` | Sign out: invalidates every access token issued to the user so far | Authenticated |
 | `GET` | `/api/v1/users/me` | Retrieve profile of the currently authenticated user | Authenticated |
 | `GET` | `/api/v1/users` | List registered users with pagination parameters (flat list with count headers) | Admin |
 | `GET` | `/api/v1/users/admin` | List users with search (`q`), role, and active status filters, totals, and open ticket metrics | Admin |
@@ -551,9 +557,23 @@ ServiceDesk-AI includes an in-memory sliding-window rate limiter on the password
 - **Audit Logging**: When an account reaches the lockout threshold, a security warning is logged with the client IP and a masked email (passwords are never logged).
 - **Demo Login Exemption**: One-click demo logins (`POST /api/v1/auth/demo-login`) are not subject to password rate limiting lockout.
 
+### Registration and Triage Limits
+Two more in-memory sliding-window limits apply (HTTP 429 with `Retry-After` when exceeded). Set a maximum to `0` to disable it.
+
+| Setting | Default | Applies to |
+| :--- | :--- | :--- |
+| `REGISTER_RATE_LIMIT_MAX_REQUESTS` / `REGISTER_RATE_LIMIT_WINDOW_SECONDS` | `10` / `3600` | `POST /api/v1/auth/register`, per client IP |
+| `TRIAGE_RATE_LIMIT_MAX_REQUESTS` / `TRIAGE_RATE_LIMIT_WINDOW_SECONDS` | `30` / `60` | `POST /api/v1/triage/suggest`, per signed-in user |
+
+### Sessions and Logout
+Access tokens last `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default). `POST /api/v1/auth/logout` increments the user's `token_version`, which immediately invalidates every token issued before it. The web UI calls it when you sign out.
+
+### Browser Security Headers
+Every response carries `X-Content-Type-Options`, `X-Frame-Options: DENY` and `Referrer-Policy`. The web UI and API also send a `Content-Security-Policy` (same-origin only); `/docs` and `/redoc` are exempt because they load assets from a CDN.
+
 ### Architecture & Known Limitations
 - **In-Memory & Per-Process**: The limiter is in-memory and per process; it resets on restart; and it is not shared across workers or clustered server processes. For distributed multi-worker production deployments, an external shared store (such as Redis) would be required.
-- **Keyed by Email + IP (No Per-IP Cap)**: The limiter is keyed strictly by normalized email plus client IP `(email, IP)`. This means one IP address can still try many different emails without locking (there is no aggregate per-IP cap), while protecting individual accounts from targeted credential guessing from a given host.
+- **Keyed by Email + IP (No Per-IP Cap on Login)**: The login limiter is keyed strictly by normalized email plus client IP `(email, IP)`. This means one IP address can still try many different emails without locking (there is no aggregate per-IP cap), while protecting individual accounts from targeted credential guessing from a given host.
 - **Untrusted Headers**: `X-Forwarded-For` is not trusted. The limiter strictly evaluates direct connection IP via `request.client.host` to prevent header-spoofing bypasses. Behind reverse proxies, trusted proxy middleware must configure client IP safely.
 - **Bounded Memory**: State entries are pruned on each request window, and expired keys can be evicted via `purge_stale()`.
 
@@ -626,7 +646,7 @@ GitHub Actions CI runs the full test suite with coverage enforcement, executes M
 ├── alembic/              # Database migration configuration and version scripts (8 revisions)
 ├── app/                  # FastAPI backend application core, models, schemas, and routes
 │   ├── ai/               # AI embedder protocols, HashingVectorizer, and SBERT backends
-│   ├── api/              # API route definitions and dependency injection (29 endpoints)
+│   ├── api/              # API route definitions and dependency injection (30 endpoints)
 │   ├── core/             # Configuration, logging middleware, security, and SLA definitions
 │   ├── db/               # Database engine, session management, and Base declarative model
 │   ├── models/           # SQLAlchemy entity models (6 tables) and enums (3 roles)

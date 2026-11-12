@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.demo import DEMO_USERS
 from app.core.rate_limit import login_rate_limiter, register_rate_limiter
+from app.api.deps import get_current_user
 from app.core.security import create_access_token
 from app.db.session import get_db
 from app.models.enums import UserRole
+from app.models.user import User
 from app.schemas.token import (
     DemoAccountRead,
     DemoAccountsResponse,
@@ -84,8 +86,25 @@ def login(
 
     # Reset failure counter on successful authentication
     login_rate_limiter.reset(credentials.email, client_ip)
-    access_token = create_access_token(data={"sub": str(user.id)})
+    access_token = create_access_token(data={"sub": str(user.id), "tv": user.token_version})
     return Token(access_token=access_token, token_type="bearer")
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Sign out and invalidate all of the user's access tokens",
+)
+def logout(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    """
+    Invalidate every access token issued to the current user so far (including this one).
+    The user can sign in again to get a fresh token.
+    """
+    current_user.token_version += 1
+    db.commit()
 
 
 @router.get(
@@ -169,5 +188,5 @@ def demo_login(
             detail=f"Demo account '{user.email}' role has changed from '{payload.role.value}' to '{user.role.value}'.",
         )
 
-    access_token = create_access_token(data={"sub": str(user.id)})
+    access_token = create_access_token(data={"sub": str(user.id), "tv": user.token_version})
     return Token(access_token=access_token, token_type="bearer")

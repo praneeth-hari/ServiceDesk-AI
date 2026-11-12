@@ -59,3 +59,39 @@ describe('AuthProvider profile refresh', () => {
     expect(sessionStorage.getItem('access_token')).toBeNull();
   });
 });
+
+describe('AuthProvider logout', () => {
+  it('clears the session and asks the server to invalidate the token', async () => {
+    sessionStorage.setItem('access_token', 'tok');
+    sessionStorage.setItem('user', JSON.stringify(cachedUser));
+    const spy = vi
+      .spyOn(client, 'apiFetch')
+      .mockImplementation(async (endpoint: string) =>
+        (endpoint === '/users/me' ? cachedUser : null) as never
+      );
+
+    function LogoutButton() {
+      const { logout, role } = useAuth();
+      return (
+        <button onClick={logout}>
+          {role ?? 'signed-out'}
+        </button>
+      );
+    }
+
+    render(
+      <AuthProvider>
+        <LogoutButton />
+      </AuthProvider>
+    );
+    await waitFor(() => expect(spy).toHaveBeenCalledWith('/users/me'));
+    screen.getByRole('button').click();
+
+    await waitFor(() => expect(screen.getByRole('button')).toHaveTextContent('signed-out'));
+    expect(sessionStorage.getItem('access_token')).toBeNull();
+    expect(spy).toHaveBeenCalledWith(
+      '/auth/logout',
+      expect.objectContaining({ method: 'POST', headers: { Authorization: 'Bearer tok' } })
+    );
+  });
+});

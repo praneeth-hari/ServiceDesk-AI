@@ -29,6 +29,10 @@ class User(Base):
         server_default=func.now(),
         nullable=False,
     )
+    # Incremented on logout; access tokens carry the version they were issued with
+    token_version: Mapped[int] = mapped_column(
+        sa.Integer, default=0, server_default="0", nullable=False
+    )
 
     # Relationships
     requested_tickets: Mapped[List["Ticket"]] = relationship(
