@@ -165,7 +165,7 @@ def mount_frontend(app: FastAPI, dist_dir_override: str | None = None) -> None:
             if target.is_file():
                 return FileResponse(str(target))
         except (ValueError, RuntimeError):
-            raise StarletteHTTPException(status_code=404, detail="Not Found")
+            raise StarletteHTTPException(status_code=404, detail="Not Found") from None
 
         # If a path has a file extension and was not found, return 404 (not an SPA client route)
         if Path(norm_path).suffix:

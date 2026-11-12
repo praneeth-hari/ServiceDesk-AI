@@ -19,9 +19,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install runtime Python dependencies only
+# Pick up Debian security fixes released since the base image was built (e.g. zlib)
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install runtime Python dependencies only, then drop build tooling the app does not need.
+# setuptools and wheel bundle copies of other packages that scanners flag.
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip uninstall -y setuptools wheel
 
 # Copy backend application source code, Alembic migrations, and runtime scripts
 COPY app/ /app/app/

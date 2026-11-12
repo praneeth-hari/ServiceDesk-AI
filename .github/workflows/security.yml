@@ -1,0 +1,69 @@
+name: Security
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: "41 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  python-security:
+    name: Python (Bandit + pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install tools
+        run: pip install bandit pip-audit
+      - name: Bandit (fails on medium or higher)
+        run: bandit -q -r app -ll
+      - name: Audit Python dependencies
+        run: pip-audit -r requirements.txt
+
+  web-security:
+    name: Web (npm audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+      - name: Audit production dependencies (fails on high or critical)
+        working-directory: web
+        run: npm audit --omit=dev --audit-level=high
+
+  secrets:
+    name: Secret scan (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  container:
+    name: Container scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t servicedesk-ai:scan .
+      - name: Scan image (fails on high or critical with a fix available)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: servicedesk-ai:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"

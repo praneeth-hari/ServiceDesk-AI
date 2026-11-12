@@ -135,7 +135,7 @@ def register_user(db: Session, user_in: UserCreate) -> User:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already registered",
-        )
+        ) from None
     db.refresh(user)
     return user
 
@@ -172,7 +172,7 @@ def create_admin_user(db: Session, user_in: UserAdminCreate, actor_id: int) -> t
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already registered",
-        )
+        ) from None
     db.refresh(user)
 
     logger.info(

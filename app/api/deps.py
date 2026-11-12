@@ -47,7 +47,7 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
 
     user = get_user_by_id(db, user_id=user_id)
     if user is None or not user.is_active:
