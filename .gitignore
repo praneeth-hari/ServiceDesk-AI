@@ -10,3 +10,7 @@ htmlcov/
 node_modules/
 web/dist/
 *.tsbuildinfo
+
+# Browser test output
+web/test-results/
+web/playwright-report/
