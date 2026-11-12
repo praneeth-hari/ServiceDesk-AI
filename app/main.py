@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 import logging
 from pathlib import Path
+from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
@@ -48,6 +49,11 @@ async def lifespan(app: FastAPI):
             )
 
     if settings.DEMO_MODE:
+        if is_prod:
+            raise ValueError(
+                "DEMO_MODE cannot be enabled when APP_ENV=production: demo accounts "
+                "allow passwordless sign-in (including admin)."
+            )
         logger.warning(
             "SECURITY WARNING: DEMO_MODE is enabled. Demo accounts allow passwordless sign-in "
             "(including admin) and must never be enabled on a real deployment."

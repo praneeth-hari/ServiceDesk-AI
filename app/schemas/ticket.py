@@ -1,4 +1,4 @@
-from app.schemas.common import UTCDateTime
+from app.schemas.common import MAX_DESCRIPTION_LENGTH, UTCDateTime
 from datetime import datetime, timezone
 from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, computed_field
@@ -36,7 +36,7 @@ class TriageFeedbackRead(BaseModel):
 class TicketCreate(BaseModel):
     """Schema for creating a new ticket."""
     title: str = Field(..., min_length=1, max_length=255)
-    description: str = Field(..., min_length=1)
+    description: str = Field(..., min_length=1, max_length=MAX_DESCRIPTION_LENGTH)
     priority: TicketPriority = TicketPriority.MEDIUM
     category: TicketCategory = TicketCategory.OTHER
     triage_suggestion: Optional[TriageSuggestionCreate] = None
@@ -45,7 +45,7 @@ class TicketCreate(BaseModel):
 class TicketUpdate(BaseModel):
     """Schema for updating ticket title, description, priority, or category."""
     title: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = Field(None, min_length=1)
+    description: Optional[str] = Field(None, min_length=1, max_length=MAX_DESCRIPTION_LENGTH)
     priority: Optional[TicketPriority] = None
     category: Optional[TicketCategory] = None
 
