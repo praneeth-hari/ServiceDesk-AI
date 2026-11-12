@@ -179,6 +179,27 @@ def mount_frontend(app: FastAPI, dist_dir_override: str | None = None) -> None:
         )
 
 
+# Content-Security-Policy for the web UI. The API docs pages (/docs, /redoc) load assets
+# from a CDN and use inline scripts, so they are left without this policy.
+_CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; font-src 'self' data:; connect-src 'self'; "
+    "base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+)
+_DOCS_PREFIXES = ("/docs", "/redoc")
+
+
+async def security_headers_middleware(request: Request, call_next):
+    """Add baseline browser security headers to every response."""
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "same-origin")
+    if not request.url.path.startswith(_DOCS_PREFIXES):
+        response.headers.setdefault("Content-Security-Policy", _CSP)
+    return response
+
+
 def create_app(web_dist_dir: str | None = None) -> FastAPI:
     """Create and configure the FastAPI application."""
     application = FastAPI(
@@ -189,6 +210,7 @@ def create_app(web_dist_dir: str | None = None) -> FastAPI:
 
     # Add Request ID and logging middleware
     application.add_middleware(RequestIDLoggingMiddleware)
+    application.middleware("http")(security_headers_middleware)
 
     # Exception handlers
     application.add_exception_handler(StarletteHTTPException, http_exception_handler)
