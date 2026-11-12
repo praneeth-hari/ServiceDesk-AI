@@ -1,5 +1,4 @@
 from app.schemas.common import UTCDateTime
-from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
