@@ -234,3 +234,43 @@ def test_login_unknown_email_still_verifies_a_hash(client: TestClient):
         r = client.post("/api/v1/auth/login", json={"email": "nobody@example.com", "password": "whatever123"})
     assert r.status_code == 401
     assert vp.call_count == 1
+
+
+def _register_and_login(client: TestClient, email: str) -> dict[str, str]:
+    client.post("/api/v1/auth/register", json={"email": email, "full_name": "T", "password": "password123"})
+    token = client.post(
+        "/api/v1/auth/login", json={"email": email, "password": "password123"}
+    ).json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_logout_invalidates_existing_tokens(client: TestClient):
+    """After logout the old token is rejected; signing in again issues a working token."""
+    headers = _register_and_login(client, "logout@example.com")
+    assert client.get("/api/v1/users/me", headers=headers).status_code == 200
+
+    assert client.post("/api/v1/auth/logout", headers=headers).status_code == 204
+    assert client.get("/api/v1/users/me", headers=headers).status_code == 401
+
+    fresh = client.post(
+        "/api/v1/auth/login", json={"email": "logout@example.com", "password": "password123"}
+    ).json()["access_token"]
+    assert client.get("/api/v1/users/me", headers={"Authorization": f"Bearer {fresh}"}).status_code == 200
+
+
+def test_logout_only_affects_that_user_and_requires_auth(client: TestClient):
+    """Logging out one user does not invalidate another user's token; anonymous logout is 401."""
+    a = _register_and_login(client, "a-logout@example.com")
+    b = _register_and_login(client, "b-logout@example.com")
+    client.post("/api/v1/auth/logout", headers=a)
+    assert client.get("/api/v1/users/me", headers=b).status_code == 200
+    assert client.post("/api/v1/auth/logout").status_code == 401
+
+
+def test_token_without_version_claim_still_valid_for_unrevoked_user(client: TestClient, requester_user):
+    """Tokens issued before token versions existed (no 'tv' claim) keep working until logout."""
+    from app.core.security import create_access_token
+
+    legacy = create_access_token(data={"sub": str(requester_user.id)})
+    res = client.get("/api/v1/users/me", headers={"Authorization": f"Bearer {legacy}"})
+    assert res.status_code == 200
