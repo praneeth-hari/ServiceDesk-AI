@@ -126,6 +126,17 @@ def mount_frontend(app: FastAPI, dist_dir_override: str | None = None) -> None:
 
     logger.info("Serving web UI from '%s'", dist_path)
 
+    # Index of the files in the build folder (relative URL path -> file). Built once at startup
+    # from the filesystem, so request paths are only ever looked up, never joined onto a path.
+    dist_root = dist_path.resolve()
+    static_files: dict[str, Path] = {}
+    for candidate in dist_root.rglob("*"):
+        relative = candidate.relative_to(dist_root)
+        if any(part.startswith(".") for part in relative.parts):
+            continue  # never serve hidden files
+        if candidate.is_file() and candidate.resolve().is_relative_to(dist_root):
+            static_files[relative.as_posix()] = candidate
+
     # 1. Mount /assets directory if it exists (hashed static bundles)
     assets_dir = dist_path / "assets"
     if assets_dir.is_dir():
@@ -159,15 +170,11 @@ def mount_frontend(app: FastAPI, dist_dir_override: str | None = None) -> None:
         if ".." in norm_path or norm_path.startswith(".") or "/." in norm_path or "\\." in norm_path:
             raise StarletteHTTPException(status_code=404, detail="Not Found")
 
-        # Check if an actual static file exists in dist_path
-        try:
-            target = (dist_path / norm_path).resolve()
-            if not target.is_relative_to(dist_path.resolve()):
-                raise StarletteHTTPException(status_code=404, detail="Not Found")
-            if target.is_file():
-                return FileResponse(str(target))
-        except (ValueError, RuntimeError):
-            raise StarletteHTTPException(status_code=404, detail="Not Found") from None
+        # Serve a static file only if it is one of the files found in dist_path at startup.
+        # The request path is used purely as a lookup key, never as a filesystem path.
+        static_file = static_files.get(norm_path)
+        if static_file is not None:
+            return FileResponse(str(static_file))
 
         # If a path has a file extension and was not found, return 404 (not an SPA client route)
         if Path(norm_path).suffix:

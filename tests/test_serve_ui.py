@@ -128,3 +128,43 @@ def test_serve_ui_when_index_html_missing(tmp_path: Path):
         assert resp.status_code == 404
         assert resp.json() == {"error": {"message": "Not Found"}}
 
+
+
+def test_static_file_serving_cannot_escape_the_dist_folder(tmp_path: Path):
+    """Traversal, hidden files and symlinks out of the dist folder are never served."""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<html>APP-INDEX</html>", encoding="utf-8")
+    (dist / "favicon.ico").write_text("icon", encoding="utf-8")
+    (dist / ".env").write_text("HIDDEN-SECRET", encoding="utf-8")
+    (dist / "sub").mkdir()
+    (dist / "sub" / "ok.txt").write_text("nested-ok", encoding="utf-8")
+
+    secret = tmp_path / "secret.txt"
+    secret.write_text("OUTSIDE-SECRET", encoding="utf-8")
+    try:
+        (dist / "link.txt").symlink_to(secret)
+    except OSError:
+        pass  # symlinks unavailable on this platform
+
+    app = create_app(web_dist_dir=str(dist))
+    with TestClient(app) as client:
+        # Normal files, including nested ones, are served
+        assert client.get("/favicon.ico").text == "icon"
+        assert client.get("/sub/ok.txt").text == "nested-ok"
+
+        attempts = [
+            "/../secret.txt",
+            "/%2e%2e/secret.txt",
+            "/..%2fsecret.txt",
+            "/sub/../../secret.txt",
+            "//etc/passwd",
+            "/.env",
+            "/link.txt",
+            "/%00",
+        ]
+        for path in attempts:
+            resp = client.get(path)
+            assert "OUTSIDE-SECRET" not in resp.text, path
+            assert "HIDDEN-SECRET" not in resp.text, path
+            assert "root:" not in resp.text, path
