@@ -229,7 +229,9 @@ describe('UsersPage & Navigation', () => {
   });
 
   it('add user modal opens, handles 409 conflict inline, and succeeds on valid submit', async () => {
-    const user = userEvent.setup();
+    // No per-keystroke delay: typing ~40 characters one macrotask at a time made this test
+    // slow enough on a busy CI machine to run out the default 1s waitFor window
+    const user = userEvent.setup({ delay: null });
     let postCallCount = 0;
 
     globalThis.fetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
@@ -282,9 +284,12 @@ describe('UsersPage & Navigation', () => {
     await user.click(screen.getByRole('button', { name: 'Create user' }));
 
     // Inline 409 error shown
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(/Email already in use/i);
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByRole('alert')).toHaveTextContent(/Email already in use/i);
+      },
+      { timeout: 5000 }
+    );
 
     // Fix email to fresh address
     const emailInput = screen.getByLabelText('Email');
@@ -293,11 +298,14 @@ describe('UsersPage & Navigation', () => {
     await user.click(screen.getByRole('button', { name: 'Create user' }));
 
     // Modal closes on success
-    await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: 'Add user' })).not.toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.queryByRole('heading', { name: 'Add user' })).not.toBeInTheDocument();
+      },
+      { timeout: 5000 }
+    );
     expect(postCallCount).toBe(2);
-  });
+  }, 20000);
 
   it('role change calls API and reverts on server error', async () => {
     let patchCalled = false;
