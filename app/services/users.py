@@ -14,6 +14,25 @@ from app.schemas.user import UserAdminCreate, UserCreate
 logger = logging.getLogger("helpdesk_api")
 
 
+def _lock_active_admins(db: Session) -> list[User]:
+    """
+    Lock and return every active admin row (SELECT ... FOR UPDATE on MySQL).
+
+    Used before demoting or deactivating an admin. Two admins acting on each other at the same
+    instant would otherwise both see "two admins left" and both succeed, leaving none: the second
+    request now waits for the first to commit and then sees the up-to-date count. The rows are
+    refreshed from the database so the caller never decides from a stale snapshot. (SQLite ignores
+    FOR UPDATE, which is fine: it serialises writers anyway.)
+    """
+    stmt = (
+        sa.select(User)
+        .where(User.role == UserRole.ADMIN, User.is_active.is_(True))
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    return list(db.scalars(stmt).all())
+
+
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
     """Retrieve a user by their email address."""
     return db.scalars(sa.select(User).where(User.email == email)).first()
@@ -235,16 +254,9 @@ def update_user_role(db: Session, user_id: int, new_role: UserRole, actor_id: Op
         )
 
     if user.role == UserRole.ADMIN and new_role != UserRole.ADMIN and user.is_active:
-        active_admin_count = (
-            db.scalar(
-                sa.select(sa.func.count(User.id)).where(
-                    User.role == UserRole.ADMIN,
-                    User.is_active.is_(True),
-                )
-            )
-            or 0
-        )
-        if active_admin_count <= 1:
+        active_admins = _lock_active_admins(db)
+        # Re-check against the locked, refreshed rows: the target may have changed meanwhile
+        if user in active_admins and len(active_admins) <= 1:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot demote the last active admin",
@@ -288,16 +300,8 @@ def update_user_status(db: Session, user_id: int, new_is_active: bool, actor_id:
         )
 
     if not new_is_active and user.role == UserRole.ADMIN and user.is_active:
-        active_admin_count = (
-            db.scalar(
-                sa.select(sa.func.count(User.id)).where(
-                    User.role == UserRole.ADMIN,
-                    User.is_active.is_(True),
-                )
-            )
-            or 0
-        )
-        if active_admin_count <= 1:
+        active_admins = _lock_active_admins(db)
+        if user in active_admins and len(active_admins) <= 1:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot deactivate the last active admin",
