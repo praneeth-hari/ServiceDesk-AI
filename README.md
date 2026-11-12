@@ -614,6 +614,31 @@ cd ..
 
 GitHub Actions CI runs the full test suite with coverage enforcement, executes MySQL 8 migration checks (`upgrade -> downgrade -> upgrade`), and builds and tests the React frontend on every push and pull request.
 
+### Property-based tests (SLA)
+`tests/test_sla_properties.py` uses [Hypothesis](https://hypothesis.readthedocs.io/) to generate thousands of start times, durations and holiday sets and check rules that must always hold: due dates never land on weekends, holidays or outside working hours; adding minutes and counting them back gives the same number; adding in two steps equals adding once; higher priorities never get later due dates. They run as part of `pytest`.
+
+### Browser tests (Playwright)
+End-to-end tests in `web/e2e/` drive the real app in Chromium against a throwaway SQLite database with demo data: create a ticket and see AI triage suggestions, form draft saving, role-based access, reopening a ticket as an agent, every page loading with no console errors or Content-Security-Policy violations, and sign-out invalidating the token.
+
+```bash
+cd web
+npm run build
+npx playwright install chromium   # first time only
+npx playwright test
+```
+
+Playwright starts the app itself with `scripts/e2e_server.sh` (port 8765, demo mode on, database `e2e.db`). The `End-to-end` GitHub Actions workflow runs them on every pull request.
+
+### Load tests (Locust)
+`loadtests/locustfile.py` simulates requesters and agents using the demo accounts. Start the app with demo data (`sh scripts/e2e_server.sh`), then:
+
+```bash
+pip install -r loadtests/requirements.txt
+locust -f loadtests/locustfile.py --host http://127.0.0.1:8765 --headless --users 50 --spawn-rate 10 --run-time 1m
+```
+
+A 429 from `/triage/suggest` is expected (per-user rate limit) and is not counted as a failure.
+
 ---
 
 ## Design Decisions
