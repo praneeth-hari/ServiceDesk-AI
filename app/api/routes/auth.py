@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.demo import DEMO_USERS
-from app.core.rate_limit import login_rate_limiter
+from app.core.rate_limit import login_rate_limiter, register_rate_limiter
 from app.core.security import create_access_token
 from app.db.session import get_db
 from app.models.enums import UserRole
@@ -35,10 +35,17 @@ _DEMO_ROLE_DESCRIPTIONS = {
     status_code=status.HTTP_201_CREATED,
     summary="Register a new user",
 )
-def register(user_in: UserCreate, db: Session = Depends(get_db)) -> UserRead:
+def register(
+    user_in: UserCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> UserRead:
     """
     Register a new user account. Defaults to requester role.
+    Rate limited per client IP (HTTP 429 when exceeded).
     """
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    register_rate_limiter.check(client_ip)
     user = register_user(db, user_in=user_in)
     return user
 

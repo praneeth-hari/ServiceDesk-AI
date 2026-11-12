@@ -183,3 +183,54 @@ def test_ticket_description_length_is_capped(client: TestClient):
     assert r1.status_code == 422
     r2 = client.post("/api/v1/triage/suggest", headers=headers, json={"title": "t", "description": big})
     assert r2.status_code == 422
+
+
+def test_register_is_rate_limited_per_ip(client: TestClient):
+    """Exceeding the per-IP registration limit returns 429 with Retry-After."""
+    from app.core.rate_limit import register_rate_limiter
+
+    original = register_rate_limiter.max_requests
+    register_rate_limiter.max_requests = 2
+    try:
+        for i in range(2):
+            r = client.post(
+                "/api/v1/auth/register",
+                json={"email": f"rl{i}@example.com", "full_name": "RL", "password": "password123"},
+            )
+            assert r.status_code == 201
+        r = client.post(
+            "/api/v1/auth/register",
+            json={"email": "rl3@example.com", "full_name": "RL", "password": "password123"},
+        )
+        assert r.status_code == 429
+        assert "Retry-After" in r.headers
+    finally:
+        register_rate_limiter.max_requests = original
+
+
+def test_triage_is_rate_limited_per_user(client: TestClient):
+    """Exceeding the per-user triage limit returns 429."""
+    from app.core.rate_limit import triage_rate_limiter
+
+    client.post("/api/v1/auth/register", json={"email": "tr@example.com", "full_name": "T", "password": "password123"})
+    token = client.post("/api/v1/auth/login", json={"email": "tr@example.com", "password": "password123"}).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    body = {"title": "VPN down", "description": "Cannot connect to VPN"}
+
+    original = triage_rate_limiter.max_requests
+    triage_rate_limiter.max_requests = 1
+    try:
+        assert client.post("/api/v1/triage/suggest", headers=headers, json=body).status_code == 200
+        assert client.post("/api/v1/triage/suggest", headers=headers, json=body).status_code == 429
+    finally:
+        triage_rate_limiter.max_requests = original
+
+
+def test_login_unknown_email_still_verifies_a_hash(client: TestClient):
+    """Unknown emails go through a bcrypt comparison (timing equalisation) and return 401."""
+    from unittest.mock import patch
+
+    with patch("app.services.users.verify_password", return_value=False) as vp:
+        r = client.post("/api/v1/auth/login", json={"email": "nobody@example.com", "password": "whatever123"})
+    assert r.status_code == 401
+    assert vp.call_count == 1

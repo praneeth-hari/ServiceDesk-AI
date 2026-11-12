@@ -5,7 +5,7 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.security import hash_password, verify_password
+from app.core.security import _DUMMY_HASH, hash_password, verify_password
 from app.models.enums import TicketStatus, UserRole
 from app.models.ticket import Ticket
 from app.models.user import User
@@ -194,7 +194,9 @@ def authenticate_user(db: Session, email: str, password: str) -> User:
     """
     email_clean = email.strip().lower()
     user = db.scalars(sa.select(User).where(sa.func.lower(User.email) == email_clean)).first()
-    if not user or not verify_password(password, user.hashed_password):
+    # Always run one bcrypt comparison so unknown emails take as long as wrong passwords.
+    password_ok = verify_password(password, user.hashed_password if user else _DUMMY_HASH)
+    if not user or not password_ok:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
