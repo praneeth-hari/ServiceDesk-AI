@@ -34,3 +34,14 @@ def test_health_database_failure():
         assert "error" in data
         assert data["error"]["message"] == "Database connection failed"
     app.dependency_overrides.clear()
+
+def test_security_headers_present_and_docs_exempt_from_csp(client):
+    """API responses carry baseline security headers; /docs is exempt from the CSP."""
+    res = client.get("/api/v1/health")
+    assert res.headers["X-Content-Type-Options"] == "nosniff"
+    assert res.headers["X-Frame-Options"] == "DENY"
+    assert "frame-ancestors 'none'" in res.headers["Content-Security-Policy"]
+
+    docs = client.get("/docs")
+    assert docs.headers["X-Content-Type-Options"] == "nosniff"
+    assert "Content-Security-Policy" not in docs.headers
