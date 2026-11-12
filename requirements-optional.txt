@@ -1,0 +1,2 @@
+# Optional extras (not needed to run the app)
+sentry-sdk[fastapi]>=2.0,<3
