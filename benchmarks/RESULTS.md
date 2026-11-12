@@ -187,7 +187,7 @@ python -m app.scripts.benchmark_triage --methods llm-zero-shot,llm-rag --model q
 
 ## 5. Honest Caveats & Limitations
 
-1. **Synthetic Data Origin**: ServiceDesk600 was generated synthetically via Claude Opus 5.5. While engineered for realistic noise, typos, and urgency distributions, synthetic tickets may exhibit vocabulary patterns that models navigate differently than real-world corporate support queues.
+1. **Synthetic Data Origin**: ServiceDesk600 was generated synthetically by a large language model. While engineered for realistic noise, typos, and urgency distributions, synthetic tickets may exhibit vocabulary patterns that models navigate differently than real-world corporate support queues.
 2. **Sample Size & Confidence Intervals**: The held-out test split comprises 120 tickets (20 per category, 30 hard edge cases). With N=120, binomial 95% Wilson intervals span approximately ±6-8 percentage points; overlapping intervals should be interpreted with statistical caution.
 3. **In-Prompt Definitions**: LLM prompts explicitly include canonical category and priority definitions, providing strong structured semantic guidance compared to purely inductive few-shot kNN.
 4. **Single-Run Determinism**: All LLM queries were executed at `temperature=0` with `seed=42`. While locally deterministic, small differences may occur across hardware architectures or quantization variants.
