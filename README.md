@@ -656,7 +656,7 @@ ServiceDesk-AI provides comprehensive user management capabilities for administr
 
 ### Safety Rules & Invariants
 - **Cannot change your own role or active status**: Administrators are prevented from modifying their own role or deactivating their own account (HTTP 400).
-- **Last active admin is protected**: The system disallows demoting or deactivating the last remaining active administrator (HTTP 400), ensuring the system never becomes unmanageable. The last-admin check is not transactionally locked, so two admins changing each other at the same instant is a known, unlikely race.
+- **Last active admin is protected**: The system disallows demoting or deactivating the last remaining active administrator (HTTP 400), ensuring the system never becomes unmanageable. The check locks the active admin rows (`SELECT ... FOR UPDATE` on MySQL), so two admins changing each other at the same instant cannot both succeed; a MySQL integration test exercises exactly that.
 - **Deactivated users locked out immediately**: `get_current_user` validates `user.is_active` on every request. Existing JWT sessions for deactivated accounts are rejected immediately on the next request (HTTP 401).
 - **Immediate role changes**: User roles are checked on every request via `require_roles`. Role updates take effect immediately on subsequent requests without requiring users to log in again.
 
