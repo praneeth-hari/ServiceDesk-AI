@@ -18,3 +18,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # CI and the tests run on Python 3.11. Keep the image on it too, and move it deliberately:
+      # newer Python versions can lack prebuilt wheels (for example pydantic-core), which breaks the build.
+      - dependency-name: "python"
+        versions: [">=3.12"]
+      # Stay on the Node LTS line used by CI; skip major version jumps
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
