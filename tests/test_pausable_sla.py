@@ -214,3 +214,51 @@ def test_resume_pushes_due_at_by_business_minutes(
     assert history_entries[0].to_status == TicketStatus.IN_PROGRESS
     assert history_entries[0].changed_by_id == agent_user.id
 
+
+
+def test_priority_change_keeps_time_added_by_earlier_pause(
+    db_session: Session,
+    agent_user: User,
+    admin_user: User,
+    requester_user: User,
+):
+    """
+    Changing priority recalculates due_at from created_at, but must keep the business
+    minutes the ticket already spent waiting on the requester.
+    """
+    from app.core.sla import add_business_minutes, calculate_due_at
+    from app.schemas.ticket import TicketCreate, TicketStatusUpdate, TicketUpdate
+    from app.services.tickets import create_ticket, update_ticket, update_ticket_status
+
+    # Times are UTC, as the app stores them (these are 10:00/12:00/13:00 IST in the work timezone)
+    created = datetime(2026, 10, 26, 4, 30, tzinfo=timezone.utc)  # Monday 10:00 IST
+    ticket = create_ticket(
+        db_session,
+        TicketCreate(title="Pause then reprioritise", description="x", priority=TicketPriority.MEDIUM),
+        requester_user,
+        current_time=created,
+    )
+
+    def move(status, when):
+        update_ticket_status(
+            db_session, ticket.id, TicketStatusUpdate(status=status), agent_user, current_time=when
+        )
+
+    move(TicketStatus.IN_PROGRESS, created + timedelta(minutes=5))
+    move(TicketStatus.WAITING_ON_REQUESTER, datetime(2026, 10, 27, 4, 30, tzinfo=timezone.utc))
+    move(TicketStatus.IN_PROGRESS, datetime(2026, 10, 27, 6, 30, tzinfo=timezone.utc))  # 120 business minutes
+
+    update_ticket(
+        db_session,
+        ticket.id,
+        TicketUpdate(priority=TicketPriority.HIGH),
+        admin_user,
+        current_time=datetime(2026, 10, 27, 7, 30, tzinfo=timezone.utc),
+    )
+    db_session.refresh(ticket)
+
+    expected = add_business_minutes(
+        calculate_due_at(TicketPriority.HIGH, created, holidays=set()), 120, set()
+    )
+    got = ticket.due_at if ticket.due_at.tzinfo else ticket.due_at.replace(tzinfo=timezone.utc)
+    assert got == expected

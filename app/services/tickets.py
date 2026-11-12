@@ -29,6 +29,28 @@ ALLOWED_STATUS_TRANSITIONS: dict[TicketStatus, set[TicketStatus]] = {
 }
 
 
+def _completed_pause_minutes(db: Session, ticket: Ticket, holidays: set) -> int:
+    """
+    Business minutes this ticket has already spent in 'waiting_on_requester' and left again.
+    Derived from status history, so it can be re-applied when due_at is recalculated.
+    A pause that is still in progress is not counted (it is added when the ticket resumes).
+    """
+    history = db.scalars(
+        sa.select(TicketStatusHistory)
+        .where(TicketStatusHistory.ticket_id == ticket.id)
+        .order_by(TicketStatusHistory.created_at.asc(), TicketStatusHistory.id.asc())
+    ).all()
+    total = 0
+    paused_since = None
+    for entry in history:
+        if entry.to_status == TicketStatus.WAITING_ON_REQUESTER:
+            paused_since = entry.created_at
+        elif entry.from_status == TicketStatus.WAITING_ON_REQUESTER and paused_since is not None:
+            total += business_minutes_between(paused_since, entry.created_at, holidays)
+            paused_since = None
+    return total
+
+
 def create_ticket(
     db: Session,
     ticket_in: TicketCreate,
@@ -329,6 +351,10 @@ def update_ticket(
             created = ticket.created_at if ticket.created_at.tzinfo else ticket.created_at.replace(tzinfo=timezone.utc)
             holidays = get_holiday_dates(db)
             ticket.due_at = calculate_due_at(ticket.priority, created, holidays=holidays)
+            # Keep time already added for earlier pauses (waiting on the requester)
+            pause_minutes = _completed_pause_minutes(db, ticket, holidays)
+            if pause_minutes > 0:
+                ticket.due_at = add_business_minutes(ticket.due_at, pause_minutes, holidays)
 
     if ticket_in.category is not None and ticket_in.category != ticket.category:
         ticket.category = ticket_in.category
