@@ -4,7 +4,7 @@ import time
 from typing import Any, Optional, Sequence
 import numpy as np
 import sqlalchemy as sa
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.ai.embedder import Embedder, get_embedder, get_text_to_embed
 from app.ai.injection_guard import inspect_ticket
