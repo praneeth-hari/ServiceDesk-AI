@@ -249,18 +249,54 @@ class RequestRateLimiter:
 
 from app.core.config import settings
 
-login_rate_limiter = LoginRateLimiter(
-    max_attempts=settings.LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
-    window_seconds=settings.LOGIN_RATE_LIMIT_WINDOW_SECONDS,
-    lockout_seconds=settings.LOGIN_LOCKOUT_SECONDS,
-)
 
-register_rate_limiter = RequestRateLimiter(
-    max_requests=settings.REGISTER_RATE_LIMIT_MAX_REQUESTS,
-    window_seconds=settings.REGISTER_RATE_LIMIT_WINDOW_SECONDS,
-)
+def _build_limiters():
+    """Use Redis (shared across workers) when REDIS_URL is set, otherwise in-memory limiters."""
+    if settings.REDIS_URL:
+        import redis
 
-triage_rate_limiter = RequestRateLimiter(
-    max_requests=settings.TRIAGE_RATE_LIMIT_MAX_REQUESTS,
-    window_seconds=settings.TRIAGE_RATE_LIMIT_WINDOW_SECONDS,
-)
+        from app.core.rate_limit_redis import RedisLoginRateLimiter, RedisRequestRateLimiter
+
+        client = redis.Redis.from_url(
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=1,
+            socket_timeout=1,
+        )
+        logger.info("Rate limiting uses Redis")
+        return (
+            RedisLoginRateLimiter(
+                client,
+                max_attempts=settings.LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
+                window_seconds=settings.LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+                lockout_seconds=settings.LOGIN_LOCKOUT_SECONDS,
+            ),
+            RedisRequestRateLimiter(
+                client,
+                "register",
+                settings.REGISTER_RATE_LIMIT_MAX_REQUESTS,
+                settings.REGISTER_RATE_LIMIT_WINDOW_SECONDS,
+            ),
+            RedisRequestRateLimiter(
+                client,
+                "triage",
+                settings.TRIAGE_RATE_LIMIT_MAX_REQUESTS,
+                settings.TRIAGE_RATE_LIMIT_WINDOW_SECONDS,
+            ),
+        )
+    return (
+        LoginRateLimiter(
+            max_attempts=settings.LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
+            window_seconds=settings.LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+            lockout_seconds=settings.LOGIN_LOCKOUT_SECONDS,
+        ),
+        RequestRateLimiter(
+            settings.REGISTER_RATE_LIMIT_MAX_REQUESTS, settings.REGISTER_RATE_LIMIT_WINDOW_SECONDS
+        ),
+        RequestRateLimiter(
+            settings.TRIAGE_RATE_LIMIT_MAX_REQUESTS, settings.TRIAGE_RATE_LIMIT_WINDOW_SECONDS
+        ),
+    )
+
+
+login_rate_limiter, register_rate_limiter, triage_rate_limiter = _build_limiters()

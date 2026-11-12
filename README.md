@@ -40,6 +40,7 @@ Role-based IT helpdesk ticketing application with business-hours SLA tracking, r
 - [API Overview](#api-overview)
 - [Quick Start](#quick-start)
 - [Run with Docker](#run-with-docker)
+- [Production Deployment](#production-deployment)
 - [Demo Data](#demo-data)
 - [Sign-In Rate Limiting](#sign-in-rate-limiting)
 - [Admin User Management](#admin-user-management)
@@ -493,6 +494,40 @@ docker run -d `
 
 ---
 
+## Production Deployment
+
+`docker-compose.prod.yml` runs the full production stack: **Caddy** (automatic HTTPS) -> app -> **MySQL** + **Redis**. Only Caddy publishes ports (80 and 443); the database, Redis and the app are reachable only inside the Docker network.
+
+```bash
+cp .env.production.example .env     # set DOMAIN, SECRET_KEY, MYSQL_* and METRICS_TOKEN
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Point your domain's DNS at the server first; Caddy then gets and renews the certificate itself. The compose file refuses to start if a required secret is missing, and the app refuses to start in production with a placeholder `SECRET_KEY` or with `DEMO_MODE` on.
+
+| Setting | Purpose |
+| :--- | :--- |
+| `REDIS_URL` | Share rate limits across workers (see Sign-In Rate Limiting) |
+| `WEB_CONCURRENCY` | Number of worker processes (default 2 in the production compose file) |
+| `FORWARDED_ALLOW_IPS` | Proxies whose `X-Forwarded-For` is trusted (default `127.0.0.1`; the production compose file sets `*` because only Caddy can reach the app). The rate limiters use the real client IP this way, and headers from any other source are ignored. |
+| `METRICS_ENABLED`, `METRICS_TOKEN` | Prometheus metrics at `/metrics` (off by default; with a token, scrapers send `Authorization: Bearer <token>`) |
+| `SENTRY_DSN` | Optional error tracking. Install `pip install -r requirements-optional.txt`; no user details or request bodies are sent |
+
+### Metrics
+With `METRICS_ENABLED=true` the app serves Prometheus metrics at `/metrics`: `helpdesk_http_requests_total` (by method, route and status) and `helpdesk_http_request_duration_seconds`. Labels use route templates such as `/api/v1/tickets/{id}`, never raw URLs, so the number of series stays small. Caddy returns 404 for `/metrics`, so it is only reachable from inside the network. Example Prometheus scrape config:
+
+```yaml
+scrape_configs:
+  - job_name: helpdesk
+    metrics_path: /metrics
+    authorization:
+      credentials: "<METRICS_TOKEN>"
+    static_configs:
+      - targets: ["api:8000"]
+```
+
+---
+
 ## Demo Data
 
 To populate the database with 36 realistic demo tickets spread across the last 3 weeks with authentic timestamps relative to current time, covering all SLA lifecycle states (on track, at risk, breached, clock paused, resolved within SLA, resolved after breach, and closed), run the demo seed script:
@@ -572,7 +607,7 @@ Access tokens last `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default). `POST /api/v1/
 Every response carries `X-Content-Type-Options`, `X-Frame-Options: DENY` and `Referrer-Policy`. The web UI and API also send a `Content-Security-Policy` (same-origin only); `/docs` and `/redoc` are exempt because they load assets from a CDN.
 
 ### Architecture & Known Limitations
-- **In-Memory & Per-Process**: The limiter is in-memory and per process; it resets on restart; and it is not shared across workers or clustered server processes. For distributed multi-worker production deployments, an external shared store (such as Redis) would be required.
+- **In-Memory by Default, Redis Optional**: Without `REDIS_URL` the limiters are in-memory and per process: they reset on restart and are not shared across workers. Set `REDIS_URL` (for example `redis://redis:6379/0`) and all three limiters (login, register, triage) use Redis, so limits are shared across workers and servers. If Redis is unreachable the limiters fail open (requests are allowed and the error is logged), so a Redis outage does not take the app down.
 - **Keyed by Email + IP (No Per-IP Cap on Login)**: The login limiter is keyed strictly by normalized email plus client IP `(email, IP)`. This means one IP address can still try many different emails without locking (there is no aggregate per-IP cap), while protecting individual accounts from targeted credential guessing from a given host.
 - **Untrusted Headers**: `X-Forwarded-For` is not trusted. The limiter strictly evaluates direct connection IP via `request.client.host` to prevent header-spoofing bypasses. Behind reverse proxies, trusted proxy middleware must configure client IP safely.
 - **Bounded Memory**: State entries are pruned on each request window, and expired keys can be evicted via `purge_stale()`.
