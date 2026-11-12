@@ -193,10 +193,74 @@ class LoginRateLimiter:
             self._failures.clear()
             self._locked_until.clear()
 
+
+
+class RequestRateLimiter:
+    """
+    Thread-safe in-memory sliding-window limiter that counts every request
+    (unlike LoginRateLimiter, which only counts failures).
+
+    Same per-process limitations as LoginRateLimiter: state is not shared across
+    workers and resets on restart. A limit of 0 or less disables the limiter.
+    """
+
+    def __init__(
+        self,
+        max_requests: int,
+        window_seconds: int,
+        clock: Optional[Callable[[], float]] = None,
+    ) -> None:
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self._clock = clock or time.time
+        self._lock = threading.Lock()
+        self._hits: dict[str, deque[float]] = {}
+
+    def check(self, key: str) -> None:
+        """Record a request for key; raise HTTP 429 with Retry-After if over the limit."""
+        if self.max_requests <= 0:
+            return
+        now = self._clock()
+        cutoff = now - self.window_seconds
+        with self._lock:
+            dq = self._hits.setdefault(key, deque())
+            while dq and dq[0] <= cutoff:
+                dq.popleft()
+            if len(dq) >= self.max_requests:
+                retry_after = max(1, int(math.ceil(dq[0] + self.window_seconds - now)))
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail={
+                        "detail": "Too many requests. Please try again later.",
+                        "retry_after_seconds": retry_after,
+                    },
+                    headers={"Retry-After": str(retry_after)},
+                )
+            dq.append(now)
+            # Opportunistically drop idle keys to keep memory bounded.
+            if len(self._hits) > 10_000:
+                for k in [k for k, v in self._hits.items() if not v or v[-1] <= cutoff]:
+                    del self._hits[k]
+
+    def clear_all(self) -> None:
+        """Clear all stored state (primarily for test isolation)."""
+        with self._lock:
+            self._hits.clear()
+
 from app.core.config import settings
 
 login_rate_limiter = LoginRateLimiter(
     max_attempts=settings.LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
     window_seconds=settings.LOGIN_RATE_LIMIT_WINDOW_SECONDS,
     lockout_seconds=settings.LOGIN_LOCKOUT_SECONDS,
+)
+
+register_rate_limiter = RequestRateLimiter(
+    max_requests=settings.REGISTER_RATE_LIMIT_MAX_REQUESTS,
+    window_seconds=settings.REGISTER_RATE_LIMIT_WINDOW_SECONDS,
+)
+
+triage_rate_limiter = RequestRateLimiter(
+    max_requests=settings.TRIAGE_RATE_LIMIT_MAX_REQUESTS,
+    window_seconds=settings.TRIAGE_RATE_LIMIT_WINDOW_SECONDS,
 )
