@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 from fastapi import HTTPException, status
 import sqlalchemy as sa
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
@@ -126,7 +127,15 @@ def register_user(db: Session, user_in: UserCreate) -> User:
         is_active=True,
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Concurrent request registered the same email between the check and insert.
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered",
+        )
     db.refresh(user)
     return user
 
@@ -155,7 +164,15 @@ def create_admin_user(db: Session, user_in: UserAdminCreate, actor_id: int) -> t
         is_active=True,
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Concurrent request registered the same email between the check and insert.
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered",
+        )
     db.refresh(user)
 
     logger.info(
