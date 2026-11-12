@@ -153,3 +153,33 @@ def test_login_nonexistent_user(client: TestClient):
     data = response.json()
     assert "error" in data
     assert data["error"]["message"] == "Invalid email or password"
+
+
+def test_register_race_integrity_error_returns_409(client: TestClient, db_session):
+    """A concurrent duplicate insert (IntegrityError at commit) yields 409, not 500."""
+    from unittest.mock import patch
+    from sqlalchemy.exc import IntegrityError
+
+    payload = {"email": "race@example.com", "full_name": "Race", "password": "password123"}
+    with patch.object(db_session, "commit", side_effect=IntegrityError("stmt", {}, Exception("dup"))):
+        res = client.post("/api/v1/auth/register", json=payload)
+    assert res.status_code == 409
+    assert "already registered" in res.json()["error"]["message"]
+
+
+def test_ticket_description_length_is_capped(client: TestClient):
+    """Oversized descriptions are rejected with 422 before reaching regex/embedding work."""
+    from app.schemas.common import MAX_DESCRIPTION_LENGTH
+
+    payload = {"email": "cap@example.com", "full_name": "Cap", "password": "password123"}
+    client.post("/api/v1/auth/register", json=payload)
+    token = client.post(
+        "/api/v1/auth/login", json={"email": payload["email"], "password": payload["password"]}
+    ).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    big = "a" * (MAX_DESCRIPTION_LENGTH + 1)
+
+    r1 = client.post("/api/v1/tickets", headers=headers, json={"title": "t", "description": big})
+    assert r1.status_code == 422
+    r2 = client.post("/api/v1/triage/suggest", headers=headers, json={"title": "t", "description": big})
+    assert r2.status_code == 422
