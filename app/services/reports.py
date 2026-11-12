@@ -106,7 +106,7 @@ def get_resolution_time(db: Session) -> Sequence[dict[str, Any]]:
         FROM ticket_resolution
         GROUP BY assignee_id, assignee_name
         ORDER BY avg_resolution_hours ASC, assignee_id ASC
-    """)
+    """)  # nosec B608 - only the internal dialect helper is interpolated
     result = db.execute(stmt)
     return result.mappings().all()
 
@@ -260,7 +260,7 @@ def get_resolution_time_by_category(db: Session) -> Sequence[dict[str, Any]]:
         FROM ticket_resolution
         GROUP BY category, priority
         ORDER BY category ASC, priority ASC
-    """)
+    """)  # nosec B608 - only the internal dialect helper is interpolated
     result = db.execute(stmt)
     return result.mappings().all()
 

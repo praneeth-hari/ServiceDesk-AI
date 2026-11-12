@@ -139,6 +139,11 @@ class Settings(BaseSettings):
                 f"AI_LLM_EXAMPLES must be non-negative, got {self.AI_LLM_EXAMPLES}"
             )
 
+        if not self.OLLAMA_BASE_URL.lower().startswith(("http://", "https://")):
+            raise ValueError(
+                f"OLLAMA_BASE_URL must start with http:// or https://, got '{self.OLLAMA_BASE_URL}'"
+            )
+
         # 6. AI Assist Settings validation
         if self.AI_ASSIST_MODE not in ("off", "ollama"):
             raise ValueError(
