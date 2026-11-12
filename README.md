@@ -23,7 +23,7 @@ Role-based IT helpdesk ticketing application with business-hours SLA tracking, r
 | **Frontend UI** | Modern single-page app (React 19, TypeScript, Tailwind CSS, Vite) |
 | **Serving Mode** | Unified service: FastAPI serves both the JSON REST API and the built SPA bundle |
 | **Business Hours SLA** | 09:00–18:00 IST Monday–Friday, calendar-aware with holiday pauses |
-| **Database Migrations** | 8 Alembic schema migration versions |
+| **Database Migrations** | 11 Alembic schema migration versions |
 | **SQL Reports** | 9 raw SQL analytical reports (CTEs, `RANK()` window functions) |
 | **CI Jobs** | 3 GitHub Actions jobs (Pytest & Coverage, MySQL 8 Migrations, Web Frontend) |
 
@@ -93,7 +93,7 @@ flowchart TD
 
     subgraph Data ["Data & CI"]
         DB[("MySQL 8 Database")]
-        Alembic["Alembic Migrations (8 Versions)"]
+        Alembic["Alembic Migrations (11 Versions)"]
         CI["GitHub Actions CI"]
     end
 

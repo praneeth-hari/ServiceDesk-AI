@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.rate_limit import triage_rate_limiter
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.triage import TriageSuggestRequest, TriageSuggestResponse
@@ -25,6 +26,7 @@ def get_triage_suggestions(
     Provide advisory category/priority suggestions and duplicate ticket detection.
     Accessible to all authenticated users. Respects privacy filters for requesters.
     """
+    triage_rate_limiter.check(str(current_user.id))
     result = suggest(
         db=db,
         title=payload.title,
