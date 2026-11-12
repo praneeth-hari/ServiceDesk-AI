@@ -1,0 +1,12 @@
+# Caddy obtains and renews HTTPS certificates automatically for the domain in $DOMAIN.
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Metrics are for the monitoring system inside the network only, never the public internet
+	@metrics path /metrics
+	respond @metrics 404
+
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	reverse_proxy api:8000
+}

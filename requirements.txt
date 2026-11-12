@@ -12,4 +12,5 @@ python-dotenv==1.2.2
 tzdata>=2026.6
 numpy>=1.24.1
 scikit-learn>=1.4.0
-
+redis==8.1.0
+prometheus-client==0.26.0
