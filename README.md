@@ -9,9 +9,22 @@ Role-based IT helpdesk ticketing application with business-hours SLA tracking, r
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg)
 ![TailwindCSS](https://img.shields.io/badge/Tailwind-4.0-38B2AC.svg)
 ![MySQL 8](https://img.shields.io/badge/mysql-8.0-4479A1.svg)
-![Tests](https://img.shields.io/badge/tests-418%20collected-brightgreen)
+![Tests](https://img.shields.io/badge/tests-645%20(backend%20%C2%B7%20web%20%C2%B7%20e2e)-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
+
+
+<p align="center">
+  <img src="docs/screenshots/tickets-timeline.png" alt="ServiceDesk-AI ticket timeline with SLA windows" width="900">
+</p>
+
+**ServiceDesk-AI** is an IT helpdesk where requesters raise tickets, agents work them against business-hours SLAs, and an AI assistant suggests the category and priority and flags likely duplicates while the requester types. It runs as one service: a FastAPI backend that also serves the React web app.
+
+**Highlights**
+- **SLA that understands the calendar.** Due dates skip weekends and holidays, and the clock pauses while waiting on the requester. The calculation is checked by property-based tests over thousands of generated dates.
+- **AI triage you can audit.** Suggestions come from similarity search over resolved tickets (optionally an LLM via local Ollama), with the evidence shown and a measured accuracy next to it. A prompt-injection guard screens ticket text first.
+- **Built to be operated.** Rate limits shared through Redis, Prometheus metrics, HTTPS through Caddy, and a one-command production stack.
+- **Checked on every change.** Unit, MySQL, browser and security scans run in CI; see [Security & Quality](#security--quality).
 
 ---
 
@@ -19,18 +32,31 @@ Role-based IT helpdesk ticketing application with business-hours SLA tracking, r
 
 | Metric / Dimension | Specification |
 | :--- | :--- |
-| **API Endpoints** | 30 REST endpoints (`/api/v1`) |
+| **API Endpoints** | 42 REST endpoints (`/api/v1`) |
 | **Frontend UI** | Modern single-page app (React 19, TypeScript, Tailwind CSS, Vite) |
 | **Serving Mode** | Unified service: FastAPI serves both the JSON REST API and the built SPA bundle |
 | **Business Hours SLA** | 09:00–18:00 IST Monday–Friday, calendar-aware with holiday pauses |
 | **Database Migrations** | 12 Alembic schema migration versions |
 | **SQL Reports** | 9 raw SQL analytical reports (CTEs, `RANK()` window functions) |
-| **CI Jobs** | 3 GitHub Actions jobs (Pytest & Coverage, MySQL 8 Migrations, Web Frontend) |
+| **Automated Checks** | 5 GitHub Actions workflows: tests and MySQL migrations, security scans, CodeQL, lint, browser tests |
+
+
+## Screenshots
+
+| | |
+| :---: | :---: |
+| ![New ticket with live AI triage](docs/screenshots/new-ticket-triage.png)<br>**New ticket** with live category and priority suggestions and the closest resolved tickets as evidence | ![Ticket detail](docs/screenshots/ticket-detail.png)<br>**Ticket detail** with SLA status, activity history, internal notes and similar tickets |
+| ![Reports](docs/screenshots/reports.png)<br>**Reports** from raw SQL (CTEs and window functions) | ![Ticket table](docs/screenshots/tickets-table.png)<br>**Table view** with filters, search and sorting |
+
+The screenshots use the seeded demo data (`python -m app.scripts.seed_demo --yes`).
+
+---
 
 ---
 
 ## Contents
 
+- [Screenshots](#screenshots)
 - [Features](#features)
 - [Architecture](#architecture)
 - [Ticket Workflow](#ticket-workflow)
@@ -45,6 +71,7 @@ Role-based IT helpdesk ticketing application with business-hours SLA tracking, r
 - [Sign-In Rate Limiting](#sign-in-rate-limiting)
 - [Admin User Management](#admin-user-management)
 - [Testing & Quality](#testing--quality)
+- [Security & Quality](#security--quality)
 - [Design Decisions](#design-decisions)
 - [Known Limitations](#known-limitations)
 - [Project Structure](#project-structure)
@@ -301,15 +328,17 @@ While ServiceDesk-AI defaults to instant lexical kNN triage, you can optionally 
 
 ## API Overview
 
-All routes are prefixed with `/api/v1`. Interactive documentation is available at `/docs` (Swagger UI) and `/redoc` (ReDoc). The API exposes **30 REST endpoints**:
+All routes are prefixed with `/api/v1`. Interactive documentation is available at `/docs` (Swagger UI) and `/redoc` (ReDoc). The API exposes **42 REST endpoints**:
 
 <details>
-<summary>All 30 endpoints (click to expand)</summary>
+<summary>All 42 endpoints (click to expand)</summary>
 
 | Method | Endpoint | Description | Access |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/auth/register` | Register a new user account (defaults to requester role) | Public |
 | `POST` | `/api/v1/auth/login` | Authenticate with email and password, returning JWT access token | Public |
+| `GET` | `/api/v1/auth/demo-accounts` | List the demo accounts (names and roles only; empty unless `DEMO_MODE`) | Public |
+| `POST` | `/api/v1/auth/demo-login` | Sign in as a seeded demo user by role (404 unless `DEMO_MODE`) | Public |
 | `POST` | `/api/v1/auth/logout` | Sign out: invalidates every access token issued to the user so far | Authenticated |
 | `GET` | `/api/v1/users/me` | Retrieve profile of the currently authenticated user | Authenticated |
 | `GET` | `/api/v1/users` | List registered users with pagination parameters (flat list with count headers) | Admin |
@@ -327,9 +356,14 @@ All routes are prefixed with `/api/v1`. Interactive documentation is available a
 | `POST` | `/api/v1/tickets/{id}/comments` | Add comment (staff can set `is_internal=true`) | Owner / Agent / Admin |
 | `GET` | `/api/v1/tickets/{id}/history` | Retrieve full status transition history audit trail | Owner / Agent / Admin |
 | `GET` | `/api/v1/tickets/{id}/similar` | Retrieve tickets similar to a specific ticket, excluding itself (optional `?limit=`) | Agent / Admin |
+| `GET` | `/api/v1/tickets/{id}/triage-feedback` | AI suggestion versus what the requester and staff finally chose | Agent / Admin |
+| `POST` | `/api/v1/tickets/{id}/triage-feedback/confirm` | Confirm the final category and priority of a ticket for the feedback record | Agent / Admin |
+| `POST` | `/api/v1/tickets/{id}/ai-assist` | Summary or draft reply for a ticket (503 unless `AI_ASSIST_MODE=ollama`) | Agent / Admin |
+| `GET` | `/api/v1/ai-assist/status` | Whether AI assist is enabled and which model it uses | Agent / Admin |
 | `POST` | `/api/v1/triage/suggest` | Advisory category/priority suggestions and duplicate detection | Authenticated |
 | `GET` | `/api/v1/holidays` | List registered organization holidays, ordered by date (optional `?year=`) | Agent / Admin |
 | `POST` | `/api/v1/holidays` | Register an organization holiday date (409 on duplicate date) | Admin |
+| `PATCH` | `/api/v1/holidays/{id}` | Update the name or date of a holiday | Admin |
 | `DELETE` | `/api/v1/holidays/{id}` | Remove an organization holiday by ID (404 if missing) | Admin |
 | `GET` | `/api/v1/reports/tickets-by-status` | Aggregated ticket counts grouped by status and priority | Agent / Admin |
 | `GET` | `/api/v1/reports/overdue` | List overdue tickets past SLA due date with requester and assignee (excludes paused) | Agent / Admin |
@@ -339,6 +373,8 @@ All routes are prefixed with `/api/v1`. Interactive documentation is available a
 | `GET` | `/api/v1/reports/sla-breach-rate` | SLA breach rate and compliance counts per ticket priority (paused tickets not overdue) | Agent / Admin |
 | `GET` | `/api/v1/reports/resolution-time-by-category` | Average resolution hours grouped by category and priority | Agent / Admin |
 | `GET` | `/api/v1/reports/agent-workload` | Agent workload summary: open work, overdue tickets, and resolved counts | Agent / Admin |
+| `GET` | `/api/v1/reports/ai-quality` | AI suggestion acceptance, agent agreement and weekly trend (`?days=`) | Agent / Admin |
+| `GET` | `/api/v1/reports/ai-health` | AI triage latency and fallback rates (`?range=24h\|7d\|30d`) | Agent / Admin |
 | `GET` | `/api/v1/reports/tickets-by-category` | Ticket counts grouped by category, optionally broken down by status | Agent / Admin |
 | `GET` | `/api/v1/health` | Health check endpoint confirming API and database connectivity | Public |
 
@@ -674,6 +710,37 @@ locust -f loadtests/locustfile.py --host http://127.0.0.1:8765 --headless --user
 
 A 429 from `/triage/suggest` is expected (per-user rate limit) and is not counted as a failure.
 
+
+---
+
+## Security & Quality
+
+### What runs automatically
+Every pull request is checked by five GitHub Actions workflows. `main` is protected: changes go through pull requests, and the tests, MySQL migration and web checks must pass before merging.
+
+| Workflow | What it checks |
+| :--- | :--- |
+| **CI** | Backend tests with a coverage floor of 85% (currently 89%), Redis tests against a real Redis, MySQL 8 migrations (`upgrade -> downgrade -> upgrade`) and MySQL integration tests, web lint, unit tests and build |
+| **Security** | Bandit (Python), pip-audit and `npm audit` (dependencies), Gitleaks (committed secrets), Trivy (the Docker image) |
+| **CodeQL** | Static analysis for Python and TypeScript, also weekly |
+| **Lint** | Ruff (bugs and import errors) |
+| **End-to-end** | Playwright browser tests against the real app |
+
+Dependabot opens weekly update pull requests for Python, npm, GitHub Actions and Docker. Findings from these tools have already led to fixes: a vulnerable `python-dotenv`, vulnerable packages in the Docker base image, and an unvalidated Ollama URL.
+
+### Testing approach
+- **Unit and integration tests** for the API, services, AI and scripts (447 backend tests, 192 web tests).
+- **Property-based tests** (Hypothesis) for the SLA maths. They were validated by planting deliberate bugs (ignoring holidays, shortening the working day, counting weekends) and confirming the tests fail.
+- **Browser tests** that also fail on any console error or Content-Security-Policy violation.
+- **Benchmarks** for the AI triage and the prompt-injection guard (see the AI sections above).
+
+### Application security
+- **Authentication:** bcrypt password hashing (72-byte limit enforced), JWT access tokens that expire and can be revoked on sign-out, and the server re-checks the user (active, role) on every request.
+- **Authorization:** roles are enforced on the server, not only in the UI. Requesters get a 404 for other people's tickets and never receive internal notes, including in AI prompts.
+- **Abuse protection:** rate limits on sign-in, registration and AI triage (shared through Redis when configured), and a guard that screens ticket text for prompt injection before it reaches an LLM.
+- **Browser and transport:** Content-Security-Policy, `X-Frame-Options`, `X-Content-Type-Options` and `Referrer-Policy` headers; HTTPS and HSTS through Caddy in the production stack.
+- **Safe defaults:** parameterised SQL, input length limits, the app refuses to start in production with a placeholder `SECRET_KEY` or with `DEMO_MODE` on, the container runs as a non-root user, and metrics and error tracking are off unless enabled.
+
 ---
 
 ## Design Decisions
@@ -696,6 +763,10 @@ A 429 from `/triage/suggest` is expected (per-user rate limit) and is not counte
 - **Offset Pagination**: Pagination uses standard SQL `LIMIT` / `OFFSET`, which is straightforward for moderate datasets but less performant on massive tables than keyset pagination.
 - **User Roster Access**: Only admins can list users; agents must input target agent IDs manually when assigning tickets.
 - **No Email Notifications**: Ticket lifecycle events and comments are tracked in database history rather than sending outbound email alerts.
+- **Short-Lived Sessions**: Access tokens last 30 minutes and there are no refresh tokens; signing out revokes them, and an expired session sends the user back to the sign-in page (an unfinished new-ticket form is kept as a draft).
+- **Rate Limits Fail Open**: With `REDIS_URL` set, the shared limiters allow requests if Redis is unreachable (and log the error) so an outage cannot take the app down. Without Redis they are per process.
+- **No Two-Factor Sign-In**: Sign-in uses email and password only.
+- **Production Stack Not Load-Tested**: `docker-compose.prod.yml` follows the documented setup, but it has been validated for configuration only, not run on a live server.
 
 ---
 
@@ -703,22 +774,26 @@ A 429 from `/triage/suggest` is expected (per-user rate limit) and is not counte
 
 ```text
 .
-├── alembic/              # Database migration configuration and version scripts (8 revisions)
+├── alembic/              # Database migration configuration and version scripts (12 revisions)
 ├── app/                  # FastAPI backend application core, models, schemas, and routes
 │   ├── ai/               # AI embedder protocols, HashingVectorizer, and SBERT backends
-│   ├── api/              # API route definitions and dependency injection (30 endpoints)
+│   ├── api/              # API route definitions and dependency injection (42 endpoints)
 │   ├── core/             # Configuration, logging middleware, security, and SLA definitions
 │   ├── db/               # Database engine, session management, and Base declarative model
-│   ├── models/           # SQLAlchemy entity models (6 tables) and enums (3 roles)
+│   ├── models/           # SQLAlchemy entity models (8 tables) and enums (3 roles)
 │   ├── schemas/          # Pydantic models for validation and response serialization
 │   ├── scripts/          # Administrative CLI utilities (admin, demo seed, reindex, eval)
 │   └── services/         # Business logic layer (tickets workflow, reports, auth, triage)
 ├── data/                 # Benchmark evaluation dataset (synthetic helpdesk tickets)
-├── docs/                 # Documentation assets
-├── scripts/              # Helper entrypoints (seed_demo.py)
-├── tests/                # Automated pytest test suites (166 collected tests)
-├── web/                  # Web frontend application (React 19, TypeScript, Vite, Tailwind 4)
-├── docker-compose.yml    # Multi-container orchestration for MySQL 8 and backend
+├── deploy/               # Caddy configuration for the production stack
+├── docs/                 # Documentation and screenshots
+├── loadtests/            # Locust load test
+├── scripts/              # Helper entrypoints (seed_demo.py, e2e_server.sh)
+├── tests/                # Automated pytest suites (447 collected tests, including property-based SLA tests)
+├── web/                  # Web frontend (React 19, TypeScript, Vite, Tailwind 4); e2e/ holds the Playwright tests
+├── .github/              # CI workflows (tests, security, CodeQL, lint, browser tests) and Dependabot
+├── docker-compose.yml    # Development stack: MySQL 8 and the app
+├── docker-compose.prod.yml # Production stack: Caddy (HTTPS), app, MySQL, Redis
 ├── Dockerfile            # Container build specification for FastAPI app
 ├── LICENSE               # MIT License
 ├── pytest.ini            # Pytest configuration and coverage settings
