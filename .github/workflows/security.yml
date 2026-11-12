@@ -61,7 +61,7 @@ jobs:
       - name: Build image
         run: docker build -t servicedesk-ai:scan .
       - name: Scan image (fails on high or critical with a fix available)
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: servicedesk-ai:scan
           severity: HIGH,CRITICAL
