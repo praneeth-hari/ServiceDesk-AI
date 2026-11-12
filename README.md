@@ -260,7 +260,7 @@ On the ticket detail page, support staff (`agent` and `admin` roles) can optiona
 
 How well can the system suggest a ticket's category and priority? I built a labelled dataset and a reproducible benchmark to measure it, instead of guessing.
 
-**Dataset (ServiceDesk-600).** 600 synthetic IT service desk tickets (100 per category, about 26% deliberately hard or ambiguous) written with Claude Opus 5.5, then validated, de-duplicated and split 480 train / 120 test with whole near-duplicate groups kept on one side. Labels were audited: a 60-ticket sample was reviewed by a second model and a human, 7 priority labels were corrected, and a pattern found in that audit (simple questions labelled `medium` instead of `low`) led to 20 more corrections. See [data/servicedesk600/DATASET.md](data/servicedesk600/DATASET.md).
+**Dataset (ServiceDesk-600).** 600 synthetic IT service desk tickets (100 per category, about 26% deliberately hard or ambiguous) written with a large language model, then validated, de-duplicated and split 480 train / 120 test with whole near-duplicate groups kept on one side. Labels were audited: a 60-ticket sample was reviewed by a second model and a human, 7 priority labels were corrected, and a pattern found in that audit (simple questions labelled `medium` instead of `low`) led to 20 more corrections. See [data/servicedesk600/DATASET.md](data/servicedesk600/DATASET.md).
 
 **Results on the 120 held-out test tickets** (95% Wilson interval in brackets):
 
