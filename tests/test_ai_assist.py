@@ -157,6 +157,107 @@ def test_ai_assist_summary_success_and_clamping(
         assert data["latency_ms"] >= 0
 
 
+def _mock_ollama_summary_response() -> MagicMock:
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = json.dumps(
+        {"message": {"content": json.dumps({"summary": "VPN is down.", "facts": []})}}
+    ).encode("utf-8")
+    mock_resp.__enter__.return_value = mock_resp
+    return mock_resp
+
+
+def test_ai_assist_is_rate_limited_per_user(
+    client: TestClient,
+    requester_auth_headers: dict[str, str],
+    agent_auth_headers: dict[str, str],
+    admin_auth_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Going over the per-user AI assist limit returns 429 with Retry-After, without calling Ollama."""
+    from app.core.rate_limit import assist_rate_limiter
+
+    monkeypatch.setattr(settings, "AI_ASSIST_MODE", "ollama")
+    monkeypatch.setattr(assist_rate_limiter, "max_requests", 2)
+
+    ticket_id = client.post(
+        "/api/v1/tickets",
+        headers=requester_auth_headers,
+        json={"title": "VPN failure", "description": "Cannot connect to the VPN"},
+    ).json()["id"]
+    url = f"/api/v1/tickets/{ticket_id}/ai-assist"
+
+    with patch("urllib.request.urlopen", return_value=_mock_ollama_summary_response()) as mock_urlopen:
+        for _ in range(2):
+            assert client.post(url, headers=agent_auth_headers, json={"task": "summary"}).status_code == 200
+        calls_before = mock_urlopen.call_count
+
+        limited = client.post(url, headers=agent_auth_headers, json={"task": "summary"})
+        assert limited.status_code == 429
+        assert int(limited.headers["Retry-After"]) >= 1
+        assert limited.json()["retry_after_seconds"] >= 1
+        assert mock_urlopen.call_count == calls_before  # Ollama was not called
+
+        # The limit is per user: another staff member is not affected
+        other = client.post(url, headers=admin_auth_headers, json={"task": "summary"})
+        assert other.status_code == 200
+
+
+def test_ai_assist_disabled_or_missing_ticket_does_not_use_up_the_quota(
+    client: TestClient,
+    requester_auth_headers: dict[str, str],
+    agent_auth_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """503 (disabled) and 404 (no such ticket) are answered before the limiter is consulted."""
+    from app.core.rate_limit import assist_rate_limiter
+
+    monkeypatch.setattr(assist_rate_limiter, "max_requests", 1)
+
+    ticket_id = client.post(
+        "/api/v1/tickets",
+        headers=requester_auth_headers,
+        json={"title": "VPN failure", "description": "Cannot connect to the VPN"},
+    ).json()["id"]
+
+    monkeypatch.setattr(settings, "AI_ASSIST_MODE", "off")
+    for _ in range(3):
+        res = client.post(f"/api/v1/tickets/{ticket_id}/ai-assist", headers=agent_auth_headers, json={"task": "summary"})
+        assert res.status_code == 503
+    for _ in range(3):
+        res = client.post("/api/v1/tickets/999999/ai-assist", headers=agent_auth_headers, json={"task": "summary"})
+        assert res.status_code == 404
+
+    # The single allowed request is still available once AI assist is turned on
+    monkeypatch.setattr(settings, "AI_ASSIST_MODE", "ollama")
+    with patch("urllib.request.urlopen", return_value=_mock_ollama_summary_response()):
+        res = client.post(f"/api/v1/tickets/{ticket_id}/ai-assist", headers=agent_auth_headers, json={"task": "summary"})
+    assert res.status_code == 200
+
+
+def test_ai_assist_rate_limit_can_be_disabled(
+    client: TestClient,
+    requester_auth_headers: dict[str, str],
+    agent_auth_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A maximum of 0 turns the AI assist limit off."""
+    from app.core.rate_limit import assist_rate_limiter
+
+    monkeypatch.setattr(settings, "AI_ASSIST_MODE", "ollama")
+    monkeypatch.setattr(assist_rate_limiter, "max_requests", 0)
+
+    ticket_id = client.post(
+        "/api/v1/tickets",
+        headers=requester_auth_headers,
+        json={"title": "VPN failure", "description": "Cannot connect to the VPN"},
+    ).json()["id"]
+
+    with patch("urllib.request.urlopen", return_value=_mock_ollama_summary_response()):
+        for _ in range(15):
+            res = client.post(f"/api/v1/tickets/{ticket_id}/ai-assist", headers=agent_auth_headers, json={"task": "summary"})
+            assert res.status_code == 200
+
+
 def test_ai_assist_reply_success_and_clamping(
     client: TestClient,
     requester_auth_headers: dict[str, str],

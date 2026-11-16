@@ -283,6 +283,12 @@ def _build_limiters():
                 settings.TRIAGE_RATE_LIMIT_MAX_REQUESTS,
                 settings.TRIAGE_RATE_LIMIT_WINDOW_SECONDS,
             ),
+            RedisRequestRateLimiter(
+                client,
+                "assist",
+                settings.ASSIST_RATE_LIMIT_MAX_REQUESTS,
+                settings.ASSIST_RATE_LIMIT_WINDOW_SECONDS,
+            ),
         )
     return (
         LoginRateLimiter(
@@ -296,7 +302,10 @@ def _build_limiters():
         RequestRateLimiter(
             settings.TRIAGE_RATE_LIMIT_MAX_REQUESTS, settings.TRIAGE_RATE_LIMIT_WINDOW_SECONDS
         ),
+        RequestRateLimiter(
+            settings.ASSIST_RATE_LIMIT_MAX_REQUESTS, settings.ASSIST_RATE_LIMIT_WINDOW_SECONDS
+        ),
     )
 
 
-login_rate_limiter, register_rate_limiter, triage_rate_limiter = _build_limiters()
+login_rate_limiter, register_rate_limiter, triage_rate_limiter, assist_rate_limiter = _build_limiters()

@@ -12,6 +12,7 @@ from app.ai.assist import (
 )
 from app.api.deps import require_roles
 from app.core.config import settings
+from app.core.rate_limit import assist_rate_limiter
 from app.db.session import get_db
 from app.models.comment import TicketComment
 from app.models.enums import UserRole
@@ -68,6 +69,7 @@ def run_ai_assist(
     Generate an AI summary or draft reply for a ticket.
     Agent and admin only (403 for requesters, 404 if ticket missing).
     Returns 503 if AI assist is disabled.
+    Returns 429 (with Retry-After) if the user has made too many requests recently.
     Returns 502 if Ollama fails or output is invalid.
     """
     ticket = db.get(Ticket, ticket_id)
@@ -85,6 +87,10 @@ def run_ai_assist(
                 "message": "AI assist is disabled on this server.",
             },
         )
+
+    # Each call waits on the model for up to a minute or two, so cap how often one user can start
+    # one. Checked only now so a missing ticket or disabled AI assist does not use up the quota.
+    assist_rate_limiter.check(str(current_user.id))
 
     # Load requester info for personalization
     requester = db.get(User, ticket.requester_id) if ticket.requester_id else None
