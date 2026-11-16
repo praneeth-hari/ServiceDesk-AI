@@ -629,12 +629,13 @@ ServiceDesk-AI includes an in-memory sliding-window rate limiter on the password
 - **Demo Login Exemption**: One-click demo logins (`POST /api/v1/auth/demo-login`) are not subject to password rate limiting lockout.
 
 ### Registration and Triage Limits
-Two more in-memory sliding-window limits apply (HTTP 429 with `Retry-After` when exceeded). Set a maximum to `0` to disable it.
+Three more sliding-window limits apply (HTTP 429 with `Retry-After` when exceeded; in memory per process, or shared across workers when `REDIS_URL` is set). Set a maximum to `0` to disable it.
 
 | Setting | Default | Applies to |
 | :--- | :--- | :--- |
 | `REGISTER_RATE_LIMIT_MAX_REQUESTS` / `REGISTER_RATE_LIMIT_WINDOW_SECONDS` | `10` / `3600` | `POST /api/v1/auth/register`, per client IP |
 | `TRIAGE_RATE_LIMIT_MAX_REQUESTS` / `TRIAGE_RATE_LIMIT_WINDOW_SECONDS` | `30` / `60` | `POST /api/v1/triage/suggest`, per signed-in user |
+| `ASSIST_RATE_LIMIT_MAX_REQUESTS` / `ASSIST_RATE_LIMIT_WINDOW_SECONDS` | `10` / `60` | `POST /api/v1/tickets/{id}/ai-assist`, per signed-in user. Counted only when the request reaches the model, so a missing ticket or disabled AI assist does not use it up |
 
 ### Sessions and Logout
 Access tokens last `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default). `POST /api/v1/auth/logout` increments the user's `token_version`, which immediately invalidates every token issued before it. The web UI calls it when you sign out.

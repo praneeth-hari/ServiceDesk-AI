@@ -95,12 +95,15 @@ class Settings(BaseSettings):
     LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = 300
     LOGIN_LOCKOUT_SECONDS: int = 300
 
-    # Per-IP limit on public registration, per-user limit on AI triage suggestions
+    # Per-IP limit on public registration, per-user limits on AI triage suggestions and on
+    # AI assist (summary / draft reply; each call waits on the model, so it is limited tighter)
     # (in-memory sliding window; set max to 0 to disable)
     REGISTER_RATE_LIMIT_MAX_REQUESTS: int = 10
     REGISTER_RATE_LIMIT_WINDOW_SECONDS: int = 3600
     TRIAGE_RATE_LIMIT_MAX_REQUESTS: int = 30
     TRIAGE_RATE_LIMIT_WINDOW_SECONDS: int = 60
+    ASSIST_RATE_LIMIT_MAX_REQUESTS: int = 10
+    ASSIST_RATE_LIMIT_WINDOW_SECONDS: int = 60
 
     # Optional Redis URL (redis:// or rediss://) to share rate limits across workers and servers
     REDIS_URL: str | None = None
