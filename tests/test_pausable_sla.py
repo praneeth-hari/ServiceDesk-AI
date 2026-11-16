@@ -262,3 +262,64 @@ def test_priority_change_keeps_time_added_by_earlier_pause(
     )
     got = ticket.due_at if ticket.due_at.tzinfo else ticket.due_at.replace(tzinfo=timezone.utc)
     assert got == expected
+
+
+def test_priority_change_while_waiting_on_requester_recalculates_due_at(
+    db_session: Session,
+    agent_user: User,
+    admin_user: User,
+    requester_user: User,
+):
+    """
+    An admin can change priority while the ticket is waiting on the requester. due_at must
+    follow the new priority right away (keeping the time already added by earlier, finished
+    pauses), and the pause in progress must still be added once the ticket resumes.
+    """
+    from app.core.sla import add_business_minutes, calculate_due_at
+    from app.schemas.ticket import TicketCreate, TicketStatusUpdate, TicketUpdate
+    from app.services.tickets import create_ticket, update_ticket, update_ticket_status
+
+    def utc(value):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+    created = datetime(2026, 10, 26, 4, 30, tzinfo=timezone.utc)  # Monday 10:00 IST
+    ticket = create_ticket(
+        db_session,
+        TicketCreate(title="Reprioritise while waiting", description="x", priority=TicketPriority.MEDIUM),
+        requester_user,
+        current_time=created,
+    )
+
+    def move(status, when):
+        update_ticket_status(
+            db_session, ticket.id, TicketStatusUpdate(status=status), agent_user, current_time=when
+        )
+
+    move(TicketStatus.IN_PROGRESS, created + timedelta(minutes=5))
+    # First pause, already finished: 120 business minutes
+    move(TicketStatus.WAITING_ON_REQUESTER, datetime(2026, 10, 27, 4, 30, tzinfo=timezone.utc))
+    move(TicketStatus.IN_PROGRESS, datetime(2026, 10, 27, 6, 30, tzinfo=timezone.utc))
+    # Second pause, still running when the priority changes
+    move(TicketStatus.WAITING_ON_REQUESTER, datetime(2026, 10, 27, 7, 30, tzinfo=timezone.utc))
+
+    update_ticket(
+        db_session,
+        ticket.id,
+        TicketUpdate(priority=TicketPriority.HIGH),
+        admin_user,
+        current_time=datetime(2026, 10, 27, 8, 0, tzinfo=timezone.utc),
+    )
+    db_session.refresh(ticket)
+
+    # New priority applied now; only the finished 120-minute pause is included so far
+    due_while_waiting = add_business_minutes(
+        calculate_due_at(TicketPriority.HIGH, created, holidays=set()), 120, set()
+    )
+    assert ticket.priority == TicketPriority.HIGH
+    assert ticket.status == TicketStatus.WAITING_ON_REQUESTER
+    assert utc(ticket.due_at) == due_while_waiting
+
+    # Resuming 90 business minutes after the second pause began adds those minutes on top
+    move(TicketStatus.IN_PROGRESS, datetime(2026, 10, 27, 9, 0, tzinfo=timezone.utc))
+    db_session.refresh(ticket)
+    assert utc(ticket.due_at) == add_business_minutes(due_while_waiting, 90, set())

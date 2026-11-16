@@ -308,7 +308,8 @@ def update_ticket(
     - Allowed for the ticket owner while the ticket is 'open' (title, description, priority, category).
     - Allowed for admins anytime (all fields).
     - Allowed for agents anytime (category only).
-    - Recalculates due_at from created_at if priority changes while open or in_progress.
+    - Recalculates due_at from created_at if priority changes while open, in_progress or
+      waiting_on_requester.
     - Does not change due_at once the ticket is resolved or closed.
     """
     ticket = get_ticket_by_id(db, ticket_id=ticket_id, current_user=current_user, for_update=True)
@@ -358,8 +359,14 @@ def update_ticket(
         has_changed = True
         priority_changed = True
 
-        # Recalculate due_at from created_at only if open or in_progress
-        if ticket.status in (TicketStatus.OPEN, TicketStatus.IN_PROGRESS):
+        # Recalculate due_at from created_at only while the ticket is still active (open,
+        # in_progress or waiting_on_requester). A pause still in progress is not counted here;
+        # it is added when the ticket resumes (see update_ticket_status).
+        if ticket.status in (
+            TicketStatus.OPEN,
+            TicketStatus.IN_PROGRESS,
+            TicketStatus.WAITING_ON_REQUESTER,
+        ):
             created = ticket.created_at if ticket.created_at.tzinfo else ticket.created_at.replace(tzinfo=timezone.utc)
             holidays = get_holiday_dates(db)
             ticket.due_at = calculate_due_at(ticket.priority, created, holidays=holidays)
