@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.routes import assist, auth, health, holidays, reports, tickets, triage, users
-from app.core.config import settings
+from app.core.config import check_production_secret, is_placeholder_secret, is_production, settings
 from app.core.logging import RequestIDLoggingMiddleware, setup_logging
 from app.core.metrics import metrics_endpoint, metrics_middleware
 from app.core.observability import init_sentry
@@ -25,30 +25,15 @@ async def lifespan(app: FastAPI):
     Application lifespan handler.
     Checks whether SECRET_KEY is valid for production or logs a warning in development.
     """
-    is_prod = getattr(settings, "APP_ENV", "development").strip().lower() == "production"
-    is_placeholder = (
-        settings.SECRET_KEY in ("change-me", "change_this_to_a_super_secret_key_at_least_32_chars_long")
-        or "change-me" in settings.SECRET_KEY.lower()
-    )
-    is_short = len(settings.SECRET_KEY) < 32
+    is_prod = is_production(settings.APP_ENV)
 
-    if is_prod:
-        if is_placeholder:
-            raise ValueError(
-                "SECRET_KEY cannot be a placeholder in production. "
-                "Please configure a secure random SECRET_KEY of at least 32 characters."
-            )
-        if is_short:
-            raise ValueError(
-                f"SECRET_KEY is too short for production (must be at least 32 characters, got {len(settings.SECRET_KEY)}). "
-                "Please configure a secure random SECRET_KEY of at least 32 characters."
-            )
-    else:
-        if is_placeholder:
-            logger.warning(
-                "SECURITY WARNING: SECRET_KEY is set to a placeholder. "
-                "Please generate and set a strong, random SECRET_KEY in your .env file for production."
-            )
+    # Re-checked at startup in case settings were changed after they were first validated.
+    check_production_secret(settings.SECRET_KEY, settings.APP_ENV)
+    if not is_prod and is_placeholder_secret(settings.SECRET_KEY):
+        logger.warning(
+            "SECURITY WARNING: SECRET_KEY is set to a placeholder. "
+            "Please generate and set a strong, random SECRET_KEY in your .env file for production."
+        )
 
     if settings.DEMO_MODE:
         if is_prod:
