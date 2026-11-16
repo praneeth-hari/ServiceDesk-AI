@@ -4,6 +4,37 @@ import zoneinfo
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_PLACEHOLDER_SECRETS = ("change-me", "change_this_to_a_super_secret_key_at_least_32_chars_long")
+_MIN_PRODUCTION_SECRET_LENGTH = 32
+
+
+def is_production(app_env: str) -> bool:
+    return app_env.strip().lower() == "production"
+
+
+def is_placeholder_secret(secret_key: str) -> bool:
+    """True if the key is one of the shipped placeholders (or contains 'change-me')."""
+    return secret_key in _PLACEHOLDER_SECRETS or "change-me" in secret_key.lower()
+
+
+def check_production_secret(secret_key: str, app_env: str) -> None:
+    """
+    In production, refuse a placeholder or short (<32 chars) SECRET_KEY by raising ValueError.
+    Other environments are never rejected. Used by both the Settings validator and app startup.
+    """
+    if not is_production(app_env):
+        return
+    if is_placeholder_secret(secret_key):
+        raise ValueError(
+            "SECRET_KEY cannot be a placeholder in production. "
+            "Please configure a secure random SECRET_KEY of at least 32 characters."
+        )
+    if len(secret_key) < _MIN_PRODUCTION_SECRET_LENGTH:
+        raise ValueError(
+            f"SECRET_KEY is too short for production (must be at least "
+            f"{_MIN_PRODUCTION_SECRET_LENGTH} characters, got {len(secret_key)}). "
+            "Please configure a secure random SECRET_KEY of at least 32 characters."
+        )
 
 
 class Settings(BaseSettings):
@@ -215,24 +246,7 @@ class Settings(BaseSettings):
         In production, refuse placeholder or short (<32 chars) SECRET_KEY.
         In development, allowed (warning logged at app startup).
         """
-        is_prod = self.APP_ENV.strip().lower() == "production"
-        is_placeholder = (
-            self.SECRET_KEY in ("change-me", "change_this_to_a_super_secret_key_at_least_32_chars_long")
-            or "change-me" in self.SECRET_KEY.lower()
-        )
-        is_short = len(self.SECRET_KEY) < 32
-
-        if is_prod:
-            if is_placeholder:
-                raise ValueError(
-                    "SECRET_KEY cannot be a placeholder in production. "
-                    "Please configure a secure random SECRET_KEY of at least 32 characters."
-                )
-            if is_short:
-                raise ValueError(
-                    f"SECRET_KEY is too short for production (must be at least 32 characters, got {len(self.SECRET_KEY)}). "
-                    "Please configure a secure random SECRET_KEY of at least 32 characters."
-                )
+        check_production_secret(self.SECRET_KEY, self.APP_ENV)
         return self
 
 
