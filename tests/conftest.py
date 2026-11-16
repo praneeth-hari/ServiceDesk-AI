@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.rate_limit import register_rate_limiter, triage_rate_limiter
+from app.core.rate_limit import assist_rate_limiter, register_rate_limiter, triage_rate_limiter
 from app.core.security import create_access_token, hash_password
 from app.db.base import Base
 from app.db.session import get_db
@@ -173,9 +173,11 @@ def admin_auth_headers(admin_token: str) -> dict[str, str]:
 
 @pytest.fixture(autouse=True)
 def reset_request_rate_limiters():
-    """Isolate the in-memory register/triage limiters between tests."""
+    """Isolate the in-memory register/triage/assist limiters between tests."""
     register_rate_limiter.clear_all()
     triage_rate_limiter.clear_all()
+    assist_rate_limiter.clear_all()
     yield
     register_rate_limiter.clear_all()
     triage_rate_limiter.clear_all()
+    assist_rate_limiter.clear_all()
