@@ -121,13 +121,22 @@ def create_ticket(
     return get_ticket_by_id(db, ticket_id=ticket.id, current_user=current_user)
 
 
-def get_ticket_by_id(db: Session, ticket_id: int, current_user: User) -> Ticket:
+def get_ticket_by_id(
+    db: Session,
+    ticket_id: int,
+    current_user: User,
+    for_update: bool = False,
+) -> Ticket:
     """
     Retrieve a ticket by ID.
     - If ticket doesn't exist: returns 404.
     - If user is a requester and not the owner: returns 404 (not 403).
     - Agents and admins can view any ticket.
     - Eagerly loads requester and assignee to populate names.
+    - for_update=True locks the ticket row until the transaction ends, so two concurrent
+      writers (for example two agents changing the status) are applied one after the other
+      instead of both acting on the same old state. Only the ticket row is locked, not the
+      joined users. Use it for read-check-write changes. It has no effect on SQLite.
     """
     stmt = (
         sa.select(Ticket)
@@ -137,6 +146,9 @@ def get_ticket_by_id(db: Session, ticket_id: int, current_user: User) -> Ticket:
         )
         .where(Ticket.id == ticket_id)
     )
+    if for_update:
+        # populate_existing refreshes the object with the locked (latest) row values.
+        stmt = stmt.with_for_update(of=Ticket).execution_options(populate_existing=True)
     ticket = db.scalars(stmt).unique().first()
     if not ticket:
         raise HTTPException(
@@ -299,7 +311,7 @@ def update_ticket(
     - Recalculates due_at from created_at if priority changes while open or in_progress.
     - Does not change due_at once the ticket is resolved or closed.
     """
-    ticket = get_ticket_by_id(db, ticket_id=ticket_id, current_user=current_user)
+    ticket = get_ticket_by_id(db, ticket_id=ticket_id, current_user=current_user, for_update=True)
 
     is_owner = ticket.requester_id == current_user.id
     is_admin = current_user.role == UserRole.ADMIN
@@ -403,7 +415,7 @@ def update_ticket_status(
             detail="Only agents and admins can update ticket status",
         )
 
-    ticket = get_ticket_by_id(db, ticket_id=ticket_id, current_user=current_user)
+    ticket = get_ticket_by_id(db, ticket_id=ticket_id, current_user=current_user, for_update=True)
     allowed_next_statuses = ALLOWED_STATUS_TRANSITIONS.get(ticket.status, set())
 
     if status_in.status not in allowed_next_statuses:
@@ -473,7 +485,7 @@ def assign_ticket(
             detail="Only agents and admins can assign tickets",
         )
 
-    ticket = get_ticket_by_id(db, ticket_id=ticket_id, current_user=current_user)
+    ticket = get_ticket_by_id(db, ticket_id=ticket_id, current_user=current_user, for_update=True)
 
     if ticket.status == TicketStatus.CLOSED:
         raise HTTPException(
