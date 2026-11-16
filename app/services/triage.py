@@ -4,7 +4,7 @@ import time
 from typing import Any, Optional, Sequence
 import numpy as np
 import sqlalchemy as sa
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.ai.embedder import Embedder, get_embedder, get_text_to_embed
 from app.ai.injection_guard import inspect_ticket
@@ -191,6 +191,11 @@ def sync_ticket_embedding(
         )
 
 
+# How many stored embeddings are loaded and scored at a time. A hashing embedding is 4096 float32
+# values (16 KB), so scoring all AI_MAX_CANDIDATES (5000) at once used to take ~260 MB per request.
+_CANDIDATE_CHUNK_SIZE = 500
+
+
 def _compute_cosine_similarities(
     query_vector: np.ndarray,
     candidate_records: Sequence[tuple[TicketEmbedding, Ticket]],
@@ -202,6 +207,9 @@ def _compute_cosine_similarities(
     cos(theta) = (u . v) / (||u|| * ||v||)
     Because all vectors produced by the embedders are normalized to unit length (||u|| = ||v|| = 1),
     cosine similarity simplifies to the Euclidean dot product: u . v.
+
+    The result holds only what is needed to rank and filter tickets (no title or description);
+    use _attach_ticket_text for the few tickets that are actually returned.
     """
     if not candidate_records:
         return []
@@ -216,9 +224,10 @@ def _compute_cosine_similarities(
 
     if not vectors:
         return []
-    matrix = np.vstack(vectors).astype(np.float32)
+    # The stored vectors are already float32, so no second copy of the matrix is needed
+    matrix = np.vstack(vectors).astype(np.float32, copy=False)
     # Dot product of normalized vectors
-    sims = np.dot(matrix, query_vector.astype(np.float32))
+    sims = np.dot(matrix, query_vector.astype(np.float32, copy=False))
 
     results = []
     for i, ticket in enumerate(metadata):
@@ -228,8 +237,6 @@ def _compute_cosine_similarities(
         results.append(
             {
                 "id": ticket.id,
-                "title": ticket.title,
-                "description": ticket.description,
                 "status": ticket.status,
                 "category": ticket.category,
                 "priority": ticket.priority,
@@ -238,6 +245,70 @@ def _compute_cosine_similarities(
             }
         )
     return results
+
+
+def _score_candidates(
+    db: Session,
+    query_vector: np.ndarray,
+    model_name: str,
+    requester_id: Optional[int] = None,
+    exclude_ticket_id: Optional[int] = None,
+) -> list[dict[str, Any]]:
+    """
+    Score the most recent AI_MAX_CANDIDATES stored tickets (newest first) against a query vector.
+
+    First the candidate ticket ids are chosen with a small query that does not read the vectors.
+    Then the embeddings are loaded and scored _CANDIDATE_CHUNK_SIZE at a time, by primary key, so
+    only one chunk of vectors is in memory at once. (Sorting the vectors themselves in the
+    database, once per chunk, was several times slower.) The title and description columns are
+    not loaded. The result is the same list, in the same order, as scoring them all in one go.
+    """
+    id_stmt = (
+        sa.select(Ticket.id)
+        .join(TicketEmbedding, TicketEmbedding.ticket_id == Ticket.id)
+        .where(TicketEmbedding.model_name == model_name)
+        .order_by(Ticket.id.desc())
+        .limit(settings.AI_MAX_CANDIDATES)
+    )
+    if exclude_ticket_id is not None:
+        id_stmt = id_stmt.where(Ticket.id != exclude_ticket_id)
+    if requester_id is not None:
+        id_stmt = id_stmt.where(Ticket.requester_id == requester_id)
+    candidate_ids = list(db.scalars(id_stmt).all())
+
+    results: list[dict[str, Any]] = []
+    for start in range(0, len(candidate_ids), _CANDIDATE_CHUNK_SIZE):
+        chunk_ids = candidate_ids[start : start + _CANDIDATE_CHUNK_SIZE]
+        records = db.execute(
+            sa.select(TicketEmbedding, Ticket)
+            .join(Ticket, TicketEmbedding.ticket_id == Ticket.id)
+            .options(defer(Ticket.title), defer(Ticket.description))
+            .where(Ticket.id.in_(chunk_ids), TicketEmbedding.model_name == model_name)
+        ).all()
+        # Keep the newest-first order of the id query (the database may return rows in any order)
+        records.sort(key=lambda record: record[1].id, reverse=True)
+        results.extend(_compute_cosine_similarities(query_vector, records))
+
+    return results
+
+
+def _attach_ticket_text(db: Session, items: Sequence[dict[str, Any]]) -> None:
+    """Add "title" and "description" to scored tickets, reading them only for these tickets."""
+    ids = list({item["id"] for item in items})
+    if not ids:
+        return
+    text: dict[int, tuple[str, str]] = {}
+    for start in range(0, len(ids), 500):
+        rows = db.execute(
+            sa.select(Ticket.id, Ticket.title, Ticket.description).where(
+                Ticket.id.in_(ids[start : start + 500])
+            )
+        ).all()
+        for row in rows:
+            text[row.id] = (row.title, row.description)
+    for item in items:
+        # A ticket deleted since it was scored has no text left
+        item["title"], item["description"] = text.get(item["id"], ("", ""))
 
 
 def find_similar(
@@ -260,26 +331,18 @@ def find_similar(
         return []
     query_vec = vectors[0]
 
-    # Query embeddings with tickets
-    stmt = (
-        sa.select(TicketEmbedding, Ticket)
-        .join(Ticket, TicketEmbedding.ticket_id == Ticket.id)
-        .where(TicketEmbedding.model_name == active_embedder.name)
-        .order_by(Ticket.id.desc())
-        .limit(settings.AI_MAX_CANDIDATES)
+    # Privacy filtering at the SQL level for find_similar: requesters only see their own tickets
+    results = _score_candidates(
+        db,
+        query_vec,
+        active_embedder.name,
+        requester_id=current_user.id if current_user.role == UserRole.REQUESTER else None,
+        exclude_ticket_id=exclude_ticket_id,
     )
-
-    if exclude_ticket_id is not None:
-        stmt = stmt.where(Ticket.id != exclude_ticket_id)
-
-    # Privacy filtering at the SQL level for find_similar
-    if current_user.role == UserRole.REQUESTER:
-        stmt = stmt.where(Ticket.requester_id == current_user.id)
-
-    records = db.execute(stmt).all()
-    results = _compute_cosine_similarities(query_vec, records)
     results.sort(key=lambda r: r["similarity"], reverse=True)
-    return results[:limit]
+    top = results[:limit]
+    _attach_ticket_text(db, top)
+    return top
 
 
 def suggest(
@@ -325,16 +388,9 @@ def suggest(
         }
     query_vec = vectors[0]
 
-    # Fetch candidate pool (up to AI_MAX_CANDIDATES) for active embedder
-    stmt = (
-        sa.select(TicketEmbedding, Ticket)
-        .join(Ticket, TicketEmbedding.ticket_id == Ticket.id)
-        .where(TicketEmbedding.model_name == active_embedder.name)
-        .order_by(Ticket.id.desc())
-        .limit(settings.AI_MAX_CANDIDATES)
-    )
-    records = db.execute(stmt).all()
-    all_scored = _compute_cosine_similarities(query_vec, records)
+    # Score the candidate pool (up to AI_MAX_CANDIDATES) for the active embedder. Titles and
+    # descriptions are read later, only for the tickets that are returned or sent to the LLM.
+    all_scored = _score_candidates(db, query_vec, active_embedder.name)
 
     # 1. kNN Suggestion Candidates: resolved or closed tickets
     resolved_candidates = [
@@ -403,6 +459,7 @@ def suggest(
         else:
             try:
                 rag_examples = resolved_candidates[: settings.AI_LLM_EXAMPLES]
+                _attach_ticket_text(db, rag_examples)
 
                 llm_cat, llm_prio, latency_ms, error_reason = triage_with_llm(
                     ticket_text=ticket_text,
@@ -442,6 +499,8 @@ def suggest(
                 latency_ms=logged_latency_ms,
                 fallback_reason=logged_fallback_reason,
             )
+
+    _attach_ticket_text(db, [*evidence, *duplicates])
 
     return {
         "suggested_category": suggested_cat,
