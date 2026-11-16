@@ -182,10 +182,13 @@ def test_factory_uses_redis_limiters_when_redis_url_is_set(monkeypatch, redis_cl
 
     monkeypatch.setattr(settings, "REDIS_URL", "redis://example:6379/0")
     monkeypatch.setattr("redis.Redis.from_url", lambda *a, **k: redis_client)
-    login, register, triage = rate_limit._build_limiters()
+    login, register, triage, assist = rate_limit._build_limiters()
     assert isinstance(login, RedisLoginRateLimiter)
     assert isinstance(register, RedisRequestRateLimiter)
     assert triage.max_requests == settings.TRIAGE_RATE_LIMIT_MAX_REQUESTS
+    assert isinstance(assist, RedisRequestRateLimiter)
+    assert assist.max_requests == settings.ASSIST_RATE_LIMIT_MAX_REQUESTS
+    assert assist.window_seconds == settings.ASSIST_RATE_LIMIT_WINDOW_SECONDS
 
 
 def test_factory_uses_in_memory_limiters_without_redis_url(monkeypatch):
@@ -193,9 +196,11 @@ def test_factory_uses_in_memory_limiters_without_redis_url(monkeypatch):
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "REDIS_URL", None)
-    login, register, triage = rate_limit._build_limiters()
+    login, register, triage, assist = rate_limit._build_limiters()
     assert isinstance(login, rate_limit.LoginRateLimiter)
     assert isinstance(register, rate_limit.RequestRateLimiter)
+    assert isinstance(assist, rate_limit.RequestRateLimiter)
+    assert assist.max_requests == settings.ASSIST_RATE_LIMIT_MAX_REQUESTS
 
 
 def test_redis_url_scheme_is_validated():
