@@ -760,6 +760,7 @@ Dependabot opens weekly update pull requests for Python, npm, GitHub Actions and
 ## Known Limitations
 
 - **Lexical vs. Semantic AI Triage**: The default `hashing-v2` backend uses sublinear-scaled word n-grams (with stop words removed) and character 3-5 n-grams (dim=4096). On the earlier small evaluation set, category accuracy reached 58.33% with 100% suggestion coverage at threshold 0.12 (see [AI triage evaluation](#ai-triage-evaluation) for the current benchmark on ServiceDesk-600 where it scores 62.5% vs 87.5% for LLM-RAG). sbert is supported as an optional pluggable embedder (`requirements-ai.txt`) but requires additional dependencies.
+- **Substring Search Scans the Table**: The ticket keyword search (`q`) uses `ILIKE '%term%'` on title and description with no full-text index, so each search (and its count query) reads every row the filters leave. That is fine for demo-sized data but slows down on very large ticket tables. A MySQL `FULLTEXT` index would fix this but changes matching from substrings to whole words, so it has not been switched on.
 - **Offset Pagination**: Pagination uses standard SQL `LIMIT` / `OFFSET`, which is straightforward for moderate datasets but less performant on massive tables than keyset pagination.
 - **User Roster Access**: Only admins can list users; agents must input target agent IDs manually when assigning tickets.
 - **No Email Notifications**: Ticket lifecycle events and comments are tracked in database history rather than sending outbound email alerts.
