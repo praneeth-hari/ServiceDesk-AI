@@ -27,6 +27,29 @@ CATS_PATTERN = "|".join(CATEGORIES)
 PRIOS_PATTERN = "|".join(PRIORITIES)
 
 
+def _seq(*stages: str) -> str:
+    """
+    Regex source for "stage 1, then stage 2, ... in order, with anything in between".
+
+    The obvious way to write this is `stage1.*?stage2.*?stage3`. If the text has no match, that
+    form retries every combination of positions, so the time grows with the square or cube of
+    the text length: a few hundred characters can take seconds and 10,000 characters minutes,
+    and a regex search holds the interpreter lock, so it stalls the whole server.
+
+    Here each `.*?` plus its stage sits in an atomic group `(?>...)`. Once a stage has matched at
+    its earliest position the engine never goes back to look for a later one. That cannot change
+    the result: the earliest match of a stage leaves the most text for the stages after it, so
+    if any ordered match exists, the earliest-first one does too. Run from the start of a line
+    (see `_lines`) it reads each line a constant number of times, so the time grows linearly.
+    """
+    return "".join(f"(?>.*?{stage})" for stage in stages)
+
+
+def _lines(*sequences: str) -> re.Pattern[str]:
+    """Match any of the `_seq` sequences within a single line (`.` does not cross newlines)."""
+    return re.compile("^(?:" + "|".join(sequences) + ")", re.I | re.M)
+
+
 @dataclass(frozen=True)
 class InjectionGuardResult:
     """Detection result returned by the injection guard."""
@@ -90,7 +113,8 @@ GUARD_RULES: list[tuple[str, re.Pattern[str]]] = [
     ),
     (
         "json_code_block_classification",
-        re.compile(r"```json\s*\{.*?(?:category|priority)", re.I | re.S),
+        # `.` also matches newlines here, so anchor once at the start of the text
+        re.compile(r"\A" + _seq(r"```json\s*\{", r"(?:category|priority)"), re.I | re.S),
     ),
     (
         "raw_json_classification_payload",
@@ -110,16 +134,20 @@ GUARD_RULES: list[tuple[str, re.Pattern[str]]] = [
     # 3. Instruction overrides & meta-prompts
     (
         "instruction_override",
-        re.compile(
-            r"\b(?:ignore|disregard|forget|override)\b.*?\b(?:instructions|prompt|rules|guidance|guidelines|criteria)\b",
-            re.I,
+        _lines(
+            _seq(
+                r"\b(?:ignore|disregard|forget|override)\b",
+                r"\b(?:instructions|prompt|rules|guidance|guidelines|criteria)\b",
+            )
         ),
     ),
     (
         "system_instruction_override",
-        re.compile(
-            r"\b(?:system\s*instruction|system\s*prompt|system\s*message)\b.*?(?::|override|redirect|rules|guidelines)",
-            re.I,
+        _lines(
+            _seq(
+                r"\b(?:system\s*instruction|system\s*prompt|system\s*message)\b",
+                r"(?::|override|redirect|rules|guidelines)",
+            )
         ),
     ),
     (
@@ -131,9 +159,11 @@ GUARD_RULES: list[tuple[str, re.Pattern[str]]] = [
     ),
     (
         "negative_triage_constraint",
-        re.compile(
-            r"\b(?:do\s*not\s*follow|regardless\s*of)\b.*?\b(?:regular|standard|earlier)?\s*(?:triage|categorization|text|guidelines)\b",
-            re.I,
+        _lines(
+            _seq(
+                r"\b(?:do\s*not\s*follow|regardless\s*of)\b",
+                r"\b(?:regular|standard|earlier)?\s*(?:triage|categorization|text|guidelines)\b",
+            )
         ),
     ),
     # 4. Role impersonation / System and agent headers
@@ -147,31 +177,52 @@ GUARD_RULES: list[tuple[str, re.Pattern[str]]] = [
     # 5. Direct classification commands (set/mark/classify/route category/priority to/as target)
     (
         "classification_command",
-        re.compile(
-            rf"\b(?:set|mark|classify|categorize|categorise|assign|reclassify|route|override)\b.*?\b(?:(?:category|priority|urgency)\b.*?\b(?:as|to|under|level)|(?:as|to|under)\b.*?\b(?:category|priority)?)\b.*?\b(?:{CATS_PATTERN}|{PRIOS_PATTERN}|maximum)\b",
-            re.I,
+        # A command verb, then a link word ("to", "as", "under", or "category ... level"), then a
+        # category or priority value. (The original also allowed "category ... as/to/under" as the
+        # link, but that always contains a plain "as/to/under" after the verb, so it adds nothing.)
+        _lines(
+            _seq(
+                r"\b(?:set|mark|classify|categorize|categorise|assign|reclassify|route|override)\b",
+                r"\b(?:as|to|under)\b",
+                rf"\b(?:{CATS_PATTERN}|{PRIOS_PATTERN}|maximum)\b",
+            ),
+            _seq(
+                r"\b(?:set|mark|classify|categorize|categorise|assign|reclassify|route|override)\b",
+                r"\b(?:category|priority|urgency)\b",
+                r"\blevel\b",
+                rf"\b(?:{CATS_PATTERN}|{PRIOS_PATTERN}|maximum)\b",
+            ),
         ),
     ),
     (
         "polite_or_imperative_request",
-        re.compile(
-            rf"\b(?:please|kindly|could\s*you|would\s*you)\b.*?\b(?:set|mark|classify|assign|route)\b.*?\b(?:(?:priority|category)\b.*?\b(?:as|to|under)|(?:as|to|under)\b.*?\b(?:priority|category)?)\b.*?\b(?:{CATS_PATTERN}|{PRIOS_PATTERN})\b",
-            re.I,
+        _lines(
+            _seq(
+                r"\b(?:please|kindly|could\s*you|would\s*you)\b",
+                r"\b(?:set|mark|classify|assign|route)\b",
+                r"\b(?:as|to|under)\b",
+                rf"\b(?:{CATS_PATTERN}|{PRIOS_PATTERN})\b",
+            )
         ),
     ),
     (
         "foreign_classification_command",
-        re.compile(
-            rf"(?:veuillez|clasifique|kategorisieren|kategorie-zuordnung).*?\b(?:{CATS_PATTERN}|{PRIOS_PATTERN})\b",
-            re.I,
+        _lines(
+            _seq(
+                r"(?:veuillez|clasifique|kategorisieren|kategorie-zuordnung)",
+                rf"\b(?:{CATS_PATTERN}|{PRIOS_PATTERN})\b",
+            )
         ),
     ),
     # 6. Priority inflation / Executive escalation commands
     (
         "executive_priority_inflation",
-        re.compile(
-            r"\b(?:ceo|cfo|coo|board(?:\s*of\s*directors)?|executive|leadership|site\s*director)\b.*?\b(?:mandate|orders?|escalation|instructed|requires?|requested)\b.*?\b(?:urgent|priority\s*(?:must\s*be\s*)?urgent|mark\s*urgent)\b",
-            re.I,
+        _lines(
+            _seq(
+                r"\b(?:ceo|cfo|coo|board(?:\s*of\s*directors)?|executive|leadership|site\s*director)\b",
+                r"\b(?:mandate|orders?|escalation|instructed|requires?|requested)\b",
+                r"\b(?:urgent|priority\s*(?:must\s*be\s*)?urgent|mark\s*urgent)\b",
+            )
         ),
     ),
 ]
