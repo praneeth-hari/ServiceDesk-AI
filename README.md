@@ -1,3 +1,10 @@
+---
+title: ServiceDesk AI
+emoji: 🎫
+sdk: docker
+app_port: 7860
+---
+
 # ServiceDesk-AI
 
 Role-based IT helpdesk ticketing application with business-hours SLA tracking, raw SQL reports, AI triage suggestions, and a modern React web UI served directly by FastAPI.
@@ -35,7 +42,7 @@ Role-based IT helpdesk ticketing application with business-hours SLA tracking, r
 | **API Endpoints** | 42 REST endpoints (`/api/v1`) |
 | **Frontend UI** | Modern single-page app (React 19, TypeScript, Tailwind CSS, Vite) |
 | **Serving Mode** | Unified service: FastAPI serves both the JSON REST API and the built SPA bundle |
-| **Business Hours SLA** | 09:00–18:00 IST Monday–Friday, calendar-aware with holiday pauses |
+| **Business Hours SLA** | 09:00â€“18:00 IST Mondayâ€“Friday, calendar-aware with holiday pauses |
 | **Database Migrations** | 12 Alembic schema migration versions |
 | **SQL Reports** | 9 raw SQL analytical reports (CTEs, `RANK()` window functions) |
 | **Automated Checks** | 5 GitHub Actions workflows: tests and MySQL migrations, security scans, CodeQL, lint, browser tests |
@@ -86,7 +93,7 @@ The screenshots use the seeded demo data (`python -m app.scripts.seed_demo --yes
 | :--- | :--- |
 | **Authentication & Roles** | JWT authentication with bcrypt hashing (72-byte limit validation). Three roles: `requester`, `agent`, and `admin`. |
 | **Ticket Workflow** | Enforced state transitions (`open` -> `in_progress` <-> `waiting_on_requester`, `in_progress` -> `resolved` -> `closed`, with reopen). Invalid moves return 409. |
-| **Business-Hours SLA** | SLA calculated strictly within operational hours (09:00–18:00 IST, Mon–Fri) and organization holidays. |
+| **Business-Hours SLA** | SLA calculated strictly within operational hours (09:00â€“18:00 IST, Monâ€“Fri) and organization holidays. |
 | **Pausable SLA Clock** | Moving to `waiting_on_requester` freezes the SLA clock (`sla_paused_at`); resuming to `in_progress` pushes `due_at` forward by exact elapsed business minutes. |
 | **Holidays Management** | Admin CRUD API and web management (`/api/v1/holidays`), preventing SLA calculations on non-working dates. |
 | **AI Triage & Duplicates** | Advisory category/priority suggestions via similarity-weighted kNN voting; duplicate detection over active tickets using L2-normalized cosine embeddings; real-time debounced suggestions in the web UI. |
@@ -369,7 +376,7 @@ All routes are prefixed with `/api/v1`. Interactive documentation is available a
 | `GET` | `/api/v1/reports/overdue` | List overdue tickets past SLA due date with requester and assignee (excludes paused) | Agent / Admin |
 | `GET` | `/api/v1/reports/resolution-time` | Average resolution hours per agent calculated via CTE | Agent / Admin |
 | `GET` | `/api/v1/reports/agent-ranking` | Agent performance ranking calculated via `RANK()` function | Agent / Admin |
-| `GET` | `/api/v1/reports/daily-volume` | Daily creation volume over a configurable window (1–90 days) | Agent / Admin |
+| `GET` | `/api/v1/reports/daily-volume` | Daily creation volume over a configurable window (1â€“90 days) | Agent / Admin |
 | `GET` | `/api/v1/reports/sla-breach-rate` | SLA breach rate and compliance counts per ticket priority (paused tickets not overdue) | Agent / Admin |
 | `GET` | `/api/v1/reports/resolution-time-by-category` | Average resolution hours grouped by category and priority | Agent / Admin |
 | `GET` | `/api/v1/reports/agent-workload` | Agent workload summary: open work, overdue tickets, and resolved counts | Agent / Admin |
@@ -582,7 +589,7 @@ python -m app.scripts.seed_demo --wipe-tickets --yes
 # Note: running --wipe-tickets without --yes is safe and only reports what would be deleted
 ```
 
-- **`--dry-run`**: Inspects current calendar and business hours (09:00–18:00 IST) and displays a formatted summary table of all 36 tickets, priorities, categories, SLA states, and comments that would be written, without making any database changes.
+- **`--dry-run`**: Inspects current calendar and business hours (09:00â€“18:00 IST) and displays a formatted summary table of all 36 tickets, priorities, categories, SLA states, and comments that would be written, without making any database changes.
 - **`--wipe-tickets`**: Deletes all tickets, comments, status history, and embedding rows. For safety, it **requires `--yes`**; omitting `--yes` only prints the count of rows that would be deleted and exits cleanly without modifying the database. It never deletes users or holidays.
 - **`--yes` / `-y`**: Confirms execution of database writes or wipe operations.
 
@@ -750,7 +757,7 @@ Dependabot opens weekly update pull requests for Python, npm, GitHub Actions and
 - **404 Instead of 403 for Foreign Tickets**: Requesters attempting to view another user's ticket receive a 404 Not Found rather than 403 Forbidden to prevent ticket ID enumeration.
 - **Requester Identity Bound to JWT**: The `requester_id` is always extracted from the authenticated user token, preventing users from creating tickets on behalf of others.
 - **Service-Layer State Machine**: Status transitions are defined centrally in `app/services/tickets.py` rather than within routes, guaranteeing uniform business rule enforcement.
-- **Business-Hours SLA & Pausable Clock**: SLA deadlines (`due_at`) are calculated strictly during operational business hours (09:00–18:00 IST), skipping off-hours, weekends, and database-registered holidays. Transitioning a ticket to `waiting_on_requester` pauses the SLA clock by setting `sla_paused_at`, removing it from overdue queries. Returning to `in_progress` computes exact elapsed business minutes and shifts `due_at` forward proportionally.
+- **Business-Hours SLA & Pausable Clock**: SLA deadlines (`due_at`) are calculated strictly during operational business hours (09:00â€“18:00 IST), skipping off-hours, weekends, and database-registered holidays. Transitioning a ticket to `waiting_on_requester` pauses the SLA clock by setting `sla_paused_at`, removing it from overdue queries. Returning to `in_progress` computes exact elapsed business minutes and shifts `due_at` forward proportionally.
 - **Advisory AI Triage & Privacy**: Category and priority suggestions use similarity-weighted k-Nearest Neighbours over historically resolved tickets. Recommendations never auto-mutate tickets; requesters only see their own tickets in evidence and duplicate candidate lists.
 - **Bcrypt 72-Byte Limit Validation**: Pydantic validators explicitly check the UTF-8 byte length (maximum 72 bytes) before passing passwords to bcrypt, avoiding silent password truncation.
 - **Dual-Engine Test Strategy**: Local unit tests run against fast in-memory SQLite (`sqlite:///:memory:`) for sub-second execution, while CI executes against MySQL 8 to validate SQL window functions and migrations.
@@ -776,34 +783,34 @@ Dependabot opens weekly update pull requests for Python, npm, GitHub Actions and
 
 ```text
 .
-├── alembic/              # Database migration configuration and version scripts (12 revisions)
-├── app/                  # FastAPI backend application core, models, schemas, and routes
-│   ├── ai/               # AI embedder protocols, HashingVectorizer, and SBERT backends
-│   ├── api/              # API route definitions and dependency injection (42 endpoints)
-│   ├── core/             # Configuration, logging middleware, security, and SLA definitions
-│   ├── db/               # Database engine, session management, and Base declarative model
-│   ├── models/           # SQLAlchemy entity models (8 tables) and enums (3 roles)
-│   ├── schemas/          # Pydantic models for validation and response serialization
-│   ├── scripts/          # Administrative CLI utilities (admin, demo seed, reindex, eval)
-│   └── services/         # Business logic layer (tickets workflow, reports, auth, triage)
-├── data/                 # Benchmark evaluation dataset (synthetic helpdesk tickets)
-├── deploy/               # Caddy configuration for the production stack
-├── docs/                 # Documentation and screenshots
-├── loadtests/            # Locust load test
-├── scripts/              # Helper entrypoints (seed_demo.py, e2e_server.sh)
-├── tests/                # Automated pytest suites (447 collected tests, including property-based SLA tests)
-├── web/                  # Web frontend (React 19, TypeScript, Vite, Tailwind 4); e2e/ holds the Playwright tests
-├── .github/              # CI workflows (tests, security, CodeQL, lint, browser tests) and Dependabot
-├── docker-compose.yml    # Development stack: MySQL 8 and the app
-├── docker-compose.prod.yml # Production stack: Caddy (HTTPS), app, MySQL, Redis
-├── Dockerfile            # Container build specification for FastAPI app
-├── LICENSE               # MIT License
-├── pytest.ini            # Pytest configuration and coverage settings
-├── requirements.txt      # Production runtime dependencies
-├── requirements-ai.txt   # Optional semantic embedding dependencies (sentence-transformers)
-├── requirements-bench.txt # Optional benchmark dependencies (sentence-transformers, local only)
-├── requirements-dev.txt  # Development and testing dependencies
-└── README.md             # Project documentation
+â”œâ”€â”€ alembic/              # Database migration configuration and version scripts (12 revisions)
+â”œâ”€â”€ app/                  # FastAPI backend application core, models, schemas, and routes
+â”‚   â”œâ”€â”€ ai/               # AI embedder protocols, HashingVectorizer, and SBERT backends
+â”‚   â”œâ”€â”€ api/              # API route definitions and dependency injection (42 endpoints)
+â”‚   â”œâ”€â”€ core/             # Configuration, logging middleware, security, and SLA definitions
+â”‚   â”œâ”€â”€ db/               # Database engine, session management, and Base declarative model
+â”‚   â”œâ”€â”€ models/           # SQLAlchemy entity models (8 tables) and enums (3 roles)
+â”‚   â”œâ”€â”€ schemas/          # Pydantic models for validation and response serialization
+â”‚   â”œâ”€â”€ scripts/          # Administrative CLI utilities (admin, demo seed, reindex, eval)
+â”‚   â””â”€â”€ services/         # Business logic layer (tickets workflow, reports, auth, triage)
+â”œâ”€â”€ data/                 # Benchmark evaluation dataset (synthetic helpdesk tickets)
+â”œâ”€â”€ deploy/               # Caddy configuration for the production stack
+â”œâ”€â”€ docs/                 # Documentation and screenshots
+â”œâ”€â”€ loadtests/            # Locust load test
+â”œâ”€â”€ scripts/              # Helper entrypoints (seed_demo.py, e2e_server.sh)
+â”œâ”€â”€ tests/                # Automated pytest suites (447 collected tests, including property-based SLA tests)
+â”œâ”€â”€ web/                  # Web frontend (React 19, TypeScript, Vite, Tailwind 4); e2e/ holds the Playwright tests
+â”œâ”€â”€ .github/              # CI workflows (tests, security, CodeQL, lint, browser tests) and Dependabot
+â”œâ”€â”€ docker-compose.yml    # Development stack: MySQL 8 and the app
+â”œâ”€â”€ docker-compose.prod.yml # Production stack: Caddy (HTTPS), app, MySQL, Redis
+â”œâ”€â”€ Dockerfile            # Container build specification for FastAPI app
+â”œâ”€â”€ LICENSE               # MIT License
+â”œâ”€â”€ pytest.ini            # Pytest configuration and coverage settings
+â”œâ”€â”€ requirements.txt      # Production runtime dependencies
+â”œâ”€â”€ requirements-ai.txt   # Optional semantic embedding dependencies (sentence-transformers)
+â”œâ”€â”€ requirements-bench.txt # Optional benchmark dependencies (sentence-transformers, local only)
+â”œâ”€â”€ requirements-dev.txt  # Development and testing dependencies
+â””â”€â”€ README.md             # Project documentation
 ```
 
 ---
