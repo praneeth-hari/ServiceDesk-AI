@@ -48,10 +48,10 @@ RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuse
 
 USER appuser
 
-EXPOSE 8000
+EXPOSE 7860
 
 # Health check using Python's standard urllib (no curl needed)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import os, urllib.request, sys; port = os.environ.get('PORT', '8000'); sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{port}/api/v1/health').getcode() == 200 else 1)"
 
-ENTRYPOINT ["/app/docker/entrypoint.sh"]
+ENTRYPOINT ["sh","-c","alembic upgrade head && python -m app.scripts.seed_demo --yes && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860} --proxy-headers --forwarded-allow-ips '*'"]
