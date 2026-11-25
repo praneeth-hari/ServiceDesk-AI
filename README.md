@@ -2,6 +2,8 @@
 
 Role-based IT helpdesk ticketing application with business-hours SLA tracking, raw SQL reports, AI triage suggestions, and a modern React web UI served directly by FastAPI.
 
+**Live demo:** https://servicedesk-ai-ofag.onrender.com (one-click demo accounts, synthetic data only; hosted on a free tier, so the first load after idle can take about a minute)
+
 [![CI](https://github.com/praneeth-hari/ServiceDesk-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/praneeth-hari/ServiceDesk-AI/actions/workflows/ci.yml)
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)
